@@ -33,6 +33,6 @@ opensandbox_real = pytest.mark.skipif(
     not _opensandbox_server_running(),
     reason=(
         "opensandbox-server is not running on localhost:8080; "
-        "start it with `uvx opensandbox-server` per the design doc"
+        "start it with e.g. `OPENSANDBOX_INSECURE_SERVER=YES uvx opensandbox-server`"
     ),
 )
