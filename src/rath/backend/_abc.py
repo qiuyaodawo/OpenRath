@@ -12,12 +12,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from rath.backend._calls import ToolCall
 from rath.backend._capabilities import Capabilities
 from rath.backend._errors import SandboxClosed
 from rath.backend._results import ToolResult
+
+if TYPE_CHECKING:
+    from rath.backend._stream import Stream
 
 
 @dataclass
@@ -66,6 +69,18 @@ class Sandbox:
         if self.closed:
             raise SandboxClosed(self.handle)
         return await self.backend.dispatch(self, call)
+
+    def stream(self, *, buffer: int = 0) -> "Stream":
+        """Return a fresh :class:`Stream` bound to this sandbox.
+
+        ``buffer=0`` (default) means an unbounded queue; set a positive
+        integer to apply backpressure on :meth:`Stream.submit`.
+        """
+        # Imported lazily to avoid a circular import: _stream depends on
+        # this module's :class:`Sandbox`.
+        from rath.backend._stream import Stream
+
+        return Stream(self, buffer=buffer)
 
 
 class Backend(ABC):

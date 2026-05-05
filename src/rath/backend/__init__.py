@@ -44,6 +44,7 @@ from rath.backend._results import (
     FileWriteResult,
     ToolResult,
 )
+from rath.backend._stream import Event, Future, Stream
 
 # Eagerly register the local backend (zero dependencies, safe to import).
 from rath.backend import local as _local  # noqa: F401
@@ -77,6 +78,10 @@ __all__ = [
     "BackendNotFound",
     "SandboxClosed",
     "UnsupportedToolCall",
+    # Concurrency primitives
+    "Stream",
+    "Event",
+    "Future",
     # Registry
     "register",
     "list_names",

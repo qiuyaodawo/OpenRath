@@ -35,6 +35,23 @@ stable API guarantees.
   capabilities; LocalBackend-specific behaviour; and a conformance suite
   parametrized over backends covering lifecycle, command run, files, code
   run, concurrency, and cancellation.
+- **`rath.backend` Phase 2**: optional concurrency primitives.
+  - `Stream`: per-sandbox FIFO queue of tool-call operations, implemented as
+    a backend-agnostic anyio worker task; multiple streams over the same
+    sandbox run concurrently. `Stream` is itself an async context manager.
+  - `Event`: cross-stream synchronization marker; `record_event` /
+    `wait_event` / `wait_stream` express happens-before ordering.
+  - `Future`: awaitable handle returned by `Stream.submit`; propagates
+    exceptions raised by dispatch.
+  - `Sandbox.stream(buffer=0)`: convenience factory; ``buffer=0`` means an
+    unbounded queue, positive integers apply backpressure.
+  - The `flags()` ContextProp planned for `rath.backends.opensandbox` was
+    deferred: there is no consumer yet, and adding it now would violate the
+    "keep it simple" directive.
+- 15 additional tests for streams: unit (FIFO, parallel streams,
+  record_event / wait_event / wait_stream / synchronize / query, future
+  exception propagation, bounded buffer) plus a parametrized conformance
+  suite that exercises the same semantics on every available backend.
 
 ### Notes
 
