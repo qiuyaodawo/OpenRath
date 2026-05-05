@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from rath.backend import Backend, CommandRun, SandboxClosed
+from rath.backend import Backend, BackendSandboxClosed, FlowToolCommandRun
 
 pytestmark = pytest.mark.anyio
 
@@ -41,8 +41,8 @@ async def test_dispatch_after_close_raises(
 ) -> None:
     sb = await backend.open()
     await backend.close(sb)
-    with pytest.raises(SandboxClosed):
-        await sb.dispatch(CommandRun(cmd=[*python_cmd, "-c", "pass"]))
+    with pytest.raises(BackendSandboxClosed):
+        await sb.dispatch(FlowToolCommandRun(cmd=[*python_cmd, "-c", "pass"]))
 
 
 async def test_sandbox_count_tracks_open_sandboxes(backend: Backend) -> None:

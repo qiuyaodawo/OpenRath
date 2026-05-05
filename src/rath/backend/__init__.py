@@ -8,22 +8,22 @@ the caller.
 
 from __future__ import annotations
 
-from rath.backend._abc import Backend, Sandbox, SandboxSpec
+from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend._calls import (
-    CodeRun,
-    CommandRun,
-    FilesExists,
-    FilesList,
-    FilesRead,
-    FilesWrite,
-    ToolCall,
+    FlowToolCall,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
 )
 from rath.backend._capabilities import Capabilities, IsolationLevel
 from rath.backend._errors import (
     BackendError,
     BackendNotFound,
-    SandboxClosed,
-    UnsupportedToolCall,
+    BackendSandboxClosed,
+    UnsupportedFlowToolCall,
 )
 from rath.backend._registry import (
     current,
@@ -59,16 +59,16 @@ except ImportError:  # pragma: no cover - exercised when extra is missing
 __all__ = [
     # ABC + handles
     "Backend",
-    "Sandbox",
-    "SandboxSpec",
-    # Tool calls
-    "ToolCall",
-    "CommandRun",
-    "FilesRead",
-    "FilesWrite",
-    "FilesList",
-    "FilesExists",
-    "CodeRun",
+    "BackendSandbox",
+    "BackendSandboxSpec",
+    # Flow tool calls
+    "FlowToolCall",
+    "FlowToolCommandRun",
+    "FlowToolFilesRead",
+    "FlowToolFilesWrite",
+    "FlowToolFilesList",
+    "FlowToolFilesExists",
+    "FlowToolCodeRun",
     # Tool results
     "ToolResult",
     "CommandResult",
@@ -83,8 +83,8 @@ __all__ = [
     # Errors
     "BackendError",
     "BackendNotFound",
-    "SandboxClosed",
-    "UnsupportedToolCall",
+    "BackendSandboxClosed",
+    "UnsupportedFlowToolCall",
     # Concurrency primitives
     "Stream",
     "Event",

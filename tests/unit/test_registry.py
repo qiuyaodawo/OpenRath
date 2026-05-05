@@ -14,11 +14,11 @@ import pytest
 from rath.backend import (
     Backend,
     BackendNotFound,
+    BackendSandbox,
+    BackendSandboxSpec,
     Capabilities,
+    FlowToolCall,
     IsolationLevel,
-    Sandbox,
-    SandboxSpec,
-    ToolCall,
     ToolResult,
     current,
     get,
@@ -60,20 +60,22 @@ class _FakeBase(Backend):
         )
 
     @classmethod
-    def supported_calls(cls) -> frozenset[type[ToolCall]]:
+    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
         return frozenset()
 
     def sandbox_count(self) -> int:
         return 0
 
-    async def open(self, spec: SandboxSpec | None = None) -> Sandbox:
+    async def open(
+        self, spec: BackendSandboxSpec | None = None
+    ) -> BackendSandbox:
         raise NotImplementedError
 
-    async def close(self, sandbox: Sandbox) -> None:
+    async def close(self, sandbox: BackendSandbox) -> None:
         raise NotImplementedError
 
     async def dispatch(
-        self, sandbox: Sandbox, call: ToolCall
+        self, sandbox: BackendSandbox, call: FlowToolCall
     ) -> ToolResult | bool:
         raise NotImplementedError
 

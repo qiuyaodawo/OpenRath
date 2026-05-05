@@ -20,18 +20,18 @@ from typing import ClassVar
 
 import anyio
 
-from rath.backend._abc import Backend, Sandbox, SandboxSpec
-from rath.backend._calls import (
-    CodeRun,
-    CommandRun,
-    FilesExists,
-    FilesList,
-    FilesRead,
-    FilesWrite,
-    ToolCall,
-)
+from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend._capabilities import Capabilities, IsolationLevel
-from rath.backend._errors import SandboxClosed, UnsupportedToolCall
+from rath.backend._errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.flow.tool import (
+    FlowToolCall,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
+)
 from rath.backend._registry import register
 from rath.backend._results import (
     CodeResult,
@@ -69,8 +69,15 @@ class LocalBackend(Backend):
         max_sandboxes=None,
     )
 
-    _SUPPORTED_CALLS: ClassVar[frozenset[type[ToolCall]]] = frozenset(
-        {CommandRun, FilesRead, FilesWrite, FilesList, FilesExists, CodeRun}
+    _SUPPORTED_CALLS: ClassVar[frozenset[type[FlowToolCall]]] = frozenset(
+        {
+            FlowToolCommandRun,
+            FlowToolFilesRead,
+            FlowToolFilesWrite,
+            FlowToolFilesList,
+            FlowToolFilesExists,
+            FlowToolCodeRun,
+        }
     )
 
     def __init__(self) -> None:
@@ -85,24 +92,26 @@ class LocalBackend(Backend):
         return cls._CAPABILITIES
 
     @classmethod
-    def supported_calls(cls) -> frozenset[type[ToolCall]]:
+    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
         return cls._SUPPORTED_CALLS
 
     def sandbox_count(self) -> int:
         return len(self._open_handles)
 
-    async def open(self, spec: SandboxSpec | None = None) -> Sandbox:
+    async def open(
+        self, spec: BackendSandboxSpec | None = None
+    ) -> BackendSandbox:
         working_dir = (
             spec.working_dir
             if spec is not None and spec.working_dir is not None
             else tempfile.mkdtemp(prefix="rath-local-")
         )
         await anyio.Path(working_dir).mkdir(parents=True, exist_ok=True)
-        sandbox = Sandbox(backend=self, handle=working_dir, spec=spec)
+        sandbox = BackendSandbox(backend=self, handle=working_dir, spec=spec)
         self._open_handles.add(working_dir)
         return sandbox
 
-    async def close(self, sandbox: Sandbox) -> None:
+    async def close(self, sandbox: BackendSandbox) -> None:
         if sandbox.closed:
             return
         self._open_handles.discard(sandbox.handle)
@@ -114,29 +123,29 @@ class LocalBackend(Backend):
         )
 
     async def dispatch(
-        self, sandbox: Sandbox, call: ToolCall
+        self, sandbox: BackendSandbox, call: FlowToolCall
     ) -> ToolResult | bool:
         if sandbox.closed:
-            raise SandboxClosed(sandbox.handle)
+            raise BackendSandboxClosed(sandbox.handle)
         match call:
-            case CommandRun():
+            case FlowToolCommandRun():
                 return await self._command_run(sandbox, call)
-            case FilesRead():
+            case FlowToolFilesRead():
                 return await self._files_read(sandbox, call)
-            case FilesWrite():
+            case FlowToolFilesWrite():
                 return await self._files_write(sandbox, call)
-            case FilesList():
+            case FlowToolFilesList():
                 return await self._files_list(sandbox, call)
-            case FilesExists():
+            case FlowToolFilesExists():
                 return await self._files_exists(sandbox, call)
-            case CodeRun():
+            case FlowToolCodeRun():
                 return await self._code_run(sandbox, call)
             case _:
-                raise UnsupportedToolCall(type(call), self.name)
+                raise UnsupportedFlowToolCall(type(call), self.name)
 
     # ------------------------------------------------------------------ helpers
 
-    def _resolve(self, sandbox: Sandbox, path: str) -> anyio.Path:
+    def _resolve(self, sandbox: BackendSandbox, path: str) -> anyio.Path:
         """Join ``path`` with the sandbox working dir if it is relative."""
         p = anyio.Path(path)
         if p.is_absolute():
@@ -144,7 +153,7 @@ class LocalBackend(Backend):
         return anyio.Path(sandbox.handle) / path
 
     async def _command_run(
-        self, sandbox: Sandbox, call: CommandRun
+        self, sandbox: BackendSandbox, call: FlowToolCommandRun
     ) -> CommandResult:
         cwd = (
             self._resolve(sandbox, call.cwd)
@@ -174,7 +183,7 @@ class LocalBackend(Backend):
         )
 
     async def _files_read(
-        self, sandbox: Sandbox, call: FilesRead
+        self, sandbox: BackendSandbox, call: FlowToolFilesRead
     ) -> FileContent:
         p = self._resolve(sandbox, call.path)
         if call.encoding is None:
@@ -182,7 +191,7 @@ class LocalBackend(Backend):
         return FileContent(data=await p.read_text(encoding=call.encoding))
 
     async def _files_write(
-        self, sandbox: Sandbox, call: FilesWrite
+        self, sandbox: BackendSandbox, call: FlowToolFilesWrite
     ) -> FileWriteResult:
         p = self._resolve(sandbox, call.path)
         await p.parent.mkdir(parents=True, exist_ok=True)
@@ -195,7 +204,7 @@ class LocalBackend(Backend):
         return FileWriteResult(bytes_written=len(payload))
 
     async def _files_list(
-        self, sandbox: Sandbox, call: FilesList
+        self, sandbox: BackendSandbox, call: FlowToolFilesList
     ) -> FileEntries:
         p = self._resolve(sandbox, call.path)
         entries: list[FileEntry] = []
@@ -211,14 +220,16 @@ class LocalBackend(Backend):
         return FileEntries(entries=tuple(entries))
 
     async def _files_exists(
-        self, sandbox: Sandbox, call: FilesExists
+        self, sandbox: BackendSandbox, call: FlowToolFilesExists
     ) -> bool:
         p = self._resolve(sandbox, call.path)
         return await p.exists()
 
-    async def _code_run(self, sandbox: Sandbox, call: CodeRun) -> CodeResult:
+    async def _code_run(
+        self, sandbox: BackendSandbox, call: FlowToolCodeRun
+    ) -> CodeResult:
         if call.language != "python":
-            raise UnsupportedToolCall(type(call), self.name)
+            raise UnsupportedFlowToolCall(type(call), self.name)
         work = anyio.Path(sandbox.handle)
         tmp = work / f".rath_code_{uuid.uuid4().hex}.py"
         await tmp.write_text(call.code, encoding="utf-8")

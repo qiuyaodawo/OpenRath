@@ -13,15 +13,15 @@ import os
 import pytest
 
 from rath.backend import (
-    CodeRun,
-    CommandRun,
-    FilesExists,
-    FilesList,
-    FilesRead,
-    FilesWrite,
+    BackendSandboxSpec,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
     IsolationLevel,
-    SandboxSpec,
-    UnsupportedToolCall,
+    UnsupportedFlowToolCall,
     get,
 )
 from rath.backend.local import LocalBackend
@@ -44,12 +44,12 @@ def test_capabilities_match_spec() -> None:
 
 def test_supported_calls_covers_all_phase1_types() -> None:
     expected = {
-        CommandRun,
-        FilesRead,
-        FilesWrite,
-        FilesList,
-        FilesExists,
-        CodeRun,
+        FlowToolCommandRun,
+        FlowToolFilesRead,
+        FlowToolFilesWrite,
+        FlowToolFilesList,
+        FlowToolFilesExists,
+        FlowToolCodeRun,
     }
     assert LocalBackend.supported_calls() == expected
 
@@ -80,7 +80,7 @@ async def test_close_removes_working_directory() -> None:
 async def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
     backend = get("local")
     target = str(tmp_path)  # type: ignore[arg-type]
-    sb = await backend.open(SandboxSpec(working_dir=target))
+    sb = await backend.open(BackendSandboxSpec(working_dir=target))
     try:
         assert sb.handle == target
     finally:
@@ -90,5 +90,5 @@ async def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
 async def test_unknown_code_language_raises_unsupported() -> None:
     backend = get("local")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedToolCall):
-            await sb.dispatch(CodeRun(code="puts 'hi'", language="ruby"))
+        with pytest.raises(UnsupportedFlowToolCall):
+            await sb.dispatch(FlowToolCodeRun(code="puts 'hi'", language="ruby"))

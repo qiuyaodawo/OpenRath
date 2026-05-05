@@ -13,14 +13,14 @@ class BackendError(RuntimeError):
     """Base class for all rath.backend errors."""
 
 
-class UnsupportedToolCall(BackendError):
-    """Raised when a backend cannot service a given tool call type."""
+class UnsupportedFlowToolCall(BackendError):
+    """Raised when a backend cannot service a given flow tool call type."""
 
     def __init__(self, call_type: type, backend_name: str) -> None:
         self.call_type = call_type
         self.backend_name = backend_name
         super().__init__(
-            f"backend {backend_name!r} does not support tool call "
+            f"backend {backend_name!r} does not support flow tool call "
             f"{call_type.__name__!r}"
         )
 
@@ -28,12 +28,12 @@ class UnsupportedToolCall(BackendError):
         return (self.__class__, (self.call_type, self.backend_name))
 
 
-class SandboxClosed(BackendError):
-    """Raised when dispatch is attempted on an already-closed sandbox."""
+class BackendSandboxClosed(BackendError):
+    """Raised when dispatch is attempted on an already-closed backend sandbox."""
 
     def __init__(self, handle: str) -> None:
         self.handle = handle
-        super().__init__(f"sandbox {handle!r} is already closed")
+        super().__init__(f"backend sandbox {handle!r} is already closed")
 
     def __reduce__(self) -> tuple[type, tuple[str]]:
         return (self.__class__, (self.handle,))

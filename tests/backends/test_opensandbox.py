@@ -15,17 +15,18 @@ from __future__ import annotations
 import pytest
 
 from rath.backend import (
-    CodeRun,
+    CodeResult,
     CommandResult,
-    CommandRun,
     FileContent,
     FileEntries,
-    FilesExists,
-    FilesList,
-    FilesRead,
-    FilesWrite,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
     IsolationLevel,
-    UnsupportedToolCall,
+    UnsupportedFlowToolCall,
     get,
 )
 from rath.backend.opensandbox import OpenSandboxBackend
@@ -44,12 +45,12 @@ def test_capabilities_match_spec() -> None:
 
 def test_supported_calls_covers_all_phase1_types() -> None:
     expected = {
-        CommandRun,
-        FilesRead,
-        FilesWrite,
-        FilesList,
-        FilesExists,
-        CodeRun,
+        FlowToolCommandRun,
+        FlowToolFilesRead,
+        FlowToolFilesWrite,
+        FlowToolFilesList,
+        FlowToolFilesExists,
+        FlowToolCodeRun,
     }
     assert OpenSandboxBackend.supported_calls() == expected
 
@@ -75,9 +76,9 @@ async def test_command_run_stdin_raises_unsupported() -> None:
     """OpenSandbox's commands.run has no stdin; the adapter must surface that."""
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedToolCall):
+        with pytest.raises(UnsupportedFlowToolCall):
             await sb.dispatch(
-                CommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
+                FlowToolCommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
             )
 
 
@@ -85,9 +86,9 @@ async def test_files_list_returns_entries_with_metadata() -> None:
     """Adapter's ``files.search`` -> ``FileEntries`` mapping must be well-formed."""
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FilesWrite(path="/tmp/rath_a.txt", data="a"))
-        await sb.dispatch(FilesWrite(path="/tmp/rath_b.txt", data="b"))
-        result = await sb.dispatch(FilesList(path="/tmp"))
+        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_a.txt", data="a"))
+        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_b.txt", data="b"))
+        result = await sb.dispatch(FlowToolFilesList(path="/tmp"))
         assert isinstance(result, FileEntries)
         names = {e.name for e in result.entries}
         assert {"rath_a.txt", "rath_b.txt"}.issubset(names)
@@ -96,10 +97,15 @@ async def test_files_list_returns_entries_with_metadata() -> None:
 async def test_files_exists_true_and_false() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FilesWrite(path="/tmp/rath_present.txt", data="x"))
-        assert await sb.dispatch(FilesExists(path="/tmp/rath_present.txt")) is True
+        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
         assert (
-            await sb.dispatch(FilesExists(path="/tmp/rath_definitely_missing.txt"))
+            await sb.dispatch(FlowToolFilesExists(path="/tmp/rath_present.txt"))
+            is True
+        )
+        assert (
+            await sb.dispatch(
+                FlowToolFilesExists(path="/tmp/rath_definitely_missing.txt")
+            )
             is False
         )
 
@@ -107,17 +113,17 @@ async def test_files_exists_true_and_false() -> None:
 async def test_unsupported_language_raises() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedToolCall):
-            await sb.dispatch(CodeRun(code="puts 'hi'", language="ruby"))
+        with pytest.raises(UnsupportedFlowToolCall):
+            await sb.dispatch(FlowToolCodeRun(code="puts 'hi'", language="ruby"))
 
 
 async def test_code_run_python_round_trip() -> None:
     """Smoke that ``codes.run`` produces both stdout and a result text."""
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        from rath.backend import CodeResult
-
-        result = await sb.dispatch(CodeRun(code="x = 1 + 1\nprint(x)\nx"))
+        result = await sb.dispatch(
+            FlowToolCodeRun(code="x = 1 + 1\nprint(x)\nx")
+        )
         assert isinstance(result, CodeResult)
         assert result.error is None
         assert b"2" in result.stdout
@@ -126,11 +132,13 @@ async def test_code_run_python_round_trip() -> None:
 async def test_files_read_text_and_bytes() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FilesWrite(path="/tmp/rath_rw.txt", data="hello"))
-        text = await sb.dispatch(FilesRead(path="/tmp/rath_rw.txt"))
+        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_rw.txt", data="hello"))
+        text = await sb.dispatch(FlowToolFilesRead(path="/tmp/rath_rw.txt"))
         assert isinstance(text, FileContent)
         assert text.data == "hello"
-        raw = await sb.dispatch(FilesRead(path="/tmp/rath_rw.txt", encoding=None))
+        raw = await sb.dispatch(
+            FlowToolFilesRead(path="/tmp/rath_rw.txt", encoding=None)
+        )
         assert isinstance(raw, FileContent)
         assert raw.data == b"hello"
 
@@ -139,7 +147,7 @@ async def test_simple_command_run_exit_code_and_stdout() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=["python3", "-c", "print('hello')"])
+            FlowToolCommandRun(cmd=["python3", "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 0

@@ -5,8 +5,13 @@ from __future__ import annotations
 import anyio
 import pytest
 
-from rath.backend import Backend, CommandResult, CommandRun
-
+from rath.backend import (
+    Backend,
+    CommandResult,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesWrite,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -24,7 +29,7 @@ async def test_many_parallel_sandboxes(
     async def one_sandbox() -> None:
         async with await backend.open() as sb:
             result = await sb.dispatch(
-                CommandRun(cmd=[*python_cmd, "-c", "print(42)"])
+                FlowToolCommandRun(cmd=[*python_cmd, "-c", "print(42)"])
             )
             assert isinstance(result, CommandResult)
             assert result.exit_code == 0
@@ -41,11 +46,9 @@ async def test_two_sandboxes_independent(backend: Backend) -> None:
     s1 = await backend.open()
     s2 = await backend.open()
     try:
-        from rath.backend import FilesExists, FilesWrite
-
-        await s1.dispatch(FilesWrite(path="only-in-s1.txt", data="x"))
-        in_s1 = await s1.dispatch(FilesExists(path="only-in-s1.txt"))
-        in_s2 = await s2.dispatch(FilesExists(path="only-in-s1.txt"))
+        await s1.dispatch(FlowToolFilesWrite(path="only-in-s1.txt", data="x"))
+        in_s1 = await s1.dispatch(FlowToolFilesExists(path="only-in-s1.txt"))
+        in_s2 = await s2.dispatch(FlowToolFilesExists(path="only-in-s1.txt"))
         assert in_s1 is True
         assert in_s2 is False
     finally:

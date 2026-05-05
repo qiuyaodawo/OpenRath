@@ -1,10 +1,15 @@
-"""Conformance: CommandRun semantics across all backends."""
+"""Conformance: FlowToolCommandRun semantics across all backends."""
 
 from __future__ import annotations
 
 import pytest
 
-from rath.backend import Backend, CommandResult, CommandRun, FilesWrite
+from rath.backend import (
+    Backend,
+    CommandResult,
+    FlowToolCommandRun,
+    FlowToolFilesWrite,
+)
 
 pytestmark = pytest.mark.anyio
 
@@ -12,7 +17,7 @@ pytestmark = pytest.mark.anyio
 async def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=[*python_cmd, "-c", "print('hello')"])
+            FlowToolCommandRun(cmd=[*python_cmd, "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 0
@@ -25,7 +30,9 @@ async def test_nonzero_exit_code(
 ) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"])
+            FlowToolCommandRun(
+                cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"]
+            )
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 7
@@ -36,7 +43,7 @@ async def test_stderr_capture(
 ) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(
+            FlowToolCommandRun(
                 cmd=[*python_cmd, "-c", "import sys; sys.stderr.write('boom')"]
             )
         )
@@ -49,7 +56,7 @@ async def test_env_passthrough(
 ) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(
+            FlowToolCommandRun(
                 cmd=[
                     *python_cmd,
                     "-c",
@@ -69,7 +76,7 @@ async def test_stdin_input(
         pytest.skip("OpenSandbox commands.run has no stdin parameter")
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(
+            FlowToolCommandRun(
                 cmd=[
                     *python_cmd,
                     "-c",
@@ -85,12 +92,12 @@ async def test_stdin_input(
 async def test_default_cwd_is_sandbox_root(
     backend: Backend, python_cmd: list[str]
 ) -> None:
-    """A relative path written via FilesWrite must be readable by a command
-    that defaults to the sandbox cwd."""
+    """A relative path written via FlowToolFilesWrite must be readable by a
+    command that defaults to the sandbox cwd."""
     async with await backend.open() as sb:
-        await sb.dispatch(FilesWrite(path="marker.txt", data="found"))
+        await sb.dispatch(FlowToolFilesWrite(path="marker.txt", data="found"))
         result = await sb.dispatch(
-            CommandRun(
+            FlowToolCommandRun(
                 cmd=[
                     *python_cmd,
                     "-c",
@@ -109,7 +116,7 @@ async def test_timeout_raises_timeout_error(
     async with await backend.open() as sb:
         with pytest.raises(TimeoutError):
             await sb.dispatch(
-                CommandRun(
+                FlowToolCommandRun(
                     cmd=[
                         *python_cmd,
                         "-c",

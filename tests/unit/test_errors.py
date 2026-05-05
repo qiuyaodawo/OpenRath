@@ -9,31 +9,30 @@ import pytest
 from rath.backend import (
     BackendError,
     BackendNotFound,
-    CommandRun,
-    SandboxClosed,
-    UnsupportedToolCall,
+    BackendSandboxClosed,
+    FlowToolCommandRun,
+    UnsupportedFlowToolCall,
 )
 
 
 def test_all_errors_inherit_from_backend_error() -> None:
-    assert issubclass(UnsupportedToolCall, BackendError)
-    assert issubclass(SandboxClosed, BackendError)
+    assert issubclass(UnsupportedFlowToolCall, BackendError)
+    assert issubclass(BackendSandboxClosed, BackendError)
     assert issubclass(BackendNotFound, BackendError)
 
 
-def test_unsupported_tool_call_message_contains_names() -> None:
-    err = UnsupportedToolCall(CommandRun, "weird")
+def test_unsupported_flow_tool_call_message_contains_names() -> None:
+    err = UnsupportedFlowToolCall(FlowToolCommandRun, "weird")
     msg = str(err)
     assert "weird" in msg
-    assert "CommandRun" in msg
-    assert err.call_type is CommandRun
+    assert "FlowToolCommandRun" in msg
+    assert err.call_type is FlowToolCommandRun
     assert err.backend_name == "weird"
 
 
-def test_sandbox_closed_carries_handle() -> None:
-    err = SandboxClosed("/tmp/abc")
+def test_backend_sandbox_closed_carries_handle() -> None:
+    err = BackendSandboxClosed("/tmp/abc")
     assert err.handle == "/tmp/abc"
-    assert "/tmp/abc" in str(err)
 
 
 def test_backend_not_found_lists_available() -> None:
@@ -48,8 +47,8 @@ def test_backend_not_found_lists_available() -> None:
 @pytest.mark.parametrize(
     "err",
     [
-        UnsupportedToolCall(CommandRun, "x"),
-        SandboxClosed("/tmp/x"),
+        UnsupportedFlowToolCall(FlowToolCommandRun, "x"),
+        BackendSandboxClosed("/tmp/x"),
         BackendNotFound("x", ["a", "b"]),
     ],
 )

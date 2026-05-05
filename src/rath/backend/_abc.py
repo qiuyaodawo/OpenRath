@@ -1,9 +1,9 @@
-"""Backend ABC, ``Sandbox`` handle, and ``SandboxSpec``.
+"""Backend ABC, ``BackendSandbox`` handle, and ``BackendSandboxSpec``.
 
-The ``Backend`` ABC defines the unified tool-call dispatch surface. The single
-required runtime method is :meth:`Backend.dispatch`; everything else is
-lifecycle (open / close) or static description (is_available / capabilities /
-supported_calls).
+The ``Backend`` ABC defines the unified flow-tool dispatch surface. The
+single required runtime method is :meth:`Backend.dispatch`; everything else
+is lifecycle (open / close) or static description (``is_available`` /
+``capabilities`` / ``supported_calls``).
 """
 
 from __future__ import annotations
@@ -14,21 +14,21 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import TYPE_CHECKING, ClassVar
 
-from rath.backend._calls import ToolCall
 from rath.backend._capabilities import Capabilities
-from rath.backend._errors import SandboxClosed
+from rath.backend._errors import BackendSandboxClosed
 from rath.backend._results import ToolResult
+from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
     from rath.backend._stream import Stream
 
 
 @dataclass
-class SandboxSpec:
+class BackendSandboxSpec:
     """User-facing description of a sandbox to open.
 
-    Fields are intentionally optional. Each backend is free to ignore fields
-    that don't apply (e.g. ``LocalBackend`` ignores ``image``).
+    Fields are intentionally optional. Each backend may ignore fields that do
+    not apply (e.g. ``LocalBackend`` ignores ``image``).
     """
 
     image: str | None = None
@@ -39,45 +39,43 @@ class SandboxSpec:
 
 
 @dataclass
-class Sandbox:
-    """A backend-issued runtime handle.
+class BackendSandbox:
+    """Backend-issued sandbox runtime handle.
 
-    ``Sandbox`` is an opaque handle: it carries the owning backend, an
-    opaque ``handle`` string, and a closed flag. All real behaviour lives
-    in ``Backend.dispatch``; the methods on this class are thin
-    convenience wrappers.
+    ``BackendSandbox`` is opaque: it carries the owning backend, an opaque
+    ``handle`` string, and a closed flag. Behaviour lives in
+    ``Backend.dispatch``; methods here are thin convenience wrappers.
 
-    A ``Sandbox`` does **not** carry any LLM context or conversation
-    state. Those concerns belong to a future ``rath.Session`` layer that
-    is intentionally out of scope for this phase.
+    This type does **not** carry LLM or conversation state — that belongs in a
+    future ``rath.Session`` layer, out of scope for this phase.
     """
 
     backend: "Backend"
     handle: str
-    spec: SandboxSpec | None = None
+    spec: BackendSandboxSpec | None = None
     closed: bool = field(default=False)
 
-    async def __aenter__(self) -> "Sandbox":
+    async def __aenter__(self) -> "BackendSandbox":
         return self
 
     async def __aexit__(self, *exc: object) -> None:
         if not self.closed:
             await self.backend.close(self)
 
-    async def dispatch(self, call: ToolCall) -> ToolResult | bool:
-        """Forward a tool call to the owning backend."""
+    async def dispatch(self, call: FlowToolCall) -> ToolResult | bool:
+        """Forward a flow tool call to the owning backend."""
         if self.closed:
-            raise SandboxClosed(self.handle)
+            raise BackendSandboxClosed(self.handle)
         return await self.backend.dispatch(self, call)
 
     def stream(self, *, buffer: int = 0) -> "Stream":
         """Return a fresh :class:`Stream` bound to this sandbox.
 
-        ``buffer=0`` (default) means an unbounded queue; set a positive
-        integer to apply backpressure on :meth:`Stream.submit`.
+        ``buffer=0`` (default) means an unbounded queue; set a positive integer
+        to apply backpressure on :meth:`Stream.submit`.
         """
-        # Imported lazily to avoid a circular import: _stream depends on
-        # this module's :class:`Sandbox`.
+        # Imported lazily to avoid a circular import: _stream depends on this
+        # module's :class:`BackendSandbox`.
         from rath.backend._stream import Stream
 
         return Stream(self, buffer=buffer)
@@ -92,8 +90,8 @@ class Backend(ABC):
        :func:`rath.backend.register`.
     2. Implement the static ``is_available``, ``capabilities`` and
        ``supported_calls`` classmethods.
-    3. Implement the instance methods ``sandbox_count``, ``open``,
-       ``close`` and ``dispatch``.
+    3. Implement the instance methods ``sandbox_count``, ``open``, ``close``
+       and ``dispatch``.
     """
 
     name: ClassVar[str]
@@ -115,29 +113,33 @@ class Backend(ABC):
 
     @classmethod
     @abstractmethod
-    def supported_calls(cls) -> frozenset[type[ToolCall]]:
-        """Return the set of :class:`ToolCall` subclasses this backend handles."""
+    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
+        """Return :class:`FlowToolCall` subclasses this backend handles."""
 
     @abstractmethod
     def sandbox_count(self) -> int:
-        """Return the number of currently open sandboxes managed by this instance."""
+        """Return the number of open sandboxes managed by this instance."""
 
     @abstractmethod
-    async def open(self, spec: SandboxSpec | None = None) -> Sandbox:
+    async def open(
+        self, spec: BackendSandboxSpec | None = None
+    ) -> BackendSandbox:
         """Open a fresh sandbox and return its handle."""
 
     @abstractmethod
-    async def close(self, sandbox: Sandbox) -> None:
-        """Close ``sandbox`` and release its resources.
+    async def close(self, sandbox: BackendSandbox) -> None:
+        """Close ``sandbox`` and release resources.
 
         Calling close on an already-closed sandbox is a no-op.
         """
 
     @abstractmethod
-    async def dispatch(self, sandbox: Sandbox, call: ToolCall) -> ToolResult | bool:
+    async def dispatch(
+        self, sandbox: BackendSandbox, call: FlowToolCall
+    ) -> ToolResult | bool:
         """Execute ``call`` against ``sandbox`` and return its result.
 
         Implementations should raise
-        :class:`~rath.backend.UnsupportedToolCall` for call types not in
+        :class:`~rath.backend.UnsupportedFlowToolCall` for call types not in
         :meth:`supported_calls`.
         """

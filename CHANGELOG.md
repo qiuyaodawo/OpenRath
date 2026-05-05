@@ -8,6 +8,21 @@ stable API guarantees.
 
 ## Unreleased
 
+### Breaking — ``rath.flow.tool`` and backend naming
+
+- **Flow tool calls** (canonical definitions in ``rath.flow.tool`` only):
+  ``ToolCall`` → ``FlowToolCall``; ``CommandRun`` → ``FlowToolCommandRun``;
+  ``FilesRead`` / ``FilesWrite`` / ``FilesList`` / ``FilesExists`` →
+  ``FlowToolFiles*``; ``CodeRun`` → ``FlowToolCodeRun``.
+- **Functional factories** (``torch.nn.functional``-style):
+  ``flow_tool_command_run``, ``flow_tool_files_read``, … in ``rath.flow.tool``.
+- **Sandbox handle** (``rath.backend``): ``Sandbox`` → ``BackendSandbox``;
+  ``SandboxSpec`` → ``BackendSandboxSpec``; ``SandboxClosed`` →
+  ``BackendSandboxClosed``; ``UnsupportedToolCall`` → ``UnsupportedFlowToolCall``.
+- **Packages**: ``rath.flow`` is a namespace stub; ``rath`` exposes ``flow`` and
+  ``backend``. ``rath.backend._calls`` re-exports from ``rath.flow.tool`` for
+  compatibility with deep imports.
+
 ### Added
 
 - Initialized the Python package with `uv`.

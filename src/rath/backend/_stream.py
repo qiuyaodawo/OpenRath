@@ -1,7 +1,7 @@
 """Stream and Event default implementation, anyio-based.
 
 A :class:`Stream` is a FIFO queue of operations bound to a single
-:class:`Sandbox`. A worker task pulls operations off the queue and dispatches
+:class:`BackendSandbox`. A worker task pulls operations off the queue and dispatches
 them through the owning backend, in submission order. Multiple streams over
 the same sandbox run their queues in parallel.
 
@@ -21,20 +21,20 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 import anyio
 
-from rath.backend._calls import ToolCall
 from rath.backend._results import ToolResult
+from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from rath.backend._abc import Sandbox
+    from rath.backend._abc import BackendSandbox
 
 
 T = TypeVar("T")
 
 
 class Future(Generic[T]):
-    """Awaitable handle to the result of a submitted :class:`ToolCall`.
+    """Awaitable handle to the result of a submitted :class:`FlowToolCall`.
 
     Awaiting the future blocks until the worker has dispatched the call. If
     dispatch raised, awaiting re-raises the same exception.
@@ -114,7 +114,7 @@ class Event:
 
 @dataclass(frozen=True, slots=True)
 class _CallOp:
-    call: ToolCall
+    call: FlowToolCall
     future: Future[ToolResult | bool]
 
 
@@ -151,7 +151,7 @@ class Stream:
     the queue is full.
     """
 
-    def __init__(self, sandbox: "Sandbox", *, buffer: int = 0) -> None:
+    def __init__(self, sandbox: "BackendSandbox", *, buffer: int = 0) -> None:
         self._sandbox = sandbox
         # anyio rejects non-inf floats for ``max_buffer_size``; pass the int
         # directly when bounded.
@@ -184,7 +184,7 @@ class Stream:
         assert self._task_group is not None
         await self._task_group.__aexit__(exc_type, exc, tb)
 
-    async def submit(self, call: ToolCall) -> Future[ToolResult | bool]:
+    async def submit(self, call: FlowToolCall) -> Future[ToolResult | bool]:
         future: Future[ToolResult | bool] = Future()
         await self._send.send(_CallOp(call=call, future=future))
         return future

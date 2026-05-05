@@ -8,12 +8,12 @@ config file).
 
 Mapping summary:
 
-* ``CommandRun`` -> ``Sandbox.commands.run`` (with stdin currently unsupported)
-* ``FilesRead``  -> ``Sandbox.files.read_file`` / ``read_bytes``
-* ``FilesWrite`` -> ``Sandbox.files.write_file``
-* ``FilesList``  -> ``Sandbox.files.search`` (glob ``"*"`` over the path)
-* ``FilesExists``-> ``Sandbox.files.get_file_info`` (membership check)
-* ``CodeRun``    -> ``CodeInterpreter.create(sandbox).codes.run``
+* ``FlowToolCommandRun`` -> ``Sandbox.commands.run`` (stdin unsupported)
+* ``FlowToolFilesRead``  -> ``Sandbox.files.read_file`` / ``read_bytes``
+* ``FlowToolFilesWrite`` -> ``Sandbox.files.write_file``
+* ``FlowToolFilesList``  -> ``Sandbox.files.search`` (glob ``"*"`` over the path)
+* ``FlowToolFilesExists``-> ``Sandbox.files.get_file_info`` (membership check)
+* ``FlowToolCodeRun``    -> ``CodeInterpreter.create(sandbox).codes.run``
 
 The plan's documented ``files.list`` / ``files.exists`` fallback paths via
 ``commands.run("ls ...")`` / ``commands.run("test -e ...")`` are unnecessary
@@ -33,18 +33,18 @@ from typing import TYPE_CHECKING, ClassVar
 
 import anyio
 
-from rath.backend._abc import Backend, Sandbox, SandboxSpec
-from rath.backend._calls import (
-    CodeRun,
-    CommandRun,
-    FilesExists,
-    FilesList,
-    FilesRead,
-    FilesWrite,
-    ToolCall,
-)
+from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend._capabilities import Capabilities, IsolationLevel
-from rath.backend._errors import SandboxClosed, UnsupportedToolCall
+from rath.backend._errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.flow.tool import (
+    FlowToolCall,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
+)
 from rath.backend._registry import register
 from rath.backend._results import (
     CodeResult,
@@ -115,9 +115,9 @@ class OpenSandboxBackend(Backend):
         "/opt/opensandbox/code-interpreter.sh",
     )
     # Sandbox-internal directory used as the implicit root for relative paths
-    # in tool calls and as the default cwd for ``CommandRun``. Conformance
+    # in tool calls and as the default cwd for ``FlowToolCommandRun``. Conformance
     # tests assume that relative paths in one tool call resolve to the same
-    # location as the cwd of a sibling ``CommandRun``; this default makes
+    # location as the cwd of a sibling ``FlowToolCommandRun``; this default makes
     # that hold.
     _SANDBOX_ROOT: ClassVar[str] = "/workspace"
 
@@ -130,8 +130,15 @@ class OpenSandboxBackend(Backend):
         max_sandboxes=None,
     )
 
-    _SUPPORTED_CALLS: ClassVar[frozenset[type[ToolCall]]] = frozenset(
-        {CommandRun, FilesRead, FilesWrite, FilesList, FilesExists, CodeRun}
+    _SUPPORTED_CALLS: ClassVar[frozenset[type[FlowToolCall]]] = frozenset(
+        {
+            FlowToolCommandRun,
+            FlowToolFilesRead,
+            FlowToolFilesWrite,
+            FlowToolFilesList,
+            FlowToolFilesExists,
+            FlowToolCodeRun,
+        }
     )
 
     def __init__(self) -> None:
@@ -156,13 +163,15 @@ class OpenSandboxBackend(Backend):
         return cls._CAPABILITIES
 
     @classmethod
-    def supported_calls(cls) -> frozenset[type[ToolCall]]:
+    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
         return cls._SUPPORTED_CALLS
 
     def sandbox_count(self) -> int:
         return len(self._natives)
 
-    async def open(self, spec: SandboxSpec | None = None) -> Sandbox:
+    async def open(
+        self, spec: BackendSandboxSpec | None = None
+    ) -> BackendSandbox:
         if not _SDK_AVAILABLE:  # pragma: no cover - guarded by is_available
             raise RuntimeError(
                 "opensandbox SDK is not installed; "
@@ -189,9 +198,9 @@ class OpenSandboxBackend(Backend):
         # Ensure the sandbox-internal root exists so relative paths resolve.
         await native.commands.run(f"mkdir -p {shlex.quote(self._SANDBOX_ROOT)}")
         self._natives[native.id] = native
-        return Sandbox(backend=self, handle=native.id, spec=spec)
+        return BackendSandbox(backend=self, handle=native.id, spec=spec)
 
-    async def close(self, sandbox: Sandbox) -> None:
+    async def close(self, sandbox: BackendSandbox) -> None:
         if sandbox.closed:
             return
         sandbox.closed = True
@@ -201,28 +210,28 @@ class OpenSandboxBackend(Backend):
             await native.close()
 
     async def dispatch(
-        self, sandbox: Sandbox, call: ToolCall
+        self, sandbox: BackendSandbox, call: FlowToolCall
     ) -> ToolResult | bool:
         if sandbox.closed:
-            raise SandboxClosed(sandbox.handle)
+            raise BackendSandboxClosed(sandbox.handle)
         native = self._natives.get(sandbox.handle)
         if native is None:
-            raise SandboxClosed(sandbox.handle)
+            raise BackendSandboxClosed(sandbox.handle)
         match call:
-            case CommandRun():
+            case FlowToolCommandRun():
                 return await self._command_run(native, call)
-            case FilesRead():
+            case FlowToolFilesRead():
                 return await self._files_read(native, call)
-            case FilesWrite():
+            case FlowToolFilesWrite():
                 return await self._files_write(native, call)
-            case FilesList():
+            case FlowToolFilesList():
                 return await self._files_list(native, call)
-            case FilesExists():
+            case FlowToolFilesExists():
                 return await self._files_exists(native, call)
-            case CodeRun():
+            case FlowToolCodeRun():
                 return await self._code_run(native, call)
             case _:
-                raise UnsupportedToolCall(type(call), self.name)
+                raise UnsupportedFlowToolCall(type(call), self.name)
 
     # ------------------------------------------------------------------ helpers
 
@@ -238,13 +247,13 @@ class OpenSandboxBackend(Backend):
         return f"{self._SANDBOX_ROOT}/{path}"
 
     async def _command_run(
-        self, native: "_OSBSandboxT", call: CommandRun
+        self, native: "_OSBSandboxT", call: FlowToolCommandRun
     ) -> CommandResult:
         if call.stdin is not None:
             # OpenSandbox's commands.run does not have a stdin parameter; we
             # could shim via temp file + shell redirect but it is rarely
             # needed and would obscure the simple mapping.
-            raise UnsupportedToolCall(type(call), self.name)
+            raise UnsupportedFlowToolCall(type(call), self.name)
         cmd_str = (
             call.cmd
             if isinstance(call.cmd, str)
@@ -279,7 +288,7 @@ class OpenSandboxBackend(Backend):
         )
 
     async def _files_read(
-        self, native: "_OSBSandboxT", call: FilesRead
+        self, native: "_OSBSandboxT", call: FlowToolFilesRead
     ) -> FileContent:
         path = self._resolve(call.path)
         try:
@@ -297,7 +306,7 @@ class OpenSandboxBackend(Backend):
             raise
 
     async def _files_write(
-        self, native: "_OSBSandboxT", call: FilesWrite
+        self, native: "_OSBSandboxT", call: FlowToolFilesWrite
     ) -> FileWriteResult:
         path = self._resolve(call.path)
         await native.files.write_file(path, call.data, mode=call.mode)
@@ -307,7 +316,7 @@ class OpenSandboxBackend(Backend):
         return FileWriteResult(bytes_written=len(payload))
 
     async def _files_list(
-        self, native: "_OSBSandboxT", call: FilesList
+        self, native: "_OSBSandboxT", call: FlowToolFilesList
     ) -> FileEntries:
         path = self._resolve(call.path)
         infos = await native.files.search(SearchEntry(path=path, pattern="*"))
@@ -323,7 +332,7 @@ class OpenSandboxBackend(Backend):
         return FileEntries(entries=tuple(entries))
 
     async def _files_exists(
-        self, native: "_OSBSandboxT", call: FilesExists
+        self, native: "_OSBSandboxT", call: FlowToolFilesExists
     ) -> bool:
         path = self._resolve(call.path)
         try:
@@ -334,7 +343,7 @@ class OpenSandboxBackend(Backend):
         return path in infos
 
     async def _code_run(
-        self, native: "_OSBSandboxT", call: CodeRun
+        self, native: "_OSBSandboxT", call: FlowToolCodeRun
     ) -> CodeResult:
         if not _CI_AVAILABLE:  # pragma: no cover - guarded by is_available
             raise RuntimeError(
@@ -342,7 +351,7 @@ class OpenSandboxBackend(Backend):
                 "install with `pip install rath[opensandbox]`"
             )
         if call.language not in _SUPPORTED_LANGUAGES:
-            raise UnsupportedToolCall(type(call), self.name)
+            raise UnsupportedFlowToolCall(type(call), self.name)
         ci = await CodeInterpreter.create(native)
         with _maybe_timeout(call.timeout):
             execution = await ci.codes.run(call.code, language=call.language)
