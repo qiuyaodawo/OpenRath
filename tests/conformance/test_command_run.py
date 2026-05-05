@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from rath.backend import Backend, CommandResult, CommandRun, FilesWrite
@@ -11,10 +9,10 @@ from rath.backend import Backend, CommandResult, CommandRun, FilesWrite
 pytestmark = pytest.mark.anyio
 
 
-async def test_basic_stdout(backend: Backend) -> None:
+async def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=[sys.executable, "-c", "print('hello')"])
+            CommandRun(cmd=[*python_cmd, "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 0
@@ -22,32 +20,38 @@ async def test_basic_stdout(backend: Backend) -> None:
         assert result.elapsed_ms >= 0
 
 
-async def test_nonzero_exit_code(backend: Backend) -> None:
+async def test_nonzero_exit_code(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=[sys.executable, "-c", "import sys; sys.exit(7)"])
+            CommandRun(cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 7
 
 
-async def test_stderr_capture(backend: Backend) -> None:
+async def test_stderr_capture(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
             CommandRun(
-                cmd=[sys.executable, "-c", "import sys; sys.stderr.write('boom')"]
+                cmd=[*python_cmd, "-c", "import sys; sys.stderr.write('boom')"]
             )
         )
         assert isinstance(result, CommandResult)
         assert b"boom" in result.stderr
 
 
-async def test_env_passthrough(backend: Backend) -> None:
+async def test_env_passthrough(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     async with await backend.open() as sb:
         result = await sb.dispatch(
             CommandRun(
                 cmd=[
-                    sys.executable,
+                    *python_cmd,
                     "-c",
                     "import os; print(os.environ['RATH_VAR'])",
                 ],
@@ -58,14 +62,16 @@ async def test_env_passthrough(backend: Backend) -> None:
         assert b"hello42" in result.stdout
 
 
-async def test_stdin_input(backend: Backend) -> None:
+async def test_stdin_input(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     if backend.name == "opensandbox":
         pytest.skip("OpenSandbox commands.run has no stdin parameter")
     async with await backend.open() as sb:
         result = await sb.dispatch(
             CommandRun(
                 cmd=[
-                    sys.executable,
+                    *python_cmd,
                     "-c",
                     "import sys; sys.stdout.write(sys.stdin.read().upper())",
                 ],
@@ -76,7 +82,9 @@ async def test_stdin_input(backend: Backend) -> None:
         assert b"ABC" in result.stdout
 
 
-async def test_default_cwd_is_sandbox_root(backend: Backend) -> None:
+async def test_default_cwd_is_sandbox_root(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     """A relative path written via FilesWrite must be readable by a command
     that defaults to the sandbox cwd."""
     async with await backend.open() as sb:
@@ -84,7 +92,7 @@ async def test_default_cwd_is_sandbox_root(backend: Backend) -> None:
         result = await sb.dispatch(
             CommandRun(
                 cmd=[
-                    sys.executable,
+                    *python_cmd,
                     "-c",
                     "print(open('marker.txt').read())",
                 ]
@@ -95,13 +103,15 @@ async def test_default_cwd_is_sandbox_root(backend: Backend) -> None:
         assert b"found" in result.stdout
 
 
-async def test_timeout_raises_timeout_error(backend: Backend) -> None:
+async def test_timeout_raises_timeout_error(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     async with await backend.open() as sb:
         with pytest.raises(TimeoutError):
             await sb.dispatch(
                 CommandRun(
                     cmd=[
-                        sys.executable,
+                        *python_cmd,
                         "-c",
                         "import time; time.sleep(5)",
                     ],

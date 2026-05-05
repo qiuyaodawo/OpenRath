@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
-import sys
-
 import anyio
 import pytest
 
 from rath.backend import Backend, CommandResult, CommandRun
 
+
 pytestmark = pytest.mark.anyio
 
 
-async def test_many_parallel_sandboxes(backend: Backend) -> None:
-    """Five sandboxes running in parallel must all finish and clean up."""
-    n = 5
+async def test_many_parallel_sandboxes(
+    backend: Backend, python_cmd: list[str]
+) -> None:
+    """Multiple sandboxes running in parallel must all finish and clean up.
+
+    The default count is small (3) so the test stays fast on backends with
+    multi-second sandbox creation cost (e.g. OpenSandbox's container start).
+    """
+    n = 3
 
     async def one_sandbox() -> None:
         async with await backend.open() as sb:
             result = await sb.dispatch(
-                CommandRun(cmd=[sys.executable, "-c", "print(42)"])
+                CommandRun(cmd=[*python_cmd, "-c", "print(42)"])
             )
             assert isinstance(result, CommandResult)
             assert result.exit_code == 0

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from rath.backend import Backend, CommandRun, SandboxClosed
@@ -38,11 +36,13 @@ async def test_double_close_is_idempotent(backend: Backend) -> None:
     assert sb.closed is True
 
 
-async def test_dispatch_after_close_raises(backend: Backend) -> None:
+async def test_dispatch_after_close_raises(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     sb = await backend.open()
     await backend.close(sb)
     with pytest.raises(SandboxClosed):
-        await sb.dispatch(CommandRun(cmd=[sys.executable, "-c", "pass"]))
+        await sb.dispatch(CommandRun(cmd=[*python_cmd, "-c", "pass"]))
 
 
 async def test_sandbox_count_tracks_open_sandboxes(backend: Backend) -> None:

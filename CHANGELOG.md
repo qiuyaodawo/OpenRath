@@ -76,6 +76,20 @@ stable API guarantees.
   passed and 40 skipped; running the server makes those 40 cases attempt
   real Docker-backed sandbox creation.
 
+### Fixed
+
+- `OpenSandboxBackend`: define `_maybe_timeout` using `anyio.fail_after` and
+  wrap `codes.run` the same way as `commands.run`, so tool calls with
+  `timeout=` surface `TimeoutError` on the client and no longer raise
+  `NameError` during dispatch.
+- `OpenSandboxBackend`: default `Sandbox.create` `entrypoint` to
+  ``/opt/opensandbox/code-interpreter.sh`` for `opensandbox/code-interpreter`
+  images so the in-container interpreter endpoint starts reliably.
+- Conformance command tests now take a `python_cmd` fixture: host
+  `sys.executable` for `local`, ``python3`` on `$PATH` inside OpenSandbox
+  containers (replacing `sys.executable` everywhere, which is not valid
+  Linux paths when the test runner is Windows).
+
 ### Notes
 
 - Scope is intentionally limited to the backend layer. `rath.Session` and

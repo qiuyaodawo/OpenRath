@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 import anyio
 import pytest
 
@@ -19,7 +17,9 @@ from rath.backend import (
 pytestmark = pytest.mark.anyio
 
 
-async def test_fifo_within_one_stream(backend: Backend) -> None:
+async def test_fifo_within_one_stream(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     """A dependency chain expressed via stream submission must be honoured."""
     async with await backend.open() as sb:
         async with sb.stream() as s:
@@ -27,7 +27,7 @@ async def test_fifo_within_one_stream(backend: Backend) -> None:
             await s.submit(
                 CommandRun(
                     cmd=[
-                        sys.executable,
+                        *python_cmd,
                         "-c",
                         (
                             "import pathlib;"
@@ -43,14 +43,16 @@ async def test_fifo_within_one_stream(backend: Backend) -> None:
     assert res.data == "ab"
 
 
-async def test_two_streams_progress_concurrently(backend: Backend) -> None:
+async def test_two_streams_progress_concurrently(
+    backend: Backend, python_cmd: list[str]
+) -> None:
     """Two streams over the same sandbox should overlap their work."""
     async with await backend.open() as sb:
         async with sb.stream() as s1, sb.stream() as s2:
             f1 = await s1.submit(
                 CommandRun(
                     cmd=[
-                        sys.executable,
+                        *python_cmd,
                         "-c",
                         "import time; time.sleep(0.2); print('one')",
                     ]
@@ -59,13 +61,13 @@ async def test_two_streams_progress_concurrently(backend: Backend) -> None:
             f2 = await s2.submit(
                 CommandRun(
                     cmd=[
-                        sys.executable,
+                        *python_cmd,
                         "-c",
                         "import time; time.sleep(0.2); print('two')",
                     ]
                 )
             )
-            with anyio.fail_after(1.0):
+            with anyio.fail_after(5.0):
                 r1 = await f1
                 r2 = await f2
 

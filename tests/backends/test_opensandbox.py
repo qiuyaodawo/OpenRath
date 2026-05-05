@@ -12,8 +12,6 @@ mocks; the real server stands in for itself.
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
 from rath.backend import (
@@ -79,7 +77,7 @@ async def test_command_run_stdin_raises_unsupported() -> None:
     async with await backend.open() as sb:
         with pytest.raises(UnsupportedToolCall):
             await sb.dispatch(
-                CommandRun(cmd=[sys.executable, "-c", "pass"], stdin=b"x")
+                CommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
             )
 
 
@@ -141,7 +139,7 @@ async def test_simple_command_run_exit_code_and_stdout() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            CommandRun(cmd=[sys.executable, "-c", "print('hello')"])
+            CommandRun(cmd=["python3", "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 0

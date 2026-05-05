@@ -22,13 +22,16 @@ with the installed SDK, which exposes both operations natively.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import stat as stat_module
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
+
+import anyio
 
 from rath.backend._abc import Backend, Sandbox, SandboxSpec
 from rath.backend._calls import (
@@ -85,6 +88,17 @@ if TYPE_CHECKING:
     from opensandbox import Sandbox as _OSBSandboxT
 
 
+@contextlib.contextmanager
+def _maybe_timeout(seconds: float | None) -> Iterator[None]:
+    """Bound await time so callers see ``TimeoutError`` when the RPC stalls."""
+
+    if seconds is None:
+        yield
+        return
+    with anyio.fail_after(seconds):
+        yield
+
+
 @register("opensandbox")
 class OpenSandboxBackend(Backend):
     """Dispatch tool calls into an OpenSandbox container runtime."""
@@ -93,6 +107,13 @@ class OpenSandboxBackend(Backend):
 
     _DEFAULT_IMAGE: ClassVar[str] = "opensandbox/code-interpreter:v1.0.2"
     _DEFAULT_TIMEOUT: ClassVar[timedelta] = timedelta(minutes=10)
+    # Required for ``opensandbox/code-interpreter:*`` images; without this the
+    # in-container Jupyter kernel never starts, and ``codes.run`` fails with
+    # a streaming-disconnect error when its first request reaches the dead
+    # endpoint.
+    _DEFAULT_ENTRYPOINT: ClassVar[tuple[str, ...]] = (
+        "/opt/opensandbox/code-interpreter.sh",
+    )
     # Sandbox-internal directory used as the implicit root for relative paths
     # in tool calls and as the default cwd for ``CommandRun``. Conformance
     # tests assume that relative paths in one tool call resolve to the same
@@ -157,7 +178,7 @@ class OpenSandboxBackend(Backend):
         entrypoint = (
             list(spec.entrypoint)
             if spec is not None and spec.entrypoint is not None
-            else None
+            else list(self._DEFAULT_ENTRYPOINT)
         )
         native = await _OSBSandbox.create(
             image,
@@ -238,7 +259,11 @@ class OpenSandboxBackend(Backend):
             ),
             envs=dict(call.env) if call.env is not None else None,
         )
-        execution = await native.commands.run(cmd_str, opts=opts)
+        # The server-side timeout kills the process inside the container but
+        # does not always surface as a Python ``TimeoutError`` on the client.
+        # Wrap the call so callers get the canonical exception type.
+        with _maybe_timeout(call.timeout):
+            execution = await native.commands.run(cmd_str, opts=opts)
         stdout = "".join(m.text for m in execution.logs.stdout).encode("utf-8")
         stderr = "".join(m.text for m in execution.logs.stderr).encode("utf-8")
         elapsed_ms = (
@@ -319,7 +344,8 @@ class OpenSandboxBackend(Backend):
         if call.language not in _SUPPORTED_LANGUAGES:
             raise UnsupportedToolCall(type(call), self.name)
         ci = await CodeInterpreter.create(native)
-        execution = await ci.codes.run(call.code, language=call.language)
+        with _maybe_timeout(call.timeout):
+            execution = await ci.codes.run(call.code, language=call.language)
         stdout = "".join(m.text for m in execution.logs.stdout).encode("utf-8")
         stderr = "".join(m.text for m in execution.logs.stderr).encode("utf-8")
         text = execution.result[0].text if execution.result else None
