@@ -59,6 +59,8 @@ async def test_env_passthrough(backend: Backend) -> None:
 
 
 async def test_stdin_input(backend: Backend) -> None:
+    if backend.name == "opensandbox":
+        pytest.skip("OpenSandbox commands.run has no stdin parameter")
     async with await backend.open() as sb:
         result = await sb.dispatch(
             CommandRun(

@@ -52,6 +52,29 @@ stable API guarantees.
   record_event / wait_event / wait_stream / synchronize / query, future
   exception propagation, bounded buffer) plus a parametrized conformance
   suite that exercises the same semantics on every available backend.
+- **`rath.backend` Phase 3**: `OpenSandboxBackend` adapter for the Alibaba
+  OpenSandbox runtime.
+  - Maps every Phase 1 tool call to the OpenSandbox SDK: `CommandRun` to
+    `Sandbox.commands.run` (with `RunCommandOpts`), `FilesRead` to
+    `read_file` / `read_bytes`, `FilesWrite` to `write_file`, `FilesList`
+    to `Filesystem.search` (glob `*`), `FilesExists` to
+    `Filesystem.get_file_info`, `CodeRun` to `CodeInterpreter.codes.run`.
+  - Translates SDK "not found" errors into stdlib `FileNotFoundError` so
+    the conformance suite stays portable.
+  - Resolves relative tool-call paths under a sandbox-internal
+    `/workspace` root, and uses that as the default cwd for `CommandRun`.
+    This keeps relative-path conformance behaviour aligned with
+    LocalBackend.
+  - `Sandbox.commands.run` has no stdin parameter, so `CommandRun(stdin=...)`
+    raises `UnsupportedToolCall`; the conformance test for stdin skips
+    automatically when running on this backend.
+- Tests: 11 backend-specific tests in `tests/backends/test_opensandbox.py`
+  plus the existing conformance suite parametrized with `opensandbox`. All
+  OpenSandbox-touching tests are gated on `tests/conftest.opensandbox_real`,
+  a `pytest.mark.skipif` that probes ``localhost:8080`` for a live
+  ``opensandbox-server``. With the server down the suite reports 161
+  passed and 40 skipped; running the server makes those 40 cases attempt
+  real Docker-backed sandbox creation.
 
 ### Notes
 
@@ -59,3 +82,8 @@ stable API guarantees.
   `rath.Agent` are not implemented yet.
 - No mocks and no smoke tests in the test suite, per the design plan in
   `.claude/plans/rath-backend-design.md`.
+- Running the OpenSandbox tests against a real server requires a working
+  Docker daemon plus the OpenSandbox container images
+  (`opensandbox/code-interpreter:v1.0.2` and `opensandbox/execd:v1.0.13`).
+  Bootstrap with `uvx opensandbox-server init-config ~/.sandbox.toml --example docker`
+  followed by `OPENSANDBOX_INSECURE_SERVER=YES uvx opensandbox-server`.

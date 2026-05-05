@@ -46,8 +46,15 @@ from rath.backend._results import (
 )
 from rath.backend._stream import Event, Future, Stream
 
-# Eagerly register the local backend (zero dependencies, safe to import).
+# Eagerly register the built-in backends. ``local`` has no extra deps; the
+# ``opensandbox`` adapter import is guarded so the package stays usable when
+# the optional extra is not installed.
 from rath.backend import local as _local  # noqa: F401
+
+try:
+    from rath.backend import opensandbox as _opensandbox  # noqa: F401
+except ImportError:  # pragma: no cover - exercised when extra is missing
+    pass
 
 __all__ = [
     # ABC + handles
