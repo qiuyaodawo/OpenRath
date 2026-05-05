@@ -1,6 +1,6 @@
 """OpenAI-compatible LLM access (synchronous chat completions)."""
 
-from rath.llm._agent import RathOpenAIChatAgent
+from rath.llm._client import RathOpenAIChatClient
 from rath.llm._openai_create_kwargs import to_create_kwargs
 from rath.llm._openai_normalize import normalize_chat_completion
 from rath.llm._settings import (
@@ -25,7 +25,7 @@ from rath.llm._types_response import (
 )
 
 __all__ = [
-    "RathOpenAIChatAgent",
+    "RathOpenAIChatClient",
     "RathLLMSettings",
     "rath_llm_default_dotenv_path",
     "load_rath_llm_settings",

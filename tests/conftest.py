@@ -7,6 +7,13 @@ import socket
 
 import pytest
 
+from rath.utils.env import default_env_file_path, load_dotenv_if_present
+
+
+# Load project .env once (never override existing process env). Ensures
+# OPEN_SANDBOX_* and OPENSANDBOX_* match ``opensandbox`` SDK / server helpers.
+load_dotenv_if_present(default_env_file_path(), override=False)
+
 
 @pytest.fixture
 def anyio_backend() -> str:

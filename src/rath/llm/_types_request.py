@@ -40,7 +40,7 @@ class RathLLMFunctionTool:
 class RathLLMChatRequest:
     """User-facing request; maps to ``client.chat.completions.create`` keyword args.
 
-    If ``model`` is ``None``, :class:`RathOpenAIChatAgent` fills it from
+    If ``model`` is ``None``, :class:`RathOpenAIChatClient` fills it from
     ``OPENAI_DEFAULT_MODEL``. ``stream`` is always forced to ``False`` for Phase 1.
     """
 

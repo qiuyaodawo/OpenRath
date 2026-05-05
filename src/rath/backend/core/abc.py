@@ -14,13 +14,13 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import TYPE_CHECKING, ClassVar
 
-from rath.backend._capabilities import Capabilities
-from rath.backend._errors import BackendSandboxClosed
-from rath.backend._results import ToolResult
+from rath.backend.core.capabilities import Capabilities
+from rath.backend.core.errors import BackendSandboxClosed
+from rath.backend.results.types import ToolResult
 from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
-    from rath.backend._stream import Stream
+    from rath.backend.stream import Stream
 
 
 @dataclass
@@ -71,12 +71,10 @@ class BackendSandbox:
     def stream(self, *, buffer: int = 0) -> "Stream":
         """Return a fresh :class:`Stream` bound to this sandbox.
 
-        ``buffer=0`` (default) means an unbounded queue; set a positive integer
+        ``buffer=0`` (the default) means an unbounded queue; set a positive integer
         to apply backpressure on :meth:`Stream.submit`.
         """
-        # Imported lazily to avoid a circular import: _stream depends on this
-        # module's :class:`BackendSandbox`.
-        from rath.backend._stream import Stream
+        from rath.backend.stream import Stream
 
         return Stream(self, buffer=buffer)
 

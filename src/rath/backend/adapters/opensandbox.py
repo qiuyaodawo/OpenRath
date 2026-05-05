@@ -2,9 +2,9 @@
 
 This adapter requires the optional ``opensandbox`` and
 ``opensandbox-code-interpreter`` packages, plus a running ``opensandbox-server``
-that the SDK can reach via its standard ConnectionConfig discovery (the
-``OPENSANDBOX_DOMAIN`` environment variable or the user-level ``~/.sandbox.toml``
-config file).
+that the SDK can reach via ``ConnectionConfig`` env discovery
+(``OPEN_SANDBOX_DOMAIN`` / ``OPEN_SANDBOX_API_KEY``, optional legacy
+``OPENSANDBOX_DOMAIN``, or ``~/.sandbox.toml``).
 
 Mapping summary:
 
@@ -33,9 +33,19 @@ from typing import TYPE_CHECKING, ClassVar
 
 import anyio
 
-from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
-from rath.backend._capabilities import Capabilities, IsolationLevel
-from rath.backend._errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.backend.core.abc import Backend, BackendSandbox, BackendSandboxSpec
+from rath.backend.core.capabilities import Capabilities, IsolationLevel
+from rath.backend.core.errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.backend.registry import register
+from rath.backend.results.types import (
+    CodeResult,
+    CommandResult,
+    FileContent,
+    FileEntries,
+    FileEntry,
+    FileWriteResult,
+    ToolResult,
+)
 from rath.flow.tool import (
     FlowToolCall,
     FlowToolCodeRun,
@@ -44,16 +54,6 @@ from rath.flow.tool import (
     FlowToolFilesList,
     FlowToolFilesRead,
     FlowToolFilesWrite,
-)
-from rath.backend._registry import register
-from rath.backend._results import (
-    CodeResult,
-    CommandResult,
-    FileContent,
-    FileEntries,
-    FileEntry,
-    FileWriteResult,
-    ToolResult,
 )
 
 # Optional dependency: import lazily so that ``rath.backend`` stays importable
@@ -148,13 +148,16 @@ class OpenSandboxBackend(Backend):
     def is_available(cls) -> bool:
         """Available when the SDK is importable and a connection target is set.
 
-        Either ``OPENSANDBOX_DOMAIN`` is in the environment or the user has a
-        ``~/.sandbox.toml`` config file. We never reach out over the network
-        from this method; that is only attempted by an actual ``open()`` call.
+        Either ``OPEN_SANDBOX_DOMAIN`` (Python SDK) or legacy ``OPENSANDBOX_DOMAIN``
+        is set, or the user has a ``~/.sandbox.toml`` config file. We never reach
+        out over the network from this method; that is only attempted by an
+        actual ``open()`` call.
         """
         if not (_SDK_AVAILABLE and _CI_AVAILABLE):
             return False
-        if "OPENSANDBOX_DOMAIN" in os.environ:
+        if os.environ.get("OPEN_SANDBOX_DOMAIN") or os.environ.get(
+            "OPENSANDBOX_DOMAIN",
+        ):
             return True
         return Path.home().joinpath(".sandbox.toml").exists()
 

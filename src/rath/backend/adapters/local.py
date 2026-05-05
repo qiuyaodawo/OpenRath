@@ -20,9 +20,19 @@ from typing import ClassVar
 
 import anyio
 
-from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
-from rath.backend._capabilities import Capabilities, IsolationLevel
-from rath.backend._errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.backend.core.abc import Backend, BackendSandbox, BackendSandboxSpec
+from rath.backend.core.capabilities import Capabilities, IsolationLevel
+from rath.backend.core.errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.backend.registry import register
+from rath.backend.results.types import (
+    CodeResult,
+    CommandResult,
+    FileContent,
+    FileEntries,
+    FileEntry,
+    FileWriteResult,
+    ToolResult,
+)
 from rath.flow.tool import (
     FlowToolCall,
     FlowToolCodeRun,
@@ -31,16 +41,6 @@ from rath.flow.tool import (
     FlowToolFilesList,
     FlowToolFilesRead,
     FlowToolFilesWrite,
-)
-from rath.backend._registry import register
-from rath.backend._results import (
-    CodeResult,
-    CommandResult,
-    FileContent,
-    FileEntries,
-    FileEntry,
-    FileWriteResult,
-    ToolResult,
 )
 
 

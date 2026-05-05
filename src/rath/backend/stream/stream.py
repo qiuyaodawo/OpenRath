@@ -21,14 +21,13 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 import anyio
 
-from rath.backend._results import ToolResult
+from rath.backend.results.types import ToolResult
 from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from rath.backend._abc import BackendSandbox
-
+    from rath.backend.core.abc import BackendSandbox
 
 T = TypeVar("T")
 

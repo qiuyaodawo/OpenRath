@@ -8,6 +8,8 @@ stable API guarantees.
 
 ## Unreleased
 
+**Summary:** Refactor layout and naming: new ``rath.utils`` (env helpers), ``rath.backend`` split into ``core`` / ``results`` / ``stream`` / ``registry`` / ``adapters``, ``rath.flow.tool`` split into one module per call type, LLM entry renamed to ``RathOpenAIChatClient``. OpenSandbox discovery matches the official Python SDK (``OPEN_SANDBOX_DOMAIN`` / ``OPEN_SANDBOX_API_KEY``). Optional install is ``rath[opensandbox]`` (includes ``opensandbox-server``). Local server config ``.sandbox.toml`` is gitignored; generate it with ``opensandbox-server init-config``. Root ``tests/conftest.py`` loads project ``.env`` so pytest sees the same variables as the SDK.
+
 ### Breaking — ``rath.llm`` naming
 
 - **Types** use the ``RathLLM*`` prefix (aligned with ``FlowTool*`` / ``Backend*``):
@@ -15,9 +17,21 @@ stable API guarantees.
   ``LLMChatResponse`` → ``RathLLMChatResponse``, ``LLMSettings`` → ``RathLLMSettings``,
   and matching response / tool-call types (see ``rath.llm`` exports).
 - **Settings loaders**: ``load_llm_settings`` → ``load_rath_llm_settings``;
-  ``default_dotenv_path`` → ``rath_llm_default_dotenv_path``.
-- **Agent**: ``OpenAIChatClient`` → ``RathOpenAIChatAgent`` (implementation in
-  ``src/rath/llm/_agent.py``).
+  ``default_dotenv_path`` → ``rath_llm_default_dotenv_path`` (delegates to
+  ``rath.utils.env.default_env_file_path``).
+- **Client**: ``RathOpenAIChatAgent`` → ``RathOpenAIChatClient`` (implementation in
+  ``src/rath/llm/_client.py``).
+
+### Breaking — ``rath.backend`` layout
+
+- Implementation is grouped under subpackages: ``rath.backend.core`` (ABCs,
+  capabilities, errors), ``rath.backend.results``, ``rath.backend.stream``,
+  ``rath.backend.registry``, and ``rath.backend.adapters`` (``local``,
+  ``opensandbox``). The top-level ``rath.backend`` module still re-exports the
+  same public names as before.
+- **Deep imports** of removed flat modules (``rath.backend._registry``,
+  ``rath.backend.local``, ``rath.backend.opensandbox``, etc.) must be updated
+  to the new paths (e.g. ``rath.backend.adapters.local``).
 
 ### Breaking — ``rath.flow.tool`` and backend naming
 
@@ -36,8 +50,12 @@ stable API guarantees.
 
 ### Added
 
+- **`rath.utils`**: shared helpers for project-root discovery, optional
+  ``load_dotenv``, and single-key ``read_dotenv_value`` (used by ``rath.llm`` and tests).
+- **`rath.flow.tool`**: one module per tool kind (e.g. ``command_run.py``,
+  ``files_read.py``) plus ``base.py``; factories unchanged on ``rath.flow.tool``.
 - **`rath.llm`**: synchronous OpenAI-compatible chat via the official `openai` SDK.
-  Use ``RathOpenAIChatAgent.complete`` with frozen ``RathLLMChatRequest`` /
+  Use ``RathOpenAIChatClient.complete`` with frozen ``RathLLMChatRequest`` /
   ``RathLLMChatResponse``. Credentials load from `.env` / environment
   (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_DEFAULT_MODEL`). No Rath-level
   timeout or streaming in this phase. Dependencies: `openai`, `python-dotenv`.
@@ -45,6 +63,12 @@ stable API guarantees.
   `tests/llm/conftest.py`). Assertions tie the process key to the project `.env`
   file and exercise real completions — no HTTP mocks. The **full** `pytest` run
   therefore requires a key in `.env` or the environment.
+- **OpenSandbox optional stack**: installing ``rath[opensandbox]`` pulls the Python SDK,
+  code-interpreter helper, and **``opensandbox-server``** (same extra). Keep local
+  ``.sandbox.toml`` out of version control (gitignored); create it with
+  ``uv run opensandbox-server init-config .sandbox.toml --example docker`` (or use
+  ``~/.sandbox.toml`` / ``SANDBOX_CONFIG_PATH`` per upstream docs). ``tests/conftest.py``
+  loads project ``.env`` so ``OPEN_SANDBOX_*`` matches the SDK (see ``.env.example``).
 - Initialized the Python package with `uv`.
 - Added pytest, flake8, and mypy configuration for local quality checks.
 - Added the `rath` source package under `src/rath`.
@@ -113,6 +137,7 @@ stable API guarantees.
 
 ### Fixed
 
+- **OpenSandbox adapter**: ``is_available`` now treats ``OPEN_SANDBOX_DOMAIN`` (Python SDK) as a configured target, not only legacy ``OPENSANDBOX_DOMAIN``.
 - `OpenSandboxBackend`: define `_maybe_timeout` using `anyio.fail_after` and
   wrap `codes.run` the same way as `commands.run`, so tool calls with
   `timeout=` surface `TimeoutError` on the client and no longer raise
@@ -134,5 +159,6 @@ stable API guarantees.
 - Running the OpenSandbox tests against a real server requires a working
   Docker daemon plus the OpenSandbox container images
   (`opensandbox/code-interpreter:v1.0.2` and `opensandbox/execd:v1.0.13`).
-  Bootstrap with `uvx opensandbox-server init-config ~/.sandbox.toml --example docker`
-  followed by `OPENSANDBOX_INSECURE_SERVER=YES uvx opensandbox-server`.
+  Bootstrap with ``uv run opensandbox-server init-config ~/.sandbox.toml --example docker``
+  (after ``uv sync --extra opensandbox``) followed by
+  ``OPENSANDBOX_INSECURE_SERVER=YES uv run opensandbox-server`` when ``[server].api_key`` is unset.

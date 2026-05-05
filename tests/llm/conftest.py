@@ -3,23 +3,15 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 
-
-def _project_root() -> Path:
-    """OpenRath package root (directory containing pyproject.toml)."""
-    return Path(__file__).resolve().parents[2]
+from rath.utils.env import default_env_file_path, load_dotenv_if_present
 
 
 def pytest_configure(config: pytest.Config) -> None:
     # Real integration tests: load local .env without overriding exported env vars.
-    from dotenv import load_dotenv
-
-    env_path = _project_root() / ".env"
-    if env_path.is_file():
-        load_dotenv(env_path, override=False)
+    load_dotenv_if_present(default_env_file_path(), override=False)
     if not os.environ.get("OPENAI_API_KEY", "").strip():
         pytest.exit(
             "OPENAI_API_KEY must be set (e.g. in .env) for tests/llm; "

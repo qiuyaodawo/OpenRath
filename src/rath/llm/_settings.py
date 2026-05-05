@@ -6,15 +6,14 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
+from rath.utils.env import default_env_file_path, load_dotenv_if_present
 
 __all__ = ["RathLLMSettings", "rath_llm_default_dotenv_path", "load_rath_llm_settings"]
 
 
 def rath_llm_default_dotenv_path() -> Path:
-    """``OpenRath/OpenRath/.env`` next to ``pyproject.toml``."""
-    # src/rath/llm/_settings.py -> parents[3] = project root containing pyproject.toml
-    return Path(__file__).resolve().parents[3] / ".env"
+    """Project ``.env`` path (same as :func:`~rath.utils.env.default_env_file_path`)."""
+    return default_env_file_path()
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,8 +32,7 @@ def load_rath_llm_settings(dotenv_path: Path | None = None) -> RathLLMSettings:
     (``load_dotenv(..., override=False)``).
     """
     path = dotenv_path if dotenv_path is not None else rath_llm_default_dotenv_path()
-    if path.is_file():
-        load_dotenv(path, override=False)
+    load_dotenv_if_present(path, override=False)
 
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     base_raw = os.environ.get("OPENAI_BASE_URL", "").strip()

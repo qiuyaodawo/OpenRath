@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
-from rath.backend._abc import Backend
-from rath.backend._errors import BackendNotFound
+from rath.backend.core.abc import Backend
+from rath.backend.core.errors import BackendNotFound
 
 _REGISTRY: dict[str, type[Backend]] = {}
 _DEFAULT: dict[str, str] = {}  # single-key dict acts as a slot

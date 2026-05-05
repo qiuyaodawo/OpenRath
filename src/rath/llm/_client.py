@@ -1,4 +1,4 @@
-"""Synchronous OpenAI-compatible chat agent (thin SDK wrapper)."""
+"""Synchronous OpenAI-compatible chat client (thin SDK wrapper)."""
 
 from __future__ import annotations
 
@@ -13,11 +13,11 @@ from rath.llm._settings import RathLLMSettings, load_rath_llm_settings
 from rath.llm._types_request import RathLLMChatRequest
 from rath.llm._types_response import RathLLMChatResponse
 
-__all__ = ["RathOpenAIChatAgent"]
+__all__ = ["RathOpenAIChatClient"]
 
 
-class RathOpenAIChatAgent:
-    """Thin agent around ``openai.OpenAI`` chat completions (non-streaming)."""
+class RathOpenAIChatClient:
+    """Thin client around ``openai.OpenAI`` chat completions (non-streaming)."""
 
     def __init__(
         self,

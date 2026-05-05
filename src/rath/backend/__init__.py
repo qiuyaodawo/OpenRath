@@ -8,7 +8,6 @@ the caller.
 
 from __future__ import annotations
 
-from rath.backend._abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend._calls import (
     FlowToolCall,
     FlowToolCodeRun,
@@ -18,14 +17,18 @@ from rath.backend._calls import (
     FlowToolFilesRead,
     FlowToolFilesWrite,
 )
-from rath.backend._capabilities import Capabilities, IsolationLevel
-from rath.backend._errors import (
+from rath.backend.core import (
+    Backend,
+    BackendSandbox,
+    BackendSandboxSpec,
     BackendError,
     BackendNotFound,
     BackendSandboxClosed,
+    Capabilities,
+    IsolationLevel,
     UnsupportedFlowToolCall,
 )
-from rath.backend._registry import (
+from rath.backend.registry import (
     current,
     get,
     get_class,
@@ -35,7 +38,7 @@ from rath.backend._registry import (
     register,
     set_default,
 )
-from rath.backend._results import (
+from rath.backend.results import (
     CodeResult,
     CommandResult,
     FileContent,
@@ -44,15 +47,15 @@ from rath.backend._results import (
     FileWriteResult,
     ToolResult,
 )
-from rath.backend._stream import Event, Future, Stream
+from rath.backend.stream import Event, Future, Stream
 
 # Eagerly register the built-in backends. ``local`` has no extra deps; the
 # ``opensandbox`` adapter import is guarded so the package stays usable when
 # the optional extra is not installed.
-from rath.backend import local as _local  # noqa: F401
+from rath.backend.adapters import local as _local  # noqa: F401
 
 try:
-    from rath.backend import opensandbox as _opensandbox  # noqa: F401
+    from rath.backend.adapters import opensandbox as _opensandbox  # noqa: F401
 except ImportError:  # pragma: no cover - exercised when extra is missing
     pass
 

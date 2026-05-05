@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 
@@ -11,36 +10,28 @@ from rath.llm import (
     RathLLMChatRequest,
     RathLLMFunctionTool,
     RathLLMMessage,
-    RathOpenAIChatAgent,
+    RathOpenAIChatClient,
 )
+from rath.utils.env import default_env_file_path, read_dotenv_value
 
 
-def _project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
-
-
-def _parse_dotenv_api_key(env_path: Path) -> str:
-    """Read OPENAI_API_KEY from a dotenv file (no dependencies)."""
-    text = env_path.read_text(encoding="utf-8")
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith("OPENAI_API_KEY="):
-            return stripped.split("=", 1)[1].strip().strip('"').strip("'")
-    raise AssertionError(f"OPENAI_API_KEY not found in {env_path}")
+def _parse_dotenv_api_key() -> str:
+    env_path = default_env_file_path()
+    val = read_dotenv_value(env_path, "OPENAI_API_KEY")
+    assert val, f"OPENAI_API_KEY not found in {env_path}"
+    return val.strip()
 
 
 @pytest.fixture
-def agent() -> RathOpenAIChatAgent:
-    return RathOpenAIChatAgent()
+def client() -> RathOpenAIChatClient:
+    return RathOpenAIChatClient()
 
 
 def test_openai_api_key_in_process_matches_project_dotenv() -> None:
     """Ensure pytest loaded the same key as on disk (real credential path)."""
-    env_path = _project_root() / ".env"
+    env_path = default_env_file_path()
     assert env_path.is_file(), "project .env must exist for live LLM tests"
-    from_disk = _parse_dotenv_api_key(env_path)
+    from_disk = _parse_dotenv_api_key()
     assert from_disk, ".env OPENAI_API_KEY must be non-empty"
     in_process = os.environ.get("OPENAI_API_KEY", "").strip()
     assert in_process == from_disk, (
@@ -49,15 +40,14 @@ def test_openai_api_key_in_process_matches_project_dotenv() -> None:
     assert len(in_process) >= 8, "API key from .env must have plausible length"
 
 
-def test_rath_openai_chat_agent_uses_dotenv_credentials(
-    agent: RathOpenAIChatAgent,
+def test_rath_openai_chat_client_uses_dotenv_credentials(
+    client: RathOpenAIChatClient,
 ) -> None:
-    assert agent.settings.api_key == os.environ["OPENAI_API_KEY"].strip()
-    env_path = _project_root() / ".env"
-    assert agent.settings.api_key == _parse_dotenv_api_key(env_path)
+    assert client.settings.api_key == os.environ["OPENAI_API_KEY"].strip()
+    assert client.settings.api_key == _parse_dotenv_api_key()
 
 
-def test_complete_ping_hits_remote_model(agent: RathOpenAIChatAgent) -> None:
+def test_complete_ping_hits_remote_model(client: RathOpenAIChatClient) -> None:
     req = RathLLMChatRequest(
         messages=(
             RathLLMMessage(
@@ -65,9 +55,9 @@ def test_complete_ping_hits_remote_model(agent: RathOpenAIChatAgent) -> None:
                 content="Reply with exactly the single word: pong",
             ),
         ),
-        model=agent.settings.default_model,
+        model=client.settings.default_model,
     )
-    resp = agent.complete(req)
+    resp = client.complete(req)
     assert resp.id, "remote completions must return an id"
     assert resp.model
     assert len(resp.choices) >= 1
@@ -80,20 +70,20 @@ def test_complete_ping_hits_remote_model(agent: RathOpenAIChatAgent) -> None:
 
 
 def test_complete_uses_env_default_model_when_omitted(
-    agent: RathOpenAIChatAgent,
+    client: RathOpenAIChatClient,
 ) -> None:
-    assert agent.settings.default_model, (
+    assert client.settings.default_model, (
         "OPENAI_DEFAULT_MODEL should be set for this test"
     )
     req = RathLLMChatRequest(
         messages=(RathLLMMessage(role="user", content="Say ok."),),
         model=None,
     )
-    resp = agent.complete(req)
-    assert resp.model == agent.settings.default_model
+    resp = client.complete(req)
+    assert resp.model == client.settings.default_model
 
 
-def test_function_tool_call_returns_add_arguments(agent: RathOpenAIChatAgent) -> None:
+def test_function_tool_call_returns_add_arguments(client: RathOpenAIChatClient) -> None:
     tools = (
         RathLLMFunctionTool(
             name="add",
@@ -118,11 +108,11 @@ def test_function_tool_call_returns_add_arguments(agent: RathOpenAIChatAgent) ->
                 ),
             ),
         ),
-        model=agent.settings.default_model,
+        model=client.settings.default_model,
         tools=tools,
         tool_choice="auto",
     )
-    resp = agent.complete(req)
+    resp = client.complete(req)
     choice = resp.primary_choice
     assert choice.finish_reason in ("tool_calls", "stop")
     tc_list = choice.message.tool_calls

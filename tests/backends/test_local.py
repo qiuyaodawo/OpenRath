@@ -24,7 +24,7 @@ from rath.backend import (
     UnsupportedFlowToolCall,
     get,
 )
-from rath.backend.local import LocalBackend
+from rath.backend.adapters.local import LocalBackend
 
 pytestmark = pytest.mark.anyio
 

@@ -1,4 +1,4 @@
-"""Tests for :mod:`rath.backend._registry`.
+"""Tests for :mod:`rath.backend.registry`.
 
 The registry is global mutable state; the ``registry_snapshot`` fixture saves
 and restores it around each test so tests can register fake backends without
@@ -29,7 +29,7 @@ from rath.backend import (
     register,
     set_default,
 )
-from rath.backend._registry import _DEFAULT, _REGISTRY
+from rath.backend.registry import _DEFAULT, _REGISTRY
 
 
 @pytest.fixture

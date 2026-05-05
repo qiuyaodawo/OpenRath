@@ -27,6 +27,7 @@ dependencies = [
 opensandbox = [
     "opensandbox>=0.1.7",
     "opensandbox-code-interpreter>=0.1.2",
+    "opensandbox-server>=0.1.12",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -29,7 +29,7 @@ from rath.backend import (
     UnsupportedFlowToolCall,
     get,
 )
-from rath.backend.opensandbox import OpenSandboxBackend
+from rath.backend.adapters.opensandbox import OpenSandboxBackend
 from tests.conftest import opensandbox_real
 
 pytestmark = [pytest.mark.anyio, opensandbox_real]
