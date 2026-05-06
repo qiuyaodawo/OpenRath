@@ -21,6 +21,8 @@ def _message_as_openai_dict(message: RathLLMMessage) -> dict[str, Any]:
         d["name"] = message.name
     if message.tool_call_id is not None:
         d["tool_call_id"] = message.tool_call_id
+    if message.tool_calls is not None:
+        d["tool_calls"] = [dict(tc) for tc in message.tool_calls]
     return d
 
 

@@ -24,6 +24,8 @@ class RathLLMMessage:
     content: str | None = None
     name: str | None = None
     tool_call_id: str | None = None
+    # OpenAI wire-shaped tool_calls for assistant role (multi-turn tool loops).
+    tool_calls: tuple[Mapping[str, Any], ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)

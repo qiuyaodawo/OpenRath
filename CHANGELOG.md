@@ -10,6 +10,31 @@ stable API guarantees.
 
 **Summary:** Refactor layout and naming: new ``rath.utils`` (env helpers), ``rath.backend`` split into ``core`` / ``results`` / ``stream`` / ``registry`` / ``adapters``, ``rath.flow.tool`` split into one module per call type, LLM entry renamed to ``RathOpenAIChatClient``. OpenSandbox discovery matches the official Python SDK (``OPEN_SANDBOX_DOMAIN`` / ``OPEN_SANDBOX_API_KEY``). Optional install is ``rath[opensandbox]`` (includes ``opensandbox-server``). Local server config ``.sandbox.toml`` is gitignored; generate it with ``opensandbox-server init-config``. Root ``tests/conftest.py`` loads project ``.env`` so pytest sees the same variables as the SDK.
 
+### Testing
+
+- Pytest markers **`opensandbox`**, **`live_llm`**, **`integration`** (``pytest.ini``)
+  so quick runs can skip Docker-heavy, network-LLM, or full-stack suites:
+  ``uv run pytest -m "not opensandbox"`` (~local + unit + conformance local),
+  ``uv run pytest -m "not opensandbox and not live_llm"`` when you want no
+  remote calls. Use ``uv run pytest -m "not integration"`` to skip stack tests
+  in ``tests/integration/``. Full ``uv run pytest`` still runs everything (often several
+  minutes when OpenSandbox parametrizations execute).
+
+### Added — session plane / workflow MVP
+
+- ``rath.session``: chunk tables, ``Session``, ``SessionLineage``, ``SessionRegistry``,
+  async ``run_session_loop``, ``DefaultSessionLoopProvider`` (LLM via
+  ``anyio.to_thread.run_sync``, sandbox via async ``BackendSandbox.dispatch``).
+  Tool names and builders come from the global ``ToolTable``.
+
+- ``rath.flow.workflow``: ``Workflow`` (registers assigned ``Agent``) and ``SingleAgent``.
+
+- ``rath.flow.agent``: ``Agent`` bundle (system ``Session`` + ``SessionLoopProvider``).
+
+- ``RathLLMMessage.tool_calls`` for multi-turn tool replay in chat requests.
+
+- Integration tests: ``tests/integration/test_session_loop_real.py`` (markers
+  ``integration``, ``opensandbox``, ``live_llm``).
 ### Breaking — ``rath.llm`` naming
 
 - **Types** use the ``RathLLM*`` prefix (aligned with ``FlowTool*`` / ``Backend*``):

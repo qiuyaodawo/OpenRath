@@ -17,7 +17,11 @@ from tests.conftest import opensandbox_real
 
 _BACKEND_PARAMS = [
     pytest.param("local", id="local"),
-    pytest.param("opensandbox", id="opensandbox", marks=opensandbox_real),
+    pytest.param(
+        "opensandbox",
+        id="opensandbox",
+        marks=[opensandbox_real, pytest.mark.opensandbox],
+    ),
 ]
 
 

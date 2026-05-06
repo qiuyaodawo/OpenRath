@@ -548,13 +548,13 @@ dependencies = [
 opensandbox = [
     { name = "opensandbox" },
     { name = "opensandbox-code-interpreter" },
+    { name = "opensandbox-server" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "flake8" },
     { name = "mypy" },
-    { name = "opensandbox-server" },
     { name = "pytest" },
 ]
 
@@ -564,6 +564,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.0.0" },
     { name = "opensandbox", marker = "extra == 'opensandbox'", specifier = ">=0.1.7" },
     { name = "opensandbox-code-interpreter", marker = "extra == 'opensandbox'", specifier = ">=0.1.2" },
+    { name = "opensandbox-server", marker = "extra == 'opensandbox'", specifier = ">=0.1.12" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 provides-extras = ["opensandbox"]
@@ -572,7 +573,6 @@ provides-extras = ["opensandbox"]
 dev = [
     { name = "flake8", specifier = ">=7.3.0" },
     { name = "mypy", specifier = ">=1.20.2" },
-    { name = "opensandbox-server", specifier = ">=0.1.12" },
     { name = "pytest", specifier = ">=9.0.3" },
 ]
 

@@ -14,6 +14,8 @@ from rath.llm import (
 )
 from rath.utils.env import default_env_file_path, read_dotenv_value
 
+pytestmark = pytest.mark.live_llm
+
 
 def _parse_dotenv_api_key() -> str:
     env_path = default_env_file_path()

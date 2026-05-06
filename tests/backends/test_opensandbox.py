@@ -32,7 +32,7 @@ from rath.backend import (
 from rath.backend.adapters.opensandbox import OpenSandboxBackend
 from tests.conftest import opensandbox_real
 
-pytestmark = [pytest.mark.anyio, opensandbox_real]
+pytestmark = [pytest.mark.anyio, opensandbox_real, pytest.mark.opensandbox]
 
 
 def test_capabilities_match_spec() -> None:

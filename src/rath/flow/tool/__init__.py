@@ -16,6 +16,7 @@ from rath.flow.tool.files_exists import FlowToolFilesExists
 from rath.flow.tool.files_list import FlowToolFilesList
 from rath.flow.tool.files_read import FlowToolFilesRead
 from rath.flow.tool.files_write import FlowToolFilesWrite
+from rath.flow.tool.tool_table import ToolTable, global_tool_table, register_builtin_session_tools
 
 
 def flow_tool_command_run(
@@ -77,4 +78,7 @@ __all__ = [
     "flow_tool_files_list",
     "flow_tool_files_read",
     "flow_tool_files_write",
+    "global_tool_table",
+    "register_builtin_session_tools",
+    "ToolTable",
 ]
