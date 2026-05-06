@@ -19,8 +19,10 @@ stable API guarantees.
   remote calls. Use ``uv run pytest -m "not integration"`` to skip stack tests
   in ``tests/integration/``.
   Deterministic coverage for ``rath.session`` / ``Workflow`` lives under
-  ``tests/session/`` and ``tests/flow/test_workflow_agent.py``: a scripted
-  in-process provider (no ``unittest.mock``) plus real ``local`` Backend sandboxes.
+  ``tests/session/`` and ``tests/flow/test_workflow_agent.py``: scripted
+  completions (no ``unittest.mock``), real ``local`` sandboxes, helper modules
+  ``test_run_session_loop_edges.py`` / ``test_session_sandbox_behavior.py`` /
+  ``test_llm_message_wire.py`` for failure paths and ``to_create_kwargs``.
   Full ``uv run pytest`` still runs everything (often several minutes when
   OpenSandbox parametrizations execute).
 
