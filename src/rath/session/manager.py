@@ -21,6 +21,10 @@ class SessionRegistry:
         with self._lock:
             self._by_id[session.id] = session
 
+    def get(self, session_id: UUID) -> Session | None:
+        with self._lock:
+            return self._by_id.get(session_id)
+
     def set_active(self, session: Session | None) -> None:
         with self._lock:
             self._active_id = None if session is None else session.id

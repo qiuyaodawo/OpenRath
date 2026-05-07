@@ -3,25 +3,37 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 from uuid import UUID, uuid4
 
 from rath.backend import BackendSandbox
 from rath.session.chunk import ChunkTable
-from rath.session.graph import SessionLineage
+from rath.session.graph.kind import LineageKind
+from rath.session.graph.legacy import SessionLineage
 
 
 @dataclass(slots=True)
 class Session:
-    """Chunk history (:attr:`chunk_table`) and optional :class:`~rath.backend.BackendSandbox`.
+    """Chunk transcript (:attr:`chunk_table`), optional sandbox, and lineage metadata.
 
-    :func:`~rath.session.loop.run_session_loop` consumes the incoming sandbox handle
-    and attaches it to its returned session.
+    :func:`~rath.session.loop.run_session_loop` takes the sandbox attached to an
+    incoming user session and rebinds it to the returned session.
+
+    Flat lineage (preferred graph substrate): :attr:`parent_session_ids` (ordered
+    parents), :attr:`lineage_operator`, :attr:`lineage_kind`, :attr:`lineage_extras`.
+    :attr:`lineage` is an optional legacy DTO tying loop outputs to producer sessions.
+    Writes to lineage fields honour :func:`~rath.session.graph.session_graph_mode`;
+    primitives and ``run_session_loop`` are the intended mutation sites.
     """
 
     chunk_table: ChunkTable
     id: UUID = field(default_factory=uuid4)
     sandbox: BackendSandbox | None = None
     lineage: SessionLineage | None = None
+    parent_session_ids: tuple[UUID, ...] = ()
+    lineage_operator: str = "implicit"
+    lineage_kind: LineageKind = LineageKind.UNKNOWN
+    lineage_extras: tuple[tuple[str, Any], ...] = ()
 
     @classmethod
     def from_system_prompt(cls, prompt: str) -> Session:

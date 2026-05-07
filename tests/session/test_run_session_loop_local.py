@@ -50,7 +50,12 @@ async def test_run_session_loop_stop_without_tools() -> None:
     backend = get("local")
     async with await backend.open() as sandbox:
         user = Session.user_message("Say something short.").with_sandbox(sandbox)
-        out = await run_session_loop(user, agent, executor=executor)
+        out = await run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+        )
 
     assert user.sandbox is None
     assert out.sandbox is sandbox
@@ -115,7 +120,12 @@ async def test_run_session_loop_write_file_via_tool_then_stop() -> None:
     backend = get("local")
     async with await backend.open() as sandbox:
         user = Session.user_message("Write the marker file.").with_sandbox(sandbox)
-        out = await run_session_loop(user, agent, executor=executor)
+        out = await run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+        )
 
     tool_payloads = [
         json.loads(r.payload["content"])

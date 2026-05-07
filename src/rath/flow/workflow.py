@@ -1,4 +1,4 @@
-"""Workflow base type: assigns :class:`~rath.flow.agent.Agent` members and runs sessions."""
+"""Workflow base type: assigns ``Agent`` attributes and orchestrates sessions."""
 
 from __future__ import annotations
 
@@ -7,11 +7,13 @@ import anyio
 from typing import Any
 
 from rath.flow.agent import Agent
+from rath.flow.tool import ToolTable
+from rath.session.loop import SessionLoopExecutor, run_session_loop
 from rath.session.session import Session
 
 
 class Workflow:
-    """Collects :class:`~rath.flow.agent.Agent` instances set as attributes and runs them."""
+    """Collects attached ``Agent`` instances and subclasses run sessions here."""
 
     __slots__ = ("_agents",)
 
@@ -50,4 +52,23 @@ class Workflow:
         return self.forward(session)
 
 
-__all__ = ["Workflow"]
+async def run_session_loop_from_agent(
+    user_session: Session,
+    agent: Agent,
+    *,
+    executor: SessionLoopExecutor,
+    tool_table: ToolTable | None = None,
+    max_tool_rounds: int = 16,
+) -> Session:
+    """Maps ``Agent`` fields to ``run_session_loop`` keyword arguments."""
+    return await run_session_loop(
+        user_session,
+        agent.agent_session,
+        agent_provider=agent.provider,
+        executor=executor,
+        tool_table=tool_table,
+        max_tool_rounds=max_tool_rounds,
+    )
+
+
+__all__ = ["Workflow", "run_session_loop_from_agent"]

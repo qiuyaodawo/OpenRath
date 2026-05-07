@@ -1,4 +1,7 @@
-"""Integration: live chat client + OpenSandbox backend (markers: ``integration``, ``live_llm``, ``opensandbox``)."""
+"""Integration tests: live LLM chat + OpenSandbox.
+
+Markers: ``integration``, ``live_llm``, ``opensandbox``.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +11,15 @@ import pytest
 
 from rath.backend import preferred
 from rath.flow.agent import Agent, AgentLLMProvider
-from rath.flow.workflow import Workflow
+from rath.flow.workflow import Workflow, run_session_loop_from_agent
 from rath.llm import RathOpenAIChatClient
 from rath.session import (
     ChunkKind,
     DefaultSessionLoopExecutor,
     Session,
-    run_session_loop,
     session_registry,
 )
+from rath.session.graph import LineageKind
 from tests.conftest import opensandbox_real
 
 
@@ -69,13 +72,20 @@ async def test_run_session_loop_opensandbox_shell_echo() -> None:
             f"Use run_shell_command exactly once. The cmd must run: echo {marker}"
         ).with_sandbox(sandbox)
 
-        out = await run_session_loop(user, agent, executor=executor, max_tool_rounds=12)
+        out = await run_session_loop_from_agent(
+            user,
+            agent,
+            executor=executor,
+            max_tool_rounds=12,
+        )
 
         assert out.sandbox is sandbox
         assert out.sandbox.closed is False
         assert user.sandbox is None
         assert out.lineage is not None
         assert out.lineage.producer_user_session_id == user.id
+        assert out.parent_session_ids == (user.id, agent.agent_session.id)
+        assert out.lineage_kind == LineageKind.OP_SESSION_LOOP
         assert session_registry().get_active_id() == out.id
 
         tool_blob = _tool_rows_text(out)
@@ -98,7 +108,7 @@ class _ShellEchoWorkflow(Workflow):
         self._loop_executor = executor
 
     async def forward_async(self, session: Session) -> Session:
-        return await run_session_loop(
+        return await run_session_loop_from_agent(
             session,
             self.actor,
             executor=self._loop_executor,

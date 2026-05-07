@@ -69,7 +69,12 @@ async def test_missing_user_sandbox_raises() -> None:
     agent = Agent(Session.from_system_prompt("sys"), AgentLLMProvider())
     user = Session.user_message("no sandbox attached")
     with pytest.raises(RuntimeError, match="no sandbox to take"):
-        await run_session_loop(user, agent, executor=executor)
+        await run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+        )
 
 
 async def test_tool_arguments_parse_error_raises_value_error() -> None:
@@ -102,7 +107,12 @@ async def test_tool_arguments_parse_error_raises_value_error() -> None:
     async with await backend.open() as sb:
         user = Session.user_message("x").with_sandbox(sb)
         with pytest.raises(ValueError, match="non-JSON"):
-            await run_session_loop(user, agent, executor=executor)
+            await run_session_loop(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+                executor=executor,
+            )
 
 
 async def test_unknown_tool_name_raises_key_error() -> None:
@@ -134,7 +144,12 @@ async def test_unknown_tool_name_raises_key_error() -> None:
     async with await backend.open() as sb:
         user = Session.user_message("x").with_sandbox(sb)
         with pytest.raises(KeyError):
-            await run_session_loop(user, agent, executor=executor)
+            await run_session_loop(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+                executor=executor,
+            )
 
 
 async def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
@@ -145,7 +160,13 @@ async def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
     agent = Agent(Session.from_system_prompt("cap"), AgentLLMProvider())
     async with await backend.open() as sb:
         user = Session.user_message("loop").with_sandbox(sb)
-        out = await run_session_loop(user, agent, executor=executor, max_tool_rounds=3)
+        out = await run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+            max_tool_rounds=3,
+        )
 
     tool_results = sum(
         1 for r in out.chunk_table.rows if r.kind == ChunkKind.TOOL_RESULT
@@ -195,7 +216,12 @@ async def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
     agent = Agent(Session.from_system_prompt("sh"), AgentLLMProvider())
     async with await backend.open() as sb:
         user = Session.user_message("run echo").with_sandbox(sb)
-        out = await run_session_loop(user, agent, executor=executor)
+        out = await run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+        )
 
     blob = "".join(
         r.payload["content"]

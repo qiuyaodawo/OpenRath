@@ -20,6 +20,7 @@ from rath.flow.tool import (
     register_builtin_session_tools,
 )
 from rath.llm import (
+    AgentLLMProvider,
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
@@ -31,14 +32,14 @@ from rath.session.chunk import (
     chunk_table_to_messages,
     tool_feedback_chunk,
 )
-from rath.session.graph import SessionLineage
+from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
 from rath.session.manager import session_registry
 from rath.session.session import Session
 
 
 @runtime_checkable
 class SessionLoopExecutor(Protocol):
-    """Runs LLM completions and dispatches sandbox tools for :func:`run_session_loop`."""
+    """Runs completions and sandbox tool dispatch used by ``run_session_loop``."""
 
     async def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
         """Run one chat completion."""
@@ -61,7 +62,7 @@ def _chat_request_from_loop(
     *,
     default_tool_choice: Any,
 ) -> RathLLMChatRequest:
-    """Fold :class:`~rath.flow.agent.AgentLLMProvider` into a concrete request."""
+    """Fold :class:`~rath.llm.AgentLLMProvider` into a concrete request."""
 
     return RathLLMChatRequest(
         messages=messages,
@@ -140,23 +141,30 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
 
 async def run_session_loop(
     user_session: Session,
-    agent: Agent,
+    agent_session: Session,
     *,
+    agent_provider: AgentLLMProvider,
     executor: SessionLoopExecutor,
     tool_table: ToolTable | None = None,
     max_tool_rounds: int = 16,
 ) -> Session:
     """Run one multi-turn assistant pass with optional tool rounds.
 
-    Rebinds the sandbox from ``user_session`` onto the returned :class:`~rath.session.Session`.
-    Sampling options come from ``agent.provider``; model access remains on ``executor``.
+    Rebases ``BackendSandbox`` from ``user_session`` onto the returned session.
+    LLM routing/sampling kwargs come from ``agent_provider``
+    (:class:`~rath.llm.AgentLLMProvider`); HTTP remains on ``executor``.
+
+    Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
+    the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
+
+    When ``session_graph_mode()`` is true, stamps flat lineage on ``out`` and attaches
+    legacy :class:`~rath.session.graph.SessionLineage`.
     """
 
     table = tool_table or global_tool_table()
     register_builtin_session_tools(table)
 
-    system_session = agent.agent_session
-    prefs = agent.provider
+    prefs = agent_provider
 
     rows_list: list = list(user_session.chunk_table.rows)
     sb = user_session.take_sandbox()
@@ -165,12 +173,18 @@ async def run_session_loop(
         sandbox=sb,
         lineage=SessionLineage(
             producer_user_session_id=user_session.id,
-            producer_system_session_id=system_session.id,
+            producer_system_session_id=agent_session.id,
         ),
+    )
+    LineageRecorder.stamp_new_session(
+        out,
+        parent_session_ids=(user_session.id, agent_session.id),
+        lineage_operator="run_session_loop",
+        lineage_kind=LineageKind.OP_SESSION_LOOP,
     )
     reg = session_registry()
     reg.register(user_session)
-    reg.register(system_session)
+    reg.register(agent_session)
     reg.register(out)
     reg.set_active(out)
 
@@ -179,7 +193,7 @@ async def run_session_loop(
         tool_schemas = table.schemas()
 
     for _ in range(max_tool_rounds):
-        head = chunk_table_to_messages(system_session.chunk_table)
+        head = chunk_table_to_messages(agent_session.chunk_table)
         tail = chunk_table_to_messages(ChunkTable(rows=tuple(rows_list)))
         messages = head + tail
 
