@@ -1,17 +1,11 @@
-"""Base type for all flow tool calls dispatched by :class:`~rath.backend.Backend`."""
+"""Aliases for sandbox tool payloads (:class:`~rath.backend.tool_types.BackendTool`)."""
 
 from __future__ import annotations
 
-__all__ = ["FlowToolCall"]
+from typing import TypeAlias
 
+from rath.backend.tool_types import BackendTool
 
-class FlowToolCall:
-    """Marker base for all flow tool call types.
+FlowToolCall: TypeAlias = BackendTool
 
-    Concrete subclasses are dataclasses; this base lets
-    :meth:`~rath.backend.Backend.supported_calls` return
-    ``frozenset[type[FlowToolCall]]`` and keeps pattern matching on a single
-    discriminator root.
-    """
-
-    __slots__ = ()
+__all__ = ["BackendTool", "FlowToolCall"]

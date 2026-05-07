@@ -1,14 +1,6 @@
-"""OpenSandboxBackend-specific tests.
+"""OpenSandbox-only tests (``opensandbox_real``; reachable server on localhost).
 
-Cross-backend behaviour is in ``tests/conformance/``. These tests cover
-adapter-only concerns: capability shape, registration, ``is_available``
-gating on environment, and that the SDK-fronted file-list / file-exists
-paths return data shaped consistently with what conformance expects.
-
-All tests in this file are gated on ``opensandbox_real``: they skip unless a
-local ``opensandbox-server`` is reachable on ``localhost:8080``. There are no
-mocks; the real server stands in for itself.
-"""
+Covers capabilities, ``is_available``, and command/file adapter paths."""
 
 from __future__ import annotations
 
@@ -19,14 +11,14 @@ from rath.backend import (
     CommandResult,
     FileContent,
     FileEntries,
-    FlowToolCodeRun,
-    FlowToolCommandRun,
-    FlowToolFilesExists,
-    FlowToolFilesList,
-    FlowToolFilesRead,
-    FlowToolFilesWrite,
+    BackendToolCodeRun,
+    BackendToolCommandRun,
+    BackendToolFilesExists,
+    BackendToolFilesList,
+    BackendToolFilesRead,
+    BackendToolFilesWrite,
     IsolationLevel,
-    UnsupportedFlowToolCall,
+    UnsupportedBackendTool,
     get,
 )
 from rath.backend.opensandbox import OpenSandboxBackend
@@ -45,12 +37,12 @@ def test_capabilities_match_spec() -> None:
 
 def test_supported_calls_covers_all_phase1_types() -> None:
     expected = {
-        FlowToolCommandRun,
-        FlowToolFilesRead,
-        FlowToolFilesWrite,
-        FlowToolFilesList,
-        FlowToolFilesExists,
-        FlowToolCodeRun,
+        BackendToolCommandRun,
+        BackendToolFilesRead,
+        BackendToolFilesWrite,
+        BackendToolFilesList,
+        BackendToolFilesExists,
+        BackendToolCodeRun,
     }
     assert OpenSandboxBackend.supported_calls() == expected
 
@@ -76,9 +68,9 @@ async def test_command_run_stdin_raises_unsupported() -> None:
     """OpenSandbox's commands.run has no stdin; the adapter must surface that."""
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedFlowToolCall):
+        with pytest.raises(UnsupportedBackendTool):
             await sb.dispatch(
-                FlowToolCommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
+                BackendToolCommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
             )
 
 
@@ -86,9 +78,9 @@ async def test_files_list_returns_entries_with_metadata() -> None:
     """Adapter's ``files.search`` -> ``FileEntries`` mapping must be well-formed."""
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_a.txt", data="a"))
-        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_b.txt", data="b"))
-        result = await sb.dispatch(FlowToolFilesList(path="/tmp"))
+        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_a.txt", data="a"))
+        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_b.txt", data="b"))
+        result = await sb.dispatch(BackendToolFilesList(path="/tmp"))
         assert isinstance(result, FileEntries)
         names = {e.name for e in result.entries}
         assert {"rath_a.txt", "rath_b.txt"}.issubset(names)
@@ -97,14 +89,14 @@ async def test_files_list_returns_entries_with_metadata() -> None:
 async def test_files_exists_true_and_false() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
+        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
         assert (
-            await sb.dispatch(FlowToolFilesExists(path="/tmp/rath_present.txt"))
+            await sb.dispatch(BackendToolFilesExists(path="/tmp/rath_present.txt"))
             is True
         )
         assert (
             await sb.dispatch(
-                FlowToolFilesExists(path="/tmp/rath_definitely_missing.txt")
+                BackendToolFilesExists(path="/tmp/rath_definitely_missing.txt")
             )
             is False
         )
@@ -113,8 +105,8 @@ async def test_files_exists_true_and_false() -> None:
 async def test_unsupported_language_raises() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedFlowToolCall):
-            await sb.dispatch(FlowToolCodeRun(code="puts 'hi'", language="ruby"))
+        with pytest.raises(UnsupportedBackendTool):
+            await sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))
 
 
 async def test_code_run_python_round_trip() -> None:
@@ -122,7 +114,7 @@ async def test_code_run_python_round_trip() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            FlowToolCodeRun(code="x = 1 + 1\nprint(x)\nx")
+            BackendToolCodeRun(code="x = 1 + 1\nprint(x)\nx")
         )
         assert isinstance(result, CodeResult)
         assert result.error is None
@@ -132,12 +124,12 @@ async def test_code_run_python_round_trip() -> None:
 async def test_files_read_text_and_bytes() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
-        await sb.dispatch(FlowToolFilesWrite(path="/tmp/rath_rw.txt", data="hello"))
-        text = await sb.dispatch(FlowToolFilesRead(path="/tmp/rath_rw.txt"))
+        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_rw.txt", data="hello"))
+        text = await sb.dispatch(BackendToolFilesRead(path="/tmp/rath_rw.txt"))
         assert isinstance(text, FileContent)
         assert text.data == "hello"
         raw = await sb.dispatch(
-            FlowToolFilesRead(path="/tmp/rath_rw.txt", encoding=None)
+            BackendToolFilesRead(path="/tmp/rath_rw.txt", encoding=None)
         )
         assert isinstance(raw, FileContent)
         assert raw.data == b"hello"
@@ -147,7 +139,7 @@ async def test_simple_command_run_exit_code_and_stdout() -> None:
     backend = get("opensandbox")
     async with await backend.open() as sb:
         result = await sb.dispatch(
-            FlowToolCommandRun(cmd=["python3", "-c", "print('hello')"])
+            BackendToolCommandRun(cmd=["python3", "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 0

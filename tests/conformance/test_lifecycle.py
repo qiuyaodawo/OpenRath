@@ -1,10 +1,10 @@
-"""Lifecycle conformance: open / close / context manager / sandbox_count."""
+"""Sandbox open/close, async context manager, and ``sandbox_count``."""
 
 from __future__ import annotations
 
 import pytest
 
-from rath.backend import Backend, BackendSandboxClosed, FlowToolCommandRun
+from rath.backend import Backend, BackendSandboxClosed, BackendToolCommandRun
 
 pytestmark = pytest.mark.anyio
 
@@ -32,7 +32,7 @@ async def test_async_with_auto_closes(backend: Backend) -> None:
 async def test_double_close_is_idempotent(backend: Backend) -> None:
     sb = await backend.open()
     await backend.close(sb)
-    await backend.close(sb)  # must not raise
+    await backend.close(sb)
     assert sb.closed is True
 
 
@@ -42,7 +42,7 @@ async def test_dispatch_after_close_raises(
     sb = await backend.open()
     await backend.close(sb)
     with pytest.raises(BackendSandboxClosed):
-        await sb.dispatch(FlowToolCommandRun(cmd=[*python_cmd, "-c", "pass"]))
+        await sb.dispatch(BackendToolCommandRun(cmd=[*python_cmd, "-c", "pass"]))
 
 
 async def test_sandbox_count_tracks_open_sandboxes(backend: Backend) -> None:

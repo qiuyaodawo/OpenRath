@@ -1,10 +1,4 @@
-"""Backend exception hierarchy.
-
-All backend errors derive from :class:`BackendError` so callers can catch the
-whole family with a single ``except`` clause when desired. Subclasses with
-extra fields override ``__reduce__`` so :mod:`pickle` can rebuild them with
-their original constructor arguments.
-"""
+"""Backend-related exceptions."""
 
 from __future__ import annotations
 
@@ -13,14 +7,14 @@ class BackendError(RuntimeError):
     """Base class for all rath.backend errors."""
 
 
-class UnsupportedFlowToolCall(BackendError):
-    """Raised when a backend cannot service a given flow tool call type."""
+class UnsupportedBackendTool(BackendError):
+    """Raised when a backend cannot service a given :class:`~rath.backend.tool_types.BackendTool` type."""
 
     def __init__(self, call_type: type, backend_name: str) -> None:
         self.call_type = call_type
         self.backend_name = backend_name
         super().__init__(
-            f"backend {backend_name!r} does not support flow tool call "
+            f"backend {backend_name!r} does not support backend tool payload "
             f"{call_type.__name__!r}"
         )
 

@@ -1,10 +1,4 @@
-"""LocalBackend-specific tests.
-
-Cross-backend behaviour is in ``tests/conformance/``; this file covers things
-unique to the local backend: that it is always available, its capabilities
-match the design spec, the sandbox handle is a real on-disk working directory,
-and that close() removes the working directory.
-"""
+"""Local-backend-only tests (always-on, temp working directories, close removes dir)."""
 
 from __future__ import annotations
 
@@ -14,14 +8,14 @@ import pytest
 
 from rath.backend import (
     BackendSandboxSpec,
-    FlowToolCodeRun,
-    FlowToolCommandRun,
-    FlowToolFilesExists,
-    FlowToolFilesList,
-    FlowToolFilesRead,
-    FlowToolFilesWrite,
+    BackendToolCodeRun,
+    BackendToolCommandRun,
+    BackendToolFilesExists,
+    BackendToolFilesList,
+    BackendToolFilesRead,
+    BackendToolFilesWrite,
     IsolationLevel,
-    UnsupportedFlowToolCall,
+    UnsupportedBackendTool,
     get,
 )
 from rath.backend.local import LocalBackend
@@ -44,12 +38,12 @@ def test_capabilities_match_spec() -> None:
 
 def test_supported_calls_covers_all_phase1_types() -> None:
     expected = {
-        FlowToolCommandRun,
-        FlowToolFilesRead,
-        FlowToolFilesWrite,
-        FlowToolFilesList,
-        FlowToolFilesExists,
-        FlowToolCodeRun,
+        BackendToolCommandRun,
+        BackendToolFilesRead,
+        BackendToolFilesWrite,
+        BackendToolFilesList,
+        BackendToolFilesExists,
+        BackendToolCodeRun,
     }
     assert LocalBackend.supported_calls() == expected
 
@@ -90,5 +84,5 @@ async def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
 async def test_unknown_code_language_raises_unsupported() -> None:
     backend = get("local")
     async with await backend.open() as sb:
-        with pytest.raises(UnsupportedFlowToolCall):
-            await sb.dispatch(FlowToolCodeRun(code="puts 'hi'", language="ruby"))
+        with pytest.raises(UnsupportedBackendTool):
+            await sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))

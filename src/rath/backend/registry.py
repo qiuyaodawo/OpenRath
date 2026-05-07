@@ -13,7 +13,7 @@ from rath.backend.abc import Backend
 from rath.backend.errors import BackendNotFound
 
 _REGISTRY: dict[str, type[Backend]] = {}
-_DEFAULT: dict[str, str] = {}  # single-key dict acts as a slot
+_DEFAULT: dict[str, str] = {}
 
 B = TypeVar("B", bound=Backend)
 

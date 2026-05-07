@@ -1,9 +1,4 @@
-"""In-process scripted LLM for ``run_session_loop`` tests (no ``unittest.mock``).
-
-``complete`` returns a fixed sequence of :class:`~rath.llm.RathLLMChatResponse`
-values. ``dispatch_tool`` forwards to the real sandbox so tool execution stays
-honest (typically :class:`~rath.backend.local.LocalBackend`).
-"""
+"""Deterministic :func:`~rath.session.loop.run_session_loop` driver (queued responses, live sandbox)."""
 
 from __future__ import annotations
 
@@ -15,7 +10,7 @@ from rath.session.session import Session
 
 
 class ScriptedSessionLoopExecutor:
-    """Pops scripted chat responses; dispatches tools on the live sandbox."""
+    """Dequeues fixed :class:`~rath.llm.RathLLMChatResponse`; runs tools on ``session.require_sandbox()``."""
 
     __slots__ = ("_queue",)
 

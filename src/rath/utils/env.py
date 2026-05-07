@@ -6,10 +6,7 @@ from pathlib import Path
 
 
 def project_root_with_pyproject() -> Path:
-    """Directory containing ``pyproject.toml`` for the ``src/rath`` layout.
-
-    Resolves from ``src/rath/utils/env.py`` → three parents up to repo root.
-    """
+    """Repository root: parent of ``src`` that contains ``pyproject.toml``."""
     return Path(__file__).resolve().parents[3]
 
 

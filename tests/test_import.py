@@ -6,8 +6,24 @@ def test_import_rath() -> None:
     assert rath.flow is not None
 
 
+def test_namespace_flow_submodules() -> None:
+    """``rath.flow`` exposes the package; agents and workflows live on submodules."""
+
+    import rath
+    from rath import flow
+
+    assert rath.flow is flow
+
+    from rath.flow.agent import Agent, AgentLLMProvider
+    from rath.flow.workflow import Workflow
+
+    assert Agent.__name__ == "Agent"
+    assert AgentLLMProvider.__name__ == "AgentLLMProvider"
+    assert Workflow.__name__ == "Workflow"
+
+
 def test_import_session_and_flow_modules() -> None:
-    """Session/workflow planes are optional imports (not loaded by ``import rath``)."""
+    """Session and flow types import from their submodules."""
 
     from rath.flow.agent import Agent, AgentLLMProvider
     from rath.flow.workflow import Workflow

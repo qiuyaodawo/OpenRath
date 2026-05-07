@@ -12,11 +12,10 @@ from rath.session.graph import SessionLineage
 
 @dataclass(slots=True)
 class Session:
-    """Conversation carrier (Torch ``Tensor`` analogy).
+    """Chunk history (:attr:`chunk_table`) and optional :class:`~rath.backend.BackendSandbox`.
 
-    Input sessions passed to ``run_session_loop`` are treated as immutable
-    snapshots: the loop returns a **new** :class:`Session` that may share chunk
-    tuples and rebinds the sandbox handle to the outgoing session.
+    :func:`~rath.session.loop.run_session_loop` consumes the incoming sandbox handle
+    and attaches it to its returned session.
     """
 
     chunk_table: ChunkTable

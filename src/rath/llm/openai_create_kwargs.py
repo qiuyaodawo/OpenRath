@@ -107,8 +107,7 @@ def to_create_kwargs(
     extra = dict(req.extra_create_args)
     if extra.pop("stream", None) is True:
         raise ValueError(
-            "stream=True is not supported; "
-            "Phase 1 only supports non-streaming completions",
+            "stream=True is not supported (only non-streaming completions are implemented)",
         )
     out.update(extra)
     out["stream"] = False

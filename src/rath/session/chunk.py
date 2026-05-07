@@ -25,10 +25,12 @@ class ChunkRow:
 
 
 def user_text_chunk(text: str) -> ChunkRow:
+    """User message row for :attr:`ChunkKind.USER`."""
     return ChunkRow(kind=ChunkKind.USER, payload={"content": text})
 
 
 def system_text_chunk(text: str) -> ChunkRow:
+    """System prompt row for :attr:`ChunkKind.SYSTEM`."""
     return ChunkRow(kind=ChunkKind.SYSTEM, payload={"content": text})
 
 
@@ -37,6 +39,7 @@ def assistant_turn_chunk(
     tool_calls: tuple[RathLLMToolCallPart, ...] | None,
     content: str | None = None,
 ) -> ChunkRow:
+    """Assistant message row; ``tool_calls`` are stored in OpenAI-style wire form."""
     wire: list[dict[str, Any]] | None = None
     if tool_calls:
         wire = []
@@ -58,6 +61,7 @@ def assistant_turn_chunk(
 
 
 def tool_feedback_chunk(tool_call_id: str, name: str, body: str) -> ChunkRow:
+    """Tool result chunk for replay into the chat transcript."""
     return ChunkRow(
         kind=ChunkKind.TOOL_RESULT,
         payload={"tool_call_id": tool_call_id, "name": name, "content": body},

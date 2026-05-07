@@ -1,4 +1,4 @@
-"""Composable workflow modules — Torch ``nn.Module`` analogy."""
+"""Workflow base type: assigns :class:`~rath.flow.agent.Agent` members and runs sessions."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from rath.session.session import Session
 
 
 class Workflow:
-    """Base class registering :class:`~rath.flow.agent.Agent` children."""
+    """Collects :class:`~rath.flow.agent.Agent` instances set as attributes and runs them."""
 
     __slots__ = ("_agents",)
 

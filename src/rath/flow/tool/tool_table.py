@@ -1,9 +1,4 @@
-"""Process-wide tool registry used by session loop tool dispatch.
-
-:class:`ToolTable` holds OpenAI-compatible function schemas and builders that
-produce :class:`~rath.flow.tool.base.FlowToolCall` values from parsed JSON
-arguments. Workflows register agents; tools register **here**.
-"""
+"""Register tool names, json-schema parameters, and ``BackendTool`` builders."""
 
 from __future__ import annotations
 
@@ -13,7 +8,8 @@ from threading import Lock
 from typing import Any
 
 from rath.flow.tool.base import FlowToolCall
-from rath.flow.tool.command_run import FlowToolCommandRun
+from rath.flow.tool.command_run import flow_tool_command_run
+from rath.flow.tool.files_write import flow_tool_files_write
 from rath.llm import RathLLMFunctionTool
 
 
@@ -26,7 +22,7 @@ class _ToolSpec:
 
 
 class ToolTable:
-    """Maps tool name → schema + :class:`FlowToolCall` builder."""
+    """Maps tool name → schema + :class:`~rath.backend.tool_types.BackendTool` builder."""
 
     __slots__ = ("_tools", "_lock")
 
@@ -101,7 +97,7 @@ def register_builtin_session_tools(table: ToolTable | None = None) -> ToolTable:
             raise ValueError("multiline commands are rejected")
         if len(cmd) > 2048:
             raise ValueError("command too long")
-        return FlowToolCommandRun(cmd=cmd)
+        return flow_tool_command_run(cmd=cmd)
 
     target.register(
         "run_shell_command",
@@ -121,12 +117,10 @@ def register_builtin_session_tools(table: ToolTable | None = None) -> ToolTable:
     )
 
     def _write_file(args: Mapping[str, Any]) -> FlowToolCall:
-        from rath.flow.tool import FlowToolFilesWrite
-
         path = str(args["path"])
         raw = args["content"]
         if isinstance(raw, str):
-            return FlowToolFilesWrite(path=path, data=raw)
+            return flow_tool_files_write(path=path, data=raw)
         raise TypeError("content must be text for write_workspace_file")
 
     target.register(

@@ -21,7 +21,7 @@ from rath.session.session import Session
 
 
 class DefaultSessionLoopExecutor:
-    """Wires :class:`RathOpenAIChatClient` and :class:`ToolTable` into the loop."""
+    """Default :class:`SessionLoopExecutor`: thread-pooled LLM + async sandbox ``dispatch``."""
 
     __slots__ = ("_client", "_table")
 
@@ -35,6 +35,8 @@ class DefaultSessionLoopExecutor:
         self._table = tool_table or global_tool_table()
 
     def tool_schemas(self) -> tuple[RathLLMFunctionTool, ...]:
+        """Register built-in session tools and return OpenAI function schemas."""
+
         register_builtin_session_tools(self._table)
         return self._table.schemas()
 
@@ -43,6 +45,8 @@ class DefaultSessionLoopExecutor:
         return self._table
 
     async def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
+        """Call the sync client from a worker thread (:func:`anyio.to_thread.run_sync`)."""
+
         return await anyio.to_thread.run_sync(self._client.complete, req)
 
     async def dispatch_tool(
@@ -50,6 +54,8 @@ class DefaultSessionLoopExecutor:
         session: Session,
         call: FlowToolCall,
     ) -> ToolResult | bool:
+        """Run ``call`` on ``session``'s sandbox."""
+
         return await session.require_sandbox().dispatch(call)
 
 

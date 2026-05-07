@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from rath.flow.tool import FlowToolCommandRun, FlowToolFilesWrite
+from rath.backend import BackendToolCommandRun, BackendToolFilesWrite
 from rath.flow.tool.tool_table import ToolTable, register_builtin_session_tools
 
 
@@ -20,7 +20,7 @@ def test_build_run_shell_command() -> None:
     table = ToolTable()
     register_builtin_session_tools(table)
     call = table.build("run_shell_command", {"cmd": "echo x"})
-    assert isinstance(call, FlowToolCommandRun)
+    assert isinstance(call, BackendToolCommandRun)
     assert call.cmd == "echo x"
 
 
@@ -31,7 +31,7 @@ def test_build_write_workspace_file() -> None:
         "write_workspace_file",
         {"path": "rel.txt", "content": "body"},
     )
-    assert isinstance(call, FlowToolFilesWrite)
+    assert isinstance(call, BackendToolFilesWrite)
     assert call.path == "rel.txt"
     assert call.data == "body"
 

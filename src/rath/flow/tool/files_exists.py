@@ -1,16 +1,12 @@
-"""Path existence check tool call."""
+"""Factory for path-exists payloads (→ :class:`~rath.backend.tool_types.BackendToolFilesExists`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from rath.backend.tool_types import BackendToolFilesExists
 
-from rath.flow.tool.base import FlowToolCall
-
-__all__ = ["FlowToolFilesExists"]
+__all__ = ["flow_tool_files_exists"]
 
 
-@dataclass(frozen=True, slots=True)
-class FlowToolFilesExists(FlowToolCall):
-    """Check whether a path exists inside the sandbox."""
-
-    path: str
+def flow_tool_files_exists(path: str) -> BackendToolFilesExists:
+    """Build :class:`~rath.backend.tool_types.BackendToolFilesExists`."""
+    return BackendToolFilesExists(path=path)

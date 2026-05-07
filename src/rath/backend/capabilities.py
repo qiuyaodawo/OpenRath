@@ -1,8 +1,4 @@
-"""Static capability description for a backend.
-
-Capabilities are deliberately minimal in this phase. New fields should be added
-only when an actual backend or scheduling decision needs them.
-"""
+"""Static backend capability description."""
 
 from __future__ import annotations
 

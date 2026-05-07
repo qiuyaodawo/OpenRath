@@ -1,4 +1,4 @@
-"""Conformance: concurrent sandbox usage and cleanup invariants."""
+"""Concurrent sandboxes and post-close cleanup."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ import pytest
 from rath.backend import (
     Backend,
     CommandResult,
-    FlowToolCommandRun,
-    FlowToolFilesExists,
-    FlowToolFilesWrite,
+    BackendToolCommandRun,
+    BackendToolFilesExists,
+    BackendToolFilesWrite,
 )
 
 pytestmark = pytest.mark.anyio
@@ -29,7 +29,7 @@ async def test_many_parallel_sandboxes(
     async def one_sandbox() -> None:
         async with await backend.open() as sb:
             result = await sb.dispatch(
-                FlowToolCommandRun(cmd=[*python_cmd, "-c", "print(42)"])
+                BackendToolCommandRun(cmd=[*python_cmd, "-c", "print(42)"])
             )
             assert isinstance(result, CommandResult)
             assert result.exit_code == 0
@@ -46,9 +46,9 @@ async def test_two_sandboxes_independent(backend: Backend) -> None:
     s1 = await backend.open()
     s2 = await backend.open()
     try:
-        await s1.dispatch(FlowToolFilesWrite(path="only-in-s1.txt", data="x"))
-        in_s1 = await s1.dispatch(FlowToolFilesExists(path="only-in-s1.txt"))
-        in_s2 = await s2.dispatch(FlowToolFilesExists(path="only-in-s1.txt"))
+        await s1.dispatch(BackendToolFilesWrite(path="only-in-s1.txt", data="x"))
+        in_s1 = await s1.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
+        in_s2 = await s2.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
         assert in_s1 is True
         assert in_s2 is False
     finally:

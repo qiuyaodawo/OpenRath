@@ -1,9 +1,4 @@
-"""Tool-aware session loop — async orchestration for chat + sandbox tools.
-
-**Async model:** this module is **async-first**. The sync LLM client runs inside
-``anyio.to_thread.run_sync`` via :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`. Do **not**
-nest ``anyio.run()`` / ``asyncio.run()`` inside an already running loop.
-"""
+"""Async session loop: alternate LLM completions with sandbox tool execution."""
 
 from __future__ import annotations
 
@@ -18,7 +13,6 @@ from rath.backend import (
     FileWriteResult,
     ToolResult,
 )
-from rath.session.agent import Agent, AgentLLMProvider
 from rath.flow.tool import (
     FlowToolCall,
     ToolTable,
@@ -57,7 +51,7 @@ class SessionLoopExecutor(Protocol):
         """Execute ``call`` on the session sandbox."""
 
     def tool_schemas(self) -> tuple[RathLLMFunctionTool, ...]:
-        """OpenAI function defs (ToolTable-backed)."""
+        """Function tool definitions for OpenAI-style ``tools`` in requests."""
 
 
 def _chat_request_from_loop(
@@ -67,7 +61,7 @@ def _chat_request_from_loop(
     *,
     default_tool_choice: Any,
 ) -> RathLLMChatRequest:
-    """Fold :class:`~rath.session.agent.AgentLLMProvider` into a concrete request."""
+    """Fold :class:`~rath.flow.agent.AgentLLMProvider` into a concrete request."""
 
     return RathLLMChatRequest(
         messages=messages,
@@ -152,13 +146,10 @@ async def run_session_loop(
     tool_table: ToolTable | None = None,
     max_tool_rounds: int = 16,
 ) -> Session:
-    """Run agent system session + user messages with tools; return a new Session.
+    """Run one multi-turn assistant pass with optional tool rounds.
 
-    The returned session **rebinds** the sandbox taken from ``user_session``.
-    After success, ``user_session`` no longer holds that sandbox.
-
-    HTTP / sandbox dispatch is delegated to ``executor``; sampling options come from
-    ``agent.provider``.
+    Rebinds the sandbox from ``user_session`` onto the returned :class:`~rath.session.Session`.
+    Sampling options come from ``agent.provider``; model access remains on ``executor``.
     """
 
     table = tool_table or global_tool_table()

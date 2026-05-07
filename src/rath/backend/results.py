@@ -1,9 +1,7 @@
-"""Tool result value objects.
+"""Typed results returned from :meth:`~rath.backend.Backend.dispatch`.
 
-Mirrors the structure of :mod:`rath.flow.tool` call types: every concrete result
-is a frozen, slotted dataclass. :class:`~rath.flow.tool.FlowToolFilesExists`
-intentionally yields the bare ``bool`` from dispatch rather than a wrapper,
-since wrapping a single boolean adds no information.
+:class:`~rath.backend.tool_types.BackendToolFilesExists` is the only payload whose
+dispatch result is a plain ``bool`` (not a :class:`ToolResult` subclass).
 """
 
 from __future__ import annotations
@@ -14,8 +12,8 @@ from dataclasses import dataclass
 class ToolResult:
     """Marker base class for all tool results.
 
-    Concrete subclasses are dataclasses. :class:`~rath.flow.tool.FlowToolFilesExists`
-    is the one flow tool call that returns a plain ``bool`` instead of a
+    Concrete subclasses are dataclasses. :class:`~rath.backend.tool_types.BackendToolFilesExists`
+    is the one backend tool payload that returns a plain ``bool`` instead of a
     :class:`ToolResult` subclass.
     """
 
@@ -24,7 +22,7 @@ class ToolResult:
 
 @dataclass(frozen=True, slots=True)
 class CommandResult(ToolResult):
-    """Result of :class:`~rath.flow.tool.FlowToolCommandRun`."""
+    """Result of :class:`~rath.backend.tool_types.BackendToolCommandRun`."""
 
     exit_code: int
     stdout: bytes
@@ -34,7 +32,7 @@ class CommandResult(ToolResult):
 
 @dataclass(frozen=True, slots=True)
 class FileContent(ToolResult):
-    """Result of :class:`~rath.flow.tool.FlowToolFilesRead`.
+    """Result of :class:`~rath.backend.tool_types.BackendToolFilesRead`.
 
     ``data`` is ``str`` when the call was made with an ``encoding`` set, or
     ``bytes`` when ``encoding=None``.
@@ -54,10 +52,9 @@ class FileEntry:
 
 @dataclass(frozen=True, slots=True)
 class FileEntries(ToolResult):
-    """Result of :class:`~rath.flow.tool.FlowToolFilesList`.
+    """Result of :class:`~rath.backend.tool_types.BackendToolFilesList`.
 
-    Entries are sorted by ``name`` so that conformance tests can compare
-    output across backends.
+    Entries are sorted by ``name`` for stable ordering.
     """
 
     entries: tuple[FileEntry, ...]
@@ -65,7 +62,7 @@ class FileEntries(ToolResult):
 
 @dataclass(frozen=True, slots=True)
 class FileWriteResult(ToolResult):
-    """Result of :class:`~rath.flow.tool.FlowToolFilesWrite`.
+    """Result of :class:`~rath.backend.tool_types.BackendToolFilesWrite`.
 
     Holds the number of bytes actually written so that callers can verify
     the write without re-reading the file.
@@ -76,7 +73,7 @@ class FileWriteResult(ToolResult):
 
 @dataclass(frozen=True, slots=True)
 class CodeResult(ToolResult):
-    """Result of :class:`~rath.flow.tool.FlowToolCodeRun`.
+    """Result of :class:`~rath.backend.tool_types.BackendToolCodeRun`.
 
     ``text`` holds the value of the last expression when the underlying
     runtime supports value extraction (e.g. a real code interpreter). For

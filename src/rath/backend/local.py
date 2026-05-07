@@ -1,9 +1,7 @@
-"""LocalBackend: subprocess + filesystem on the host machine.
+"""Host-process backend: subprocesses and filesystem under a temp working directory.
 
-Acts as the fallback backend, analogous to PyTorch's CPU device. It is always
-available and has the lowest cold-start cost. Paths in tool calls are resolved
-relative to the sandbox's working directory when given as relative paths;
-absolute paths are used as-is.
+Always available. Relative paths in tool calls are resolved against the sandbox
+working directory; absolute paths pass through unchanged.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ import anyio
 
 from rath.backend.abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend.capabilities import Capabilities, IsolationLevel
-from rath.backend.errors import BackendSandboxClosed, UnsupportedFlowToolCall
+from rath.backend.errors import BackendSandboxClosed, UnsupportedBackendTool
 from rath.backend.registry import register
 from rath.backend.results import (
     CodeResult,
@@ -33,14 +31,14 @@ from rath.backend.results import (
     FileWriteResult,
     ToolResult,
 )
-from rath.flow.tool import (
-    FlowToolCall,
-    FlowToolCodeRun,
-    FlowToolCommandRun,
-    FlowToolFilesExists,
-    FlowToolFilesList,
-    FlowToolFilesRead,
-    FlowToolFilesWrite,
+from rath.backend.tool_types import (
+    BackendTool,
+    BackendToolCodeRun,
+    BackendToolCommandRun,
+    BackendToolFilesExists,
+    BackendToolFilesList,
+    BackendToolFilesRead,
+    BackendToolFilesWrite,
 )
 
 
@@ -69,14 +67,14 @@ class LocalBackend(Backend):
         max_sandboxes=None,
     )
 
-    _SUPPORTED_CALLS: ClassVar[frozenset[type[FlowToolCall]]] = frozenset(
+    _SUPPORTED_CALLS: ClassVar[frozenset[type[BackendTool]]] = frozenset(
         {
-            FlowToolCommandRun,
-            FlowToolFilesRead,
-            FlowToolFilesWrite,
-            FlowToolFilesList,
-            FlowToolFilesExists,
-            FlowToolCodeRun,
+            BackendToolCommandRun,
+            BackendToolFilesRead,
+            BackendToolFilesWrite,
+            BackendToolFilesList,
+            BackendToolFilesExists,
+            BackendToolCodeRun,
         }
     )
 
@@ -92,7 +90,7 @@ class LocalBackend(Backend):
         return cls._CAPABILITIES
 
     @classmethod
-    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
+    def supported_calls(cls) -> frozenset[type[BackendTool]]:
         return cls._SUPPORTED_CALLS
 
     def sandbox_count(self) -> int:
@@ -116,34 +114,30 @@ class LocalBackend(Backend):
             return
         self._open_handles.discard(sandbox.handle)
         sandbox.closed = True
-        # Best-effort cleanup. ignore_errors=True keeps close idempotent even
-        # when the directory is already gone or holds locked files on Windows.
         await anyio.to_thread.run_sync(
             lambda: shutil.rmtree(sandbox.handle, ignore_errors=True)
         )
 
     async def dispatch(
-        self, sandbox: BackendSandbox, call: FlowToolCall
+        self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         if sandbox.closed:
             raise BackendSandboxClosed(sandbox.handle)
         match call:
-            case FlowToolCommandRun():
+            case BackendToolCommandRun():
                 return await self._command_run(sandbox, call)
-            case FlowToolFilesRead():
+            case BackendToolFilesRead():
                 return await self._files_read(sandbox, call)
-            case FlowToolFilesWrite():
+            case BackendToolFilesWrite():
                 return await self._files_write(sandbox, call)
-            case FlowToolFilesList():
+            case BackendToolFilesList():
                 return await self._files_list(sandbox, call)
-            case FlowToolFilesExists():
+            case BackendToolFilesExists():
                 return await self._files_exists(sandbox, call)
-            case FlowToolCodeRun():
+            case BackendToolCodeRun():
                 return await self._code_run(sandbox, call)
             case _:
-                raise UnsupportedFlowToolCall(type(call), self.name)
-
-    # ------------------------------------------------------------------ helpers
+                raise UnsupportedBackendTool(type(call), self.name)
 
     def _resolve(self, sandbox: BackendSandbox, path: str) -> anyio.Path:
         """Join ``path`` with the sandbox working dir if it is relative."""
@@ -153,15 +147,15 @@ class LocalBackend(Backend):
         return anyio.Path(sandbox.handle) / path
 
     async def _command_run(
-        self, sandbox: BackendSandbox, call: FlowToolCommandRun
+        self, sandbox: BackendSandbox, call: BackendToolCommandRun
     ) -> CommandResult:
+        """Merge ``call.env`` onto ``os.environ`` when ``call.env`` is not ``None``."""
+
         cwd = (
             self._resolve(sandbox, call.cwd)
             if call.cwd
             else anyio.Path(sandbox.handle)
         )
-        # Merge ``call.env`` over the parent process env so platform vars
-        # like PATH stay available; pass an empty dict to actually clear.
         env_arg: dict[str, str] | None = None
         if call.env is not None:
             env_arg = {**os.environ, **call.env}
@@ -183,7 +177,7 @@ class LocalBackend(Backend):
         )
 
     async def _files_read(
-        self, sandbox: BackendSandbox, call: FlowToolFilesRead
+        self, sandbox: BackendSandbox, call: BackendToolFilesRead
     ) -> FileContent:
         p = self._resolve(sandbox, call.path)
         if call.encoding is None:
@@ -191,20 +185,20 @@ class LocalBackend(Backend):
         return FileContent(data=await p.read_text(encoding=call.encoding))
 
     async def _files_write(
-        self, sandbox: BackendSandbox, call: FlowToolFilesWrite
+        self, sandbox: BackendSandbox, call: BackendToolFilesWrite
     ) -> FileWriteResult:
+        """Apply ``call.mode`` best-effort after write (Windows maps to read-only bit)."""
+
         p = self._resolve(sandbox, call.path)
         await p.parent.mkdir(parents=True, exist_ok=True)
         payload = call.data.encode("utf-8") if isinstance(call.data, str) else call.data
         await p.write_bytes(payload)
-        # chmod is a best-effort op; on Windows only the read-only bit is
-        # honoured, which matches stdlib behaviour.
         with contextlib.suppress(OSError):
             await p.chmod(call.mode)
         return FileWriteResult(bytes_written=len(payload))
 
     async def _files_list(
-        self, sandbox: BackendSandbox, call: FlowToolFilesList
+        self, sandbox: BackendSandbox, call: BackendToolFilesList
     ) -> FileEntries:
         p = self._resolve(sandbox, call.path)
         entries: list[FileEntry] = []
@@ -220,16 +214,16 @@ class LocalBackend(Backend):
         return FileEntries(entries=tuple(entries))
 
     async def _files_exists(
-        self, sandbox: BackendSandbox, call: FlowToolFilesExists
+        self, sandbox: BackendSandbox, call: BackendToolFilesExists
     ) -> bool:
         p = self._resolve(sandbox, call.path)
         return await p.exists()
 
     async def _code_run(
-        self, sandbox: BackendSandbox, call: FlowToolCodeRun
+        self, sandbox: BackendSandbox, call: BackendToolCodeRun
     ) -> CodeResult:
         if call.language != "python":
-            raise UnsupportedFlowToolCall(type(call), self.name)
+            raise UnsupportedBackendTool(type(call), self.name)
         work = anyio.Path(sandbox.handle)
         tmp = work / f".rath_code_{uuid.uuid4().hex}.py"
         await tmp.write_text(call.code, encoding="utf-8")

@@ -1,18 +1,14 @@
-"""Code snippet execution tool call."""
+"""Factory for code-interpreter payloads (→ :class:`~rath.backend.tool_types.BackendToolCodeRun`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from rath.backend.tool_types import BackendToolCodeRun
 
-from rath.flow.tool.base import FlowToolCall
-
-__all__ = ["FlowToolCodeRun"]
+__all__ = ["flow_tool_code_run"]
 
 
-@dataclass(frozen=True, slots=True)
-class FlowToolCodeRun(FlowToolCall):
-    """Execute a code snippet inside the sandbox in the given language."""
-
-    code: str
-    language: str = "python"
-    timeout: float | None = None
+def flow_tool_code_run(
+    code: str, *, language: str = "python", timeout: float | None = None
+) -> BackendToolCodeRun:
+    """Build :class:`~rath.backend.tool_types.BackendToolCodeRun`."""
+    return BackendToolCodeRun(code=code, language=language, timeout=timeout)

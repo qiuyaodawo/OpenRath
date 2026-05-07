@@ -8,7 +8,7 @@ from uuid import UUID
 
 @dataclass(frozen=True, slots=True)
 class SessionLineage:
-    """Producer sessions for graph-style bookkeeping (Torch autograd analogue)."""
+    """Links a loop output session to the producer user/system session ids."""
 
     producer_user_session_id: UUID
     producer_system_session_id: UUID

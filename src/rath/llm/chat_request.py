@@ -12,19 +12,20 @@ __all__ = [
     "RathLLMChatRequest",
 ]
 
-# Roles commonly accepted by Chat Completions (extend as providers add roles).
 RathLLMRole = Literal["system", "user", "assistant", "tool", "developer"]
 
 
 @dataclass(frozen=True, slots=True)
 class RathLLMMessage:
-    """One item in ``messages`` for chat ``completions.create``."""
+    """One ``messages[]`` element for chat ``completions.create``.
+
+    ``tool_calls`` is set only for assistant turns in tool-using conversations.
+    """
 
     role: str
     content: str | None = None
     name: str | None = None
     tool_call_id: str | None = None
-    # OpenAI wire-shaped tool_calls for assistant role (multi-turn tool loops).
     tool_calls: tuple[Mapping[str, Any], ...] | None = None
 
 
@@ -40,10 +41,9 @@ class RathLLMFunctionTool:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class RathLLMChatRequest:
-    """User-facing request; maps to ``client.chat.completions.create`` keyword args.
+    """Maps to keyword arguments passed to ``client.chat.completions.create``.
 
-    If ``model`` is ``None``, :class:`RathOpenAIChatClient` fills it from
-    ``OPENAI_DEFAULT_MODEL``. ``stream`` is always forced to ``False`` for Phase 1.
+    ``model=None`` defaults in :class:`~rath.llm.client.RathOpenAIChatClient`.
     """
 
     messages: tuple[RathLLMMessage, ...]

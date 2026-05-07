@@ -1,16 +1,12 @@
-"""List directory tool call."""
+"""Factory for directory list payloads (→ :class:`~rath.backend.tool_types.BackendToolFilesList`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from rath.backend.tool_types import BackendToolFilesList
 
-from rath.flow.tool.base import FlowToolCall
-
-__all__ = ["FlowToolFilesList"]
+__all__ = ["flow_tool_files_list"]
 
 
-@dataclass(frozen=True, slots=True)
-class FlowToolFilesList(FlowToolCall):
-    """List entries (non-recursive) under a sandbox directory."""
-
-    path: str
+def flow_tool_files_list(path: str) -> BackendToolFilesList:
+    """Build :class:`~rath.backend.tool_types.BackendToolFilesList`."""
+    return BackendToolFilesList(path=path)

@@ -1,9 +1,4 @@
-"""Conformance fixture: parametrize over every available backend.
-
-The ``opensandbox`` parameter is gated on ``opensandbox_real`` (defined in
-the top-level ``tests/conftest.py``), which skips when no local
-``opensandbox-server`` is reachable on ``localhost:8080``.
-"""
+"""Fixtures parametrizing ``local`` and ``opensandbox`` backends."""
 
 from __future__ import annotations
 
@@ -34,12 +29,7 @@ async def backend(request: pytest.FixtureRequest) -> AsyncIterator[Backend]:
 
 @pytest.fixture
 def python_cmd(backend: Backend) -> list[str]:
-    """Backend-portable Python interpreter command prefix.
-
-    LocalBackend runs on the host, so the running interpreter
-    (``sys.executable``) is what's available. OpenSandboxBackend runs inside
-    a Linux container with the standard ``python3`` on ``$PATH``.
-    """
+    """``[sys.executable]`` on local; ``["python3"]`` in OpenSandbox containers."""
     if backend.name == "local":
         return [sys.executable]
     return ["python3"]

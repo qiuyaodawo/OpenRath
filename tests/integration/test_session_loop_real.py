@@ -1,9 +1,4 @@
-"""End-to-end session loop: live LLM + OpenSandbox (no mocks).
-
-These tests require ``opensandbox-server`` on ``localhost:8080`` and
-``OPENAI_API_KEY`` (see project ``.env``). They are marked ``integration``,
-``opensandbox``, and ``live_llm`` for selective runs.
-"""
+"""Integration: live chat client + OpenSandbox backend (markers: ``integration``, ``live_llm``, ``opensandbox``)."""
 
 from __future__ import annotations
 

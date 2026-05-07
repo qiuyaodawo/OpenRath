@@ -1,8 +1,8 @@
-"""OpenRath: torch-like workflows with sandbox backends and LLM clients.
+"""OpenRath: sandbox backends, LLM clients, and composable flow.
 
-:mod:`rath.backend` loads eagerly. :mod:`rath.flow` stays a shallow namespace so
-tool imports avoid pulling session code. Access :mod:`rath.session` via
-``from rath.session import ...`` (lazy-loaded as ``rath.session`` attribute).
+Tool payloads are :class:`~rath.backend.tool_types.BackendTool` (aliased as
+:class:`~rath.flow.tool.FlowToolCall`). Import submodules explicitly, e.g.
+``rath.flow.agent``; ``rath.session`` is lazy-loaded via :func:`__getattr__`.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ __all__ = ["backend", "flow", "session"]
 
 
 def __getattr__(name: str) -> Any:
+    """Lazy-load ``session`` on first attribute access."""
     if name == "session":
         from rath import session as _session
 

@@ -1,4 +1,4 @@
-"""Conformance: Stream / Event semantics across all backends."""
+"""Stream and :class:`Event` semantics on each registered backend."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from rath.backend import (
     Backend,
     CommandResult,
     FileContent,
-    FlowToolCommandRun,
-    FlowToolFilesRead,
-    FlowToolFilesWrite,
+    BackendToolCommandRun,
+    BackendToolFilesRead,
+    BackendToolFilesWrite,
 )
 
 pytestmark = pytest.mark.anyio
@@ -23,9 +23,9 @@ async def test_fifo_within_one_stream(
     """A dependency chain expressed via stream submission must be honoured."""
     async with await backend.open() as sb:
         async with sb.stream() as s:
-            await s.submit(FlowToolFilesWrite(path="step.txt", data="a"))
+            await s.submit(BackendToolFilesWrite(path="step.txt", data="a"))
             await s.submit(
-                FlowToolCommandRun(
+                BackendToolCommandRun(
                     cmd=[
                         *python_cmd,
                         "-c",
@@ -37,7 +37,7 @@ async def test_fifo_within_one_stream(
                     ]
                 )
             )
-            f3 = await s.submit(FlowToolFilesRead(path="step.txt"))
+            f3 = await s.submit(BackendToolFilesRead(path="step.txt"))
             res = await f3
     assert isinstance(res, FileContent)
     assert res.data == "ab"
@@ -50,7 +50,7 @@ async def test_two_streams_progress_concurrently(
     async with await backend.open() as sb:
         async with sb.stream() as s1, sb.stream() as s2:
             f1 = await s1.submit(
-                FlowToolCommandRun(
+                BackendToolCommandRun(
                     cmd=[
                         *python_cmd,
                         "-c",
@@ -59,7 +59,7 @@ async def test_two_streams_progress_concurrently(
                 )
             )
             f2 = await s2.submit(
-                FlowToolCommandRun(
+                BackendToolCommandRun(
                     cmd=[
                         *python_cmd,
                         "-c",
@@ -81,10 +81,10 @@ async def test_event_orders_across_streams(backend: Backend) -> None:
     """An event recorded on s1 must gate s2's subsequent submissions."""
     async with await backend.open() as sb:
         async with sb.stream() as s1, sb.stream() as s2:
-            await s1.submit(FlowToolFilesWrite(path="ordered.txt", data="hello"))
+            await s1.submit(BackendToolFilesWrite(path="ordered.txt", data="hello"))
             evt = await s1.record_event()
             await s2.wait_event(evt)
-            f = await s2.submit(FlowToolFilesRead(path="ordered.txt"))
+            f = await s2.submit(BackendToolFilesRead(path="ordered.txt"))
             res = await f
     assert isinstance(res, FileContent)
     assert res.data == "hello"
@@ -94,10 +94,10 @@ async def test_synchronize_drains_stream(backend: Backend) -> None:
     async with await backend.open() as sb:
         async with sb.stream() as s:
             for i in range(3):
-                await s.submit(FlowToolFilesWrite(path=f"f{i}.txt", data=str(i)))
+                await s.submit(BackendToolFilesWrite(path=f"f{i}.txt", data=str(i)))
             await s.synchronize()
             for i in range(3):
-                f = await s.submit(FlowToolFilesRead(path=f"f{i}.txt"))
+                f = await s.submit(BackendToolFilesRead(path=f"f{i}.txt"))
                 res = await f
                 assert isinstance(res, FileContent)
                 assert res.data == str(i)

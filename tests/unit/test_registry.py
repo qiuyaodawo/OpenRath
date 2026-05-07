@@ -1,9 +1,4 @@
-"""Tests for :mod:`rath.backend.registry`.
-
-The registry is global mutable state; the ``registry_snapshot`` fixture saves
-and restores it around each test so tests can register fake backends without
-clobbering ``"local"`` for sibling tests.
-"""
+"""Registry API; ``registry_snapshot`` restores global state after each test."""
 
 from __future__ import annotations
 
@@ -16,8 +11,8 @@ from rath.backend import (
     BackendNotFound,
     BackendSandbox,
     BackendSandboxSpec,
+    BackendTool,
     Capabilities,
-    FlowToolCall,
     IsolationLevel,
     ToolResult,
     current,
@@ -34,6 +29,7 @@ from rath.backend.registry import _DEFAULT, _REGISTRY
 
 @pytest.fixture
 def registry_snapshot() -> Iterator[None]:
+    """Save and restore private registry maps so tests can register fakes."""
     saved = dict(_REGISTRY)
     saved_default = dict(_DEFAULT)
     yield
@@ -60,7 +56,7 @@ class _FakeBase(Backend):
         )
 
     @classmethod
-    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
+    def supported_calls(cls) -> frozenset[type[BackendTool]]:
         return frozenset()
 
     def sandbox_count(self) -> int:
@@ -75,7 +71,7 @@ class _FakeBase(Backend):
         raise NotImplementedError
 
     async def dispatch(
-        self, sandbox: BackendSandbox, call: FlowToolCall
+        self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         raise NotImplementedError
 

@@ -1,77 +1,35 @@
-"""Functional factories for :class:`FlowToolCall` values (torch.nn.functional-style).
-
-Use :func:`flow_tool_command_run` and siblings when you prefer call-site kwargs
-over spelling the dataclass constructor; both produce the same immutable
-objects that :meth:`~rath.backend.Backend.dispatch` consumes.
-"""
+"""Tool payload factories and registration (:class:`~rath.flow.tool.base.FlowToolCall` is alias of :class:`~rath.backend.tool_types.BackendTool`)."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-
+from rath.backend.tool_types import (
+    BackendTool,
+    BackendToolCodeRun,
+    BackendToolCommandRun,
+    BackendToolFilesExists,
+    BackendToolFilesList,
+    BackendToolFilesRead,
+    BackendToolFilesWrite,
+)
 from rath.flow.tool.base import FlowToolCall
-from rath.flow.tool.code_run import FlowToolCodeRun
-from rath.flow.tool.command_run import FlowToolCommandRun
-from rath.flow.tool.files_exists import FlowToolFilesExists
-from rath.flow.tool.files_list import FlowToolFilesList
-from rath.flow.tool.files_read import FlowToolFilesRead
-from rath.flow.tool.files_write import FlowToolFilesWrite
+from rath.flow.tool.code_run import flow_tool_code_run
+from rath.flow.tool.command_run import flow_tool_command_run
+from rath.flow.tool.files_exists import flow_tool_files_exists
+from rath.flow.tool.files_list import flow_tool_files_list
+from rath.flow.tool.files_read import flow_tool_files_read
+from rath.flow.tool.files_write import flow_tool_files_write
 from rath.flow.tool.tool_table import ToolTable, global_tool_table, register_builtin_session_tools
 
-
-def flow_tool_command_run(
-    cmd: str | Sequence[str],
-    *,
-    env: Mapping[str, str] | None = None,
-    cwd: str | None = None,
-    stdin: bytes | None = None,
-    timeout: float | None = None,
-) -> FlowToolCommandRun:
-    """Build :class:`FlowToolCommandRun`."""
-    return FlowToolCommandRun(
-        cmd=cmd, env=env, cwd=cwd, stdin=stdin, timeout=timeout
-    )
-
-
-def flow_tool_files_read(
-    path: str, *, encoding: str | None = "utf-8"
-) -> FlowToolFilesRead:
-    """Build :class:`FlowToolFilesRead`."""
-    return FlowToolFilesRead(path=path, encoding=encoding)
-
-
-def flow_tool_files_write(
-    path: str, data: bytes | str, *, mode: int = 0o644
-) -> FlowToolFilesWrite:
-    """Build :class:`FlowToolFilesWrite`."""
-    return FlowToolFilesWrite(path=path, data=data, mode=mode)
-
-
-def flow_tool_files_list(path: str) -> FlowToolFilesList:
-    """Build :class:`FlowToolFilesList`."""
-    return FlowToolFilesList(path=path)
-
-
-def flow_tool_files_exists(path: str) -> FlowToolFilesExists:
-    """Build :class:`FlowToolFilesExists`."""
-    return FlowToolFilesExists(path=path)
-
-
-def flow_tool_code_run(
-    code: str, *, language: str = "python", timeout: float | None = None
-) -> FlowToolCodeRun:
-    """Build :class:`FlowToolCodeRun`."""
-    return FlowToolCodeRun(code=code, language=language, timeout=timeout)
-
-
 __all__ = [
+    "BackendTool",
+    "BackendToolCodeRun",
+    "BackendToolCommandRun",
+    "BackendToolFilesExists",
+    "BackendToolFilesList",
+    "BackendToolFilesRead",
+    "BackendToolFilesWrite",
     "FlowToolCall",
-    "FlowToolCodeRun",
-    "FlowToolCommandRun",
-    "FlowToolFilesExists",
-    "FlowToolFilesList",
-    "FlowToolFilesRead",
-    "FlowToolFilesWrite",
+    "ToolTable",
     "flow_tool_code_run",
     "flow_tool_command_run",
     "flow_tool_files_exists",
@@ -80,5 +38,4 @@ __all__ = [
     "flow_tool_files_write",
     "global_tool_table",
     "register_builtin_session_tools",
-    "ToolTable",
 ]

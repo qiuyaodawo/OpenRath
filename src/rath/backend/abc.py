@@ -1,10 +1,4 @@
-"""Backend ABC, ``BackendSandbox`` handle, and ``BackendSandboxSpec``.
-
-The ``Backend`` ABC defines the unified flow-tool dispatch surface. The
-single required runtime method is :meth:`Backend.dispatch`; everything else
-is lifecycle (open / close) or static description (``is_available`` /
-``capabilities`` / ``supported_calls``).
-"""
+"""Backend abstract base, sandbox handle, and sandbox spec."""
 
 from __future__ import annotations
 
@@ -16,8 +10,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from rath.backend.capabilities import Capabilities
 from rath.backend.errors import BackendSandboxClosed
+from rath.backend.tool_types import BackendTool
 from rath.backend.results import ToolResult
-from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
     from rath.backend.stream import Stream
@@ -40,15 +34,7 @@ class BackendSandboxSpec:
 
 @dataclass
 class BackendSandbox:
-    """Backend-issued sandbox runtime handle.
-
-    ``BackendSandbox`` is opaque: it carries the owning backend, an opaque
-    ``handle`` string, and a closed flag. Behaviour lives in
-    ``Backend.dispatch``; methods here are thin convenience wrappers.
-
-    This type does **not** carry LLM or conversation state — that belongs in a
-    future ``rath.Session`` layer, out of scope for this phase.
-    """
+    """Sandbox handle: owning :class:`Backend`, opaque ``handle``, and lifecycle flag."""
 
     backend: "Backend"
     handle: str
@@ -62,8 +48,8 @@ class BackendSandbox:
         if not self.closed:
             await self.backend.close(self)
 
-    async def dispatch(self, call: FlowToolCall) -> ToolResult | bool:
-        """Forward a flow tool call to the owning backend."""
+    async def dispatch(self, call: BackendTool) -> ToolResult | bool:
+        """Apply ``call`` through :meth:`~rath.backend.abc.Backend.dispatch`."""
         if self.closed:
             raise BackendSandboxClosed(self.handle)
         return await self.backend.dispatch(self, call)
@@ -111,8 +97,8 @@ class Backend(ABC):
 
     @classmethod
     @abstractmethod
-    def supported_calls(cls) -> frozenset[type[FlowToolCall]]:
-        """Return :class:`FlowToolCall` subclasses this backend handles."""
+    def supported_calls(cls) -> frozenset[type[BackendTool]]:
+        """Return :class:`~rath.backend.tool_types.BackendTool` subclasses this backend handles."""
 
     @abstractmethod
     def sandbox_count(self) -> int:
@@ -133,11 +119,11 @@ class Backend(ABC):
 
     @abstractmethod
     async def dispatch(
-        self, sandbox: BackendSandbox, call: FlowToolCall
+        self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         """Execute ``call`` against ``sandbox`` and return its result.
 
         Implementations should raise
-        :class:`~rath.backend.UnsupportedFlowToolCall` for call types not in
+        :class:`~rath.backend.UnsupportedBackendTool` for call types not in
         :meth:`supported_calls`.
         """

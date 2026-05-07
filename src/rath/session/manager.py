@@ -1,4 +1,4 @@
-"""Registers live :class:`~rath.session.Session` handles (Torch dispatcher analogy)."""
+"""In-process registry for :class:`~rath.session.Session` debugging hooks."""
 
 from __future__ import annotations
 

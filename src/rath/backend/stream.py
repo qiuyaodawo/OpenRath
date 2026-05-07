@@ -1,15 +1,4 @@
-"""Stream and Event default implementation, anyio-based.
-
-A :class:`Stream` is a FIFO queue of operations bound to a single
-:class:`BackendSandbox`. A worker task pulls operations off the queue and dispatches
-them through the owning backend, in submission order. Multiple streams over
-the same sandbox run their queues in parallel.
-
-The implementation is intentionally backend-agnostic: any backend whose
-``dispatch`` method is correctly async benefits from streams without having
-to opt in. A backend can still subclass :class:`Stream` later if it has a
-native parallel-dispatch primitive worth exposing.
-"""
+"""Stream and :class:`Event` — async FIFO dispatch bound to one :class:`~rath.backend.abc.BackendSandbox`."""
 
 from __future__ import annotations
 
@@ -21,8 +10,8 @@ from typing import TYPE_CHECKING, Generic, TypeVar
 
 import anyio
 
+from rath.backend.tool_types import BackendTool
 from rath.backend.results import ToolResult
-from rath.flow.tool import FlowToolCall
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -33,7 +22,7 @@ T = TypeVar("T")
 
 
 class Future(Generic[T]):
-    """Awaitable handle to the result of a submitted :class:`FlowToolCall`.
+    """Awaitable handle to the result of a submitted :class:`~rath.backend.tool_types.BackendTool`.
 
     Awaiting the future blocks until the worker has dispatched the call. If
     dispatch raised, awaiting re-raises the same exception.
@@ -58,8 +47,6 @@ class Future(Generic[T]):
         await self._event.wait()
         if self._exc is not None:
             raise self._exc
-        # Post-condition: when _event is set and _exc is None, _result is
-        # populated; this is enforced by _set_result / _set_exception.
         return self._result  # type: ignore[return-value]
 
     def __await__(self) -> Generator[object, None, T]:
@@ -108,12 +95,9 @@ class Event:
         return (end._set_at - self._set_at) * 1000.0
 
 
-# --------------------------------------------------------------------- ops
-
-
 @dataclass(frozen=True, slots=True)
 class _CallOp:
-    call: FlowToolCall
+    call: BackendTool
     future: Future[ToolResult | bool]
 
 
@@ -135,9 +119,6 @@ class _SyncOp:
 _Op = _CallOp | _RecordEventOp | _WaitEventOp | _SyncOp
 
 
-# ------------------------------------------------------------------- stream
-
-
 class Stream:
     """Per-sandbox FIFO queue of tool-call operations.
 
@@ -152,8 +133,6 @@ class Stream:
 
     def __init__(self, sandbox: "BackendSandbox", *, buffer: int = 0) -> None:
         self._sandbox = sandbox
-        # anyio rejects non-inf floats for ``max_buffer_size``; pass the int
-        # directly when bounded.
         size: int | float = math.inf if buffer == 0 else buffer
         send, recv = anyio.create_memory_object_stream[_Op](max_buffer_size=size)
         self._send = send
@@ -176,14 +155,12 @@ class Stream:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        # Closing the send side signals end-of-stream to the worker, which
-        # then drains and exits cleanly.
         await self._send.aclose()
         self._closed = True
         assert self._task_group is not None
         await self._task_group.__aexit__(exc_type, exc, tb)
 
-    async def submit(self, call: FlowToolCall) -> Future[ToolResult | bool]:
+    async def submit(self, call: BackendTool) -> Future[ToolResult | bool]:
         future: Future[ToolResult | bool] = Future()
         await self._send.send(_CallOp(call=call, future=future))
         return future

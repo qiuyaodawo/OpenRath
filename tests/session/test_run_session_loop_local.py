@@ -1,8 +1,4 @@
-"""``run_session_loop`` against :class:`~rath.backend.local.LocalBackend`.
-
-Uses :class:`~tests.session.scripted_loop_executor.ScriptedSessionLoopExecutor`
-instead of HTTP to the model; sandbox execution remains real subprocess I/O.
-"""
+"""``run_session_loop`` with :class:`~rath.backend.local.LocalBackend` and scripted completions."""
 
 from __future__ import annotations
 
