@@ -1,6 +1,6 @@
 """Agent: system :class:`~rath.session.session.Session` plus LLM prefs.
 
-See :class:`~rath.llm.AgentLLMProvider`.
+See :class:`~rath.llm.Provider`.
 """
 
 from __future__ import annotations
@@ -9,8 +9,19 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
-from rath.llm.agent_llm_provider import AgentLLMProvider
+from rath.llm.provider import Provider
 from rath.session.session import Session
+
+
+def _indent_child_module_repr(body: str, spaces: int = 2) -> str:
+    """Indent a child ``repr`` like ``torch.nn.Module`` (first line unindented)."""
+
+    lines = body.split("\n")
+    if len(lines) <= 1:
+        return body
+    first, *rest = lines
+    pad = " " * spaces
+    return first + "\n" + "\n".join(pad + line for line in rest)
 
 
 @dataclass(slots=True)
@@ -18,7 +29,7 @@ class Agent:
     """System session plus LLM options for ``run_session_loop``."""
 
     agent_session: Session
-    provider: AgentLLMProvider
+    provider: Provider
 
     @property
     def data(self) -> Mapping[str, Any]:
@@ -29,16 +40,17 @@ class Agent:
         )
 
     def __repr__(self) -> str:
-        prefs = self.provider
-        extras = []
-        if prefs.model is not None:
-            extras.append(f"model={prefs.model!r}")
-        if prefs.temperature is not None:
-            extras.append(f"temperature={prefs.temperature!r}")
-        if prefs.max_completion_tokens is not None:
-            extras.append(f"max_completion_tokens={prefs.max_completion_tokens!r}")
-        pref_s = ", ".join(extras) if extras else "defaults"
-        return f"{type(self).__name__}(session_id={self.agent_session.id}, {pref_s})"
+        name = type(self).__name__
+        sess_body = repr(self.agent_session)
+        sess_body = _indent_child_module_repr(sess_body, 2)
+        return (
+            f"{name}(\n"
+            f"  (agent_session): {sess_body}\n"
+            f"  (provider): {self.provider!s}\n"
+            f")"
+        )
+
+    __str__ = __repr__
 
 
-__all__ = ["Agent", "AgentLLMProvider"]
+__all__ = ["Agent", "Provider"]

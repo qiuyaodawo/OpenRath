@@ -3,9 +3,10 @@
 Lineage stamping goes through :class:`~rath.session.graph.LineageRecorder` and is a
 no-op when :func:`~rath.session.graph.session_graph_mode` is false.
 
-``fork_session`` / ``detach_session`` / ``split_session`` share the same sandbox rule:
-they duplicate :attr:`~rath.session.session.Session.chunk_table` only (new sessions
-leave ``sandbox`` unset so callers can bind explicitly).
+``fork_session`` / ``detach_session`` / ``split_session`` duplicate
+:attr:`~rath.session.session.Session.chunk_table` only: new sessions have no sandbox
+handle but copy :attr:`~rath.session.session.Session.sandbox_backend` from the source
+(where ``merge_sessions`` copies the first parent’s backend).
 """
 
 from __future__ import annotations
@@ -46,10 +47,14 @@ def create_leaf_system(prompt: str) -> Session:
 
 
 def fork_session(from_session: Session) -> Session:
-    """Copy rows to a fresh session (**no** sandbox); parent is ``from_session``."""
+    """Copy rows to a fresh session (no sandbox **handle**); copies backend target."""
 
     rows = tuple(from_session.chunk_table.rows)
-    forked = Session(chunk_table=ChunkTable(rows=rows))
+    forked = Session(
+        chunk_table=ChunkTable(rows=rows),
+        sandbox_backend=from_session.sandbox_backend,
+        _sandbox_open_spec=from_session._sandbox_open_spec,
+    )
     LineageRecorder.stamp_new_session(
         forked,
         parent_session_ids=(from_session.id,),
@@ -62,11 +67,17 @@ def fork_session(from_session: Session) -> Session:
 def detach_session(from_session: Session) -> Session:
     """Fork transcript with empty ``parent_session_ids`` (fresh graph root).
 
-    Does not copy ``sandbox``; bind explicitly if needed.
+    Does not copy the sandbox handle; copies :attr:`~rath.session.session.Session.sandbox_backend`
+    (and reopen spec); call :meth:`~rath.session.session.Session.to` /
+    :meth:`~rath.session.session.Session.bind_sandbox` if you need an explicit bind.
     """
 
     rows = tuple(from_session.chunk_table.rows)
-    detached = Session(chunk_table=ChunkTable(rows=rows))
+    detached = Session(
+        chunk_table=ChunkTable(rows=rows),
+        sandbox_backend=from_session.sandbox_backend,
+        _sandbox_open_spec=from_session._sandbox_open_spec,
+    )
     LineageRecorder.stamp_new_session(
         detached,
         parent_session_ids=(),
@@ -81,8 +92,16 @@ def split_session(parent: Session) -> tuple[Session, Session]:
     """Two children sharing ``parent``'s rows; differentiated via ``branch`` extras."""
 
     rows = tuple(parent.chunk_table.rows)
-    left = Session(chunk_table=ChunkTable(rows=rows))
-    right = Session(chunk_table=ChunkTable(rows=rows))
+    left = Session(
+        chunk_table=ChunkTable(rows=rows),
+        sandbox_backend=parent.sandbox_backend,
+        _sandbox_open_spec=parent._sandbox_open_spec,
+    )
+    right = Session(
+        chunk_table=ChunkTable(rows=rows),
+        sandbox_backend=parent.sandbox_backend,
+        _sandbox_open_spec=parent._sandbox_open_spec,
+    )
     LineageRecorder.stamp_new_session(
         left,
         parent_session_ids=(parent.id,),
@@ -109,7 +128,18 @@ def merge_sessions(
     """Merge transcripts with ``rows_merge_policy``; parent order fixes fan-in."""
 
     tables = tuple(p.chunk_table for p in parents_ordered)
-    merged = Session(chunk_table=rows_merge_policy(tables))
+    if parents_ordered:
+        p0 = parents_ordered[0]
+        sb0 = p0.sandbox_backend
+        spec0 = p0._sandbox_open_spec
+    else:
+        sb0 = "local"
+        spec0 = None
+    merged = Session(
+        chunk_table=rows_merge_policy(tables),
+        sandbox_backend=sb0,
+        _sandbox_open_spec=spec0,
+    )
     LineageRecorder.stamp_new_session(
         merged,
         parent_session_ids=tuple(p.id for p in parents_ordered),

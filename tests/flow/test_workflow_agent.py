@@ -5,14 +5,12 @@ from __future__ import annotations
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, AgentLLMProvider
+from rath.flow.agent import Agent, Provider
 from rath.flow.workflow import Workflow, run_session_loop_from_agent
 from rath.llm import RathLLMAssistantMessage, RathLLMChatChoice, RathLLMChatResponse
 from rath.session import Session, session_registry
 from rath.session.chunk import ChunkKind
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
-
-pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture(autouse=True)
@@ -27,18 +25,18 @@ class _ScriptedEchoWorkflow(Workflow):
         self._exec = ScriptedSessionLoopExecutor([scripted])
         self.agent = Agent(
             Session.from_system_prompt("System prompt for workflow test."),
-            AgentLLMProvider(),
+            Provider(),
         )
 
-    async def forward_async(self, session: Session) -> Session:
-        return await run_session_loop_from_agent(
+    def forward(self, session: Session) -> Session:
+        return run_session_loop_from_agent(
             session,
             self.agent,
             executor=self._exec,
         )
 
 
-async def test_workflow_registers_agent_and_runs_loop() -> None:
+def test_workflow_registers_agent_and_runs_loop() -> None:
     scripted = RathLLMChatResponse(
         id="wf1",
         choices=(
@@ -57,12 +55,12 @@ async def test_workflow_registers_agent_and_runs_loop() -> None:
     name, leaf = wf.named_agents()[0]
     assert name == "agent"
     assert isinstance(leaf, Agent)
-    assert isinstance(leaf.provider, AgentLLMProvider)
+    assert isinstance(leaf.provider, Provider)
 
     backend = get("local")
-    async with await backend.open() as sandbox:
+    with backend.open() as sandbox:
         user = Session.user_message("Trigger scripted reply.").with_sandbox(sandbox)
-        out = await wf.forward_async(user)
+        out = wf.forward(user)
 
     assert out.sandbox is sandbox
     assistant_chunks = [

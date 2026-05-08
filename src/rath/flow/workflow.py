@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
-import anyio
-
 from typing import Any
 
 from rath.flow.agent import Agent
 from rath.flow.tool import ToolTable
 from rath.session.loop import SessionLoopExecutor, run_session_loop
 from rath.session.session import Session
+
+
+def _indent_child_module_repr(body: str, spaces: int = 2) -> str:
+    """Indent a child ``repr`` like ``torch.nn.Module`` (first line unindented)."""
+
+    lines = body.split("\n")
+    if len(lines) <= 1:
+        return body
+    first, *rest = lines
+    pad = " " * spaces
+    return first + "\n" + "\n".join(pad + line for line in rest)
 
 
 class Workflow:
@@ -39,29 +48,43 @@ class Workflow:
         agents: dict[str, Agent] = object.__getattribute__(self, "_agents")
         return tuple(sorted(agents.items(), key=lambda x: x[0]))
 
-    async def forward_async(self, session: Session) -> Session:
-        """Subclasses orchestrate Sessions here."""
-        raise NotImplementedError
-
     def forward(self, session: Session) -> Session:
-        """Sync façade (``anyio.run``); safe only **without** a running loop."""
+        """Subclasses orchestrate Sessions (blocking)."""
 
-        return anyio.run(self.forward_async, session)
+        raise NotImplementedError
 
     def __call__(self, session: Session) -> Session:
         return self.forward(session)
 
+    def __repr__(self) -> str:
+        cls_name = type(self).__name__
+        agents = self.named_agents()
+        if not agents:
+            return f"{cls_name}()"
+        lines = [f"{cls_name}("]
+        for child_name, agent in agents:
+            sub = repr(agent)
+            sub = _indent_child_module_repr(sub, 2)
+            lines.append(f"  ({child_name}): {sub}")
+        lines.append(")")
+        return "\n".join(lines)
 
-async def run_session_loop_from_agent(
+    __str__ = __repr__
+
+
+def run_session_loop_from_agent(
     user_session: Session,
     agent: Agent,
     *,
-    executor: SessionLoopExecutor,
+    executor: SessionLoopExecutor | None = None,
     tool_table: ToolTable | None = None,
     max_tool_rounds: int = 16,
 ) -> Session:
-    """Maps ``Agent`` fields to ``run_session_loop`` keyword arguments."""
-    return await run_session_loop(
+    """Maps ``Agent`` fields to ``run_session_loop`` keyword arguments.
+
+    Omitted ``executor`` uses the default from :func:`~rath.session.loop.run_session_loop`.
+    """
+    return run_session_loop(
         user_session,
         agent.agent_session,
         agent_provider=agent.provider,

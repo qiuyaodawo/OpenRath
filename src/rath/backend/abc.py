@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
+from types import TracebackType
 from typing import TYPE_CHECKING, ClassVar
 
 from rath.backend.capabilities import Capabilities
@@ -41,18 +42,23 @@ class BackendSandbox:
     spec: BackendSandboxSpec | None = None
     closed: bool = field(default=False)
 
-    async def __aenter__(self) -> "BackendSandbox":
+    def __enter__(self) -> "BackendSandbox":
         return self
 
-    async def __aexit__(self, *exc: object) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         if not self.closed:
-            await self.backend.close(self)
+            self.backend.close(self)
 
-    async def dispatch(self, call: BackendTool) -> ToolResult | bool:
+    def dispatch(self, call: BackendTool) -> ToolResult | bool:
         """Apply ``call`` through :meth:`~rath.backend.abc.Backend.dispatch`."""
         if self.closed:
             raise BackendSandboxClosed(self.handle)
-        return await self.backend.dispatch(self, call)
+        return self.backend.dispatch(self, call)
 
     def stream(self, *, buffer: int = 0) -> "Stream":
         """Return a fresh :class:`Stream` bound to this sandbox.
@@ -105,20 +111,20 @@ class Backend(ABC):
         """Return the number of open sandboxes managed by this instance."""
 
     @abstractmethod
-    async def open(
+    def open(
         self, spec: BackendSandboxSpec | None = None
     ) -> BackendSandbox:
         """Open a fresh sandbox and return its handle."""
 
     @abstractmethod
-    async def close(self, sandbox: BackendSandbox) -> None:
+    def close(self, sandbox: BackendSandbox) -> None:
         """Close ``sandbox`` and release resources.
 
         Calling close on an already-closed sandbox is a no-op.
         """
 
     @abstractmethod
-    async def dispatch(
+    def dispatch(
         self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         """Execute ``call`` against ``sandbox`` and return its result.

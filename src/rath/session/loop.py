@@ -1,4 +1,4 @@
-"""Async session loop: alternate LLM completions with sandbox tool execution."""
+"""Session loop: alternate LLM completions with sandbox tool execution (blocking)."""
 
 from __future__ import annotations
 
@@ -20,12 +20,14 @@ from rath.flow.tool import (
     register_builtin_session_tools,
 )
 from rath.llm import (
-    AgentLLMProvider,
+    Provider,
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
     RathLLMMessage,
+    RathOpenAIChatClient,
 )
+from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.chunk import (
     ChunkTable,
     assistant_turn_chunk,
@@ -41,10 +43,10 @@ from rath.session.session import Session
 class SessionLoopExecutor(Protocol):
     """Runs completions and sandbox tool dispatch used by ``run_session_loop``."""
 
-    async def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
+    def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
         """Run one chat completion."""
 
-    async def dispatch_tool(
+    def dispatch_tool(
         self,
         session: Session,
         call: FlowToolCall,
@@ -58,11 +60,11 @@ class SessionLoopExecutor(Protocol):
 def _chat_request_from_loop(
     messages: tuple[RathLLMMessage, ...],
     tools: tuple[RathLLMFunctionTool, ...] | None,
-    prefs: AgentLLMProvider,
+    prefs: Provider,
     *,
     default_tool_choice: Any,
 ) -> RathLLMChatRequest:
-    """Fold :class:`~rath.llm.AgentLLMProvider` into a concrete request."""
+    """Fold :class:`~rath.llm.Provider` into a concrete request."""
 
     return RathLLMChatRequest(
         messages=messages,
@@ -139,12 +141,12 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
     return json.dumps({"type": type(raw).__name__, "note": "unserialised result"})
 
 
-async def run_session_loop(
+def run_session_loop(
     user_session: Session,
     agent_session: Session,
     *,
-    agent_provider: AgentLLMProvider,
-    executor: SessionLoopExecutor,
+    agent_provider: Provider,
+    executor: SessionLoopExecutor | None = None,
     tool_table: ToolTable | None = None,
     max_tool_rounds: int = 16,
 ) -> Session:
@@ -152,7 +154,11 @@ async def run_session_loop(
 
     Rebases ``BackendSandbox`` from ``user_session`` onto the returned session.
     LLM routing/sampling kwargs come from ``agent_provider``
-    (:class:`~rath.llm.AgentLLMProvider`); HTTP remains on ``executor``.
+    (:class:`~rath.llm.Provider`); completions and tool dispatch go through ``executor``.
+    When ``executor`` is omitted, builds a fresh
+    :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`
+    wrapping :class:`~rath.llm.client.RathOpenAIChatClient()` (``.env`` / env-based
+    API settings) sharing the resolved ``tool_table``.
 
     Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
     the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
@@ -164,6 +170,12 @@ async def run_session_loop(
     table = tool_table or global_tool_table()
     register_builtin_session_tools(table)
 
+    if executor is None:
+        executor = DefaultSessionLoopExecutor(
+            RathOpenAIChatClient(),
+            tool_table=table,
+        )
+
     prefs = agent_provider
 
     rows_list: list = list(user_session.chunk_table.rows)
@@ -171,6 +183,8 @@ async def run_session_loop(
     out = Session(
         chunk_table=ChunkTable(rows=tuple(rows_list)),
         sandbox=sb,
+        sandbox_backend=user_session.sandbox_backend,
+        _sandbox_open_spec=user_session._sandbox_open_spec,
         lineage=SessionLineage(
             producer_user_session_id=user_session.id,
             producer_system_session_id=agent_session.id,
@@ -203,7 +217,7 @@ async def run_session_loop(
             prefs,
             default_tool_choice="auto",
         )
-        resp = await executor.complete(req)
+        resp = executor.complete(req)
         choice = resp.primary_choice
         msg = choice.message
         tcalls = msg.tool_calls
@@ -219,7 +233,7 @@ async def run_session_loop(
                         f"tool {tc.function.name!r} returned non-JSON arguments",
                     )
                 call = table.build(tc.function.name, parsed)
-                raw = await executor.dispatch_tool(out, call)
+                raw = executor.dispatch_tool(out, call)
                 body = _summarize_tool_result(call, raw)
                 rows_list.append(
                     tool_feedback_chunk(tc.id, tc.function.name, body)

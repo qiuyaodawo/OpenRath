@@ -8,7 +8,7 @@ from typing import Any, Mapping
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
-class AgentLLMProvider:
+class Provider:
     """OpenAI-style kwargs for ``run_session_loop`` (no ``messages`` / ``tools``).
 
     Same wire fields as :class:`~rath.llm.chat_request.RathLLMChatRequest`,
@@ -41,5 +41,11 @@ class AgentLLMProvider:
         default_factory=lambda: MappingProxyType({})
     )
 
+    def __str__(self) -> str:
+        return self.model if self.model is not None else "(no model)"
 
-__all__ = ["AgentLLMProvider"]
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+__all__ = ["Provider"]

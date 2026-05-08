@@ -62,15 +62,15 @@ class _FakeBase(Backend):
     def sandbox_count(self) -> int:
         return 0
 
-    async def open(
+    def open(
         self, spec: BackendSandboxSpec | None = None
     ) -> BackendSandbox:
         raise NotImplementedError
 
-    async def close(self, sandbox: BackendSandbox) -> None:
+    def close(self, sandbox: BackendSandbox) -> None:
         raise NotImplementedError
 
-    async def dispatch(
+    def dispatch(
         self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         raise NotImplementedError

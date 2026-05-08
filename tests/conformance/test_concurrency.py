@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import anyio
+import threading
+
 import pytest
 
 from rath.backend import (
@@ -13,44 +14,45 @@ from rath.backend import (
     BackendToolFilesWrite,
 )
 
-pytestmark = pytest.mark.anyio
 
+def test_many_parallel_sandboxes(backend: Backend, python_cmd: list[str]) -> None:
+    """Multiple sandboxes running in parallel must all finish and clean up."""
 
-async def test_many_parallel_sandboxes(
-    backend: Backend, python_cmd: list[str]
-) -> None:
-    """Multiple sandboxes running in parallel must all finish and clean up.
-
-    The default count is small (3) so the test stays fast on backends with
-    multi-second sandbox creation cost (e.g. OpenSandbox's container start).
-    """
     n = 3
+    errors: list[BaseException] = []
+    lock = threading.Lock()
 
-    async def one_sandbox() -> None:
-        async with await backend.open() as sb:
-            result = await sb.dispatch(
-                BackendToolCommandRun(cmd=[*python_cmd, "-c", "print(42)"])
-            )
-            assert isinstance(result, CommandResult)
-            assert result.exit_code == 0
+    def one_sandbox() -> None:
+        try:
+            with backend.open() as sb:
+                result = sb.dispatch(
+                    BackendToolCommandRun(cmd=[*python_cmd, "-c", "print(42)"])
+                )
+                assert isinstance(result, CommandResult)
+                assert result.exit_code == 0
+        except BaseException as e:
+            with lock:
+                errors.append(e)
 
-    async with anyio.create_task_group() as tg:
-        for _ in range(n):
-            tg.start_soon(one_sandbox)
-
+    threads = [threading.Thread(target=one_sandbox) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
     assert backend.sandbox_count() == 0
 
 
-async def test_two_sandboxes_independent(backend: Backend) -> None:
+def test_two_sandboxes_independent(backend: Backend) -> None:
     """Work in one sandbox must not be visible in another."""
-    s1 = await backend.open()
-    s2 = await backend.open()
+    s1 = backend.open()
+    s2 = backend.open()
     try:
-        await s1.dispatch(BackendToolFilesWrite(path="only-in-s1.txt", data="x"))
-        in_s1 = await s1.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
-        in_s2 = await s2.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
+        s1.dispatch(BackendToolFilesWrite(path="only-in-s1.txt", data="x"))
+        in_s1 = s1.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
+        in_s2 = s2.dispatch(BackendToolFilesExists(path="only-in-s1.txt"))
         assert in_s1 is True
         assert in_s2 is False
     finally:
-        await backend.close(s1)
-        await backend.close(s2)
+        backend.close(s1)
+        backend.close(s2)

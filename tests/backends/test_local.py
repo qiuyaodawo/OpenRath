@@ -20,8 +20,6 @@ from rath.backend import (
 )
 from rath.backend.local import LocalBackend
 
-pytestmark = pytest.mark.anyio
-
 
 def test_is_available_is_true() -> None:
     assert LocalBackend.is_available() is True
@@ -54,35 +52,35 @@ def test_local_is_registered_under_name_local() -> None:
     assert inst.name == "local"
 
 
-async def test_handle_is_a_real_working_directory() -> None:
+def test_handle_is_a_real_working_directory() -> None:
     backend = get("local")
-    sb = await backend.open()
+    sb = backend.open()
     try:
         assert os.path.isdir(sb.handle)
     finally:
-        await backend.close(sb)
+        backend.close(sb)
 
 
-async def test_close_removes_working_directory() -> None:
+def test_close_removes_working_directory() -> None:
     backend = get("local")
-    sb = await backend.open()
+    sb = backend.open()
     handle = sb.handle
-    await backend.close(sb)
+    backend.close(sb)
     assert not os.path.exists(handle)
 
 
-async def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
+def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
     backend = get("local")
     target = str(tmp_path)  # type: ignore[arg-type]
-    sb = await backend.open(BackendSandboxSpec(working_dir=target))
+    sb = backend.open(BackendSandboxSpec(working_dir=target))
     try:
         assert sb.handle == target
     finally:
-        await backend.close(sb)
+        backend.close(sb)
 
 
-async def test_unknown_code_language_raises_unsupported() -> None:
+def test_unknown_code_language_raises_unsupported() -> None:
     backend = get("local")
-    async with await backend.open() as sb:
+    with backend.open() as sb:
         with pytest.raises(UnsupportedBackendTool):
-            await sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))
+            sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))

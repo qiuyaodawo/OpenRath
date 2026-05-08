@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-from collections.abc import AsyncIterator
+from collections.abc import Iterator
 
 import pytest
 
@@ -21,7 +20,7 @@ _BACKEND_PARAMS = [
 
 
 @pytest.fixture(params=_BACKEND_PARAMS)
-async def backend(request: pytest.FixtureRequest) -> AsyncIterator[Backend]:
+def backend(request: pytest.FixtureRequest) -> Iterator[Backend]:
     """Yield a fresh backend instance for each test."""
     bk = get(request.param)
     yield bk
@@ -30,6 +29,8 @@ async def backend(request: pytest.FixtureRequest) -> AsyncIterator[Backend]:
 @pytest.fixture
 def python_cmd(backend: Backend) -> list[str]:
     """``[sys.executable]`` on local; ``["python3"]`` in OpenSandbox containers."""
+    import sys
+
     if backend.name == "local":
         return [sys.executable]
     return ["python3"]

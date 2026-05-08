@@ -18,7 +18,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "anyio>=4",
     "openai>=1.0.0",
     "python-dotenv>=1.0.0",
 ]

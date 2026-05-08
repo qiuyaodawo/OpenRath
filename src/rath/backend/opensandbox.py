@@ -3,23 +3,25 @@
 Needs optional ``opensandbox`` / ``code_interpreter`` packages and a reachable
 ``opensandbox-server`` (env ``OPEN_SANDBOX_DOMAIN`` / ``OPEN_SANDBOX_API_KEY``,
 legacy ``OPENSANDBOX_DOMAIN``, or ``~/.sandbox.toml``).
+
+The SDK is async; this backend runs it on a dedicated background event loop and
+exposes **blocking** :meth:`open` / :meth:`close` / :meth:`dispatch` to callers.
 """
 
 from __future__ import annotations
 
-import contextlib
+import asyncio
 import os
 import shlex
 import stat as stat_module
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
-import anyio
-
 from rath.backend.abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend.capabilities import Capabilities, IsolationLevel
+from rath.backend.dedicated_loop import shared_opensandbox_loop
 from rath.backend.errors import BackendSandboxClosed, UnsupportedBackendTool
 from rath.backend.registry import register
 from rath.backend.results import (
@@ -67,15 +69,13 @@ if TYPE_CHECKING:
     from opensandbox import Sandbox as _OSBSandboxT
 
 
-@contextlib.contextmanager
-def _maybe_timeout(seconds: float | None) -> Iterator[None]:
-    """Bound await time so callers see ``TimeoutError`` when the RPC stalls."""
-
-    if seconds is None:
-        yield
-        return
-    with anyio.fail_after(seconds):
-        yield
+async def _await_maybe_timeout(awaitable, timeout: float | None):
+    if timeout is None:
+        return await awaitable
+    try:
+        return await asyncio.wait_for(awaitable, timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError from exc
 
 
 @register("opensandbox")
@@ -121,6 +121,7 @@ class OpenSandboxBackend(Backend):
 
     def __init__(self) -> None:
         self._natives: dict[str, "_OSBSandboxT"] = {}
+        self._runner = shared_opensandbox_loop()
 
     @classmethod
     def is_available(cls) -> bool:
@@ -144,7 +145,7 @@ class OpenSandboxBackend(Backend):
     def sandbox_count(self) -> int:
         return len(self._natives)
 
-    async def open(
+    def open(
         self, spec: BackendSandboxSpec | None = None
     ) -> BackendSandbox:
         if not _SDK_AVAILABLE:  # pragma: no cover - guarded by is_available
@@ -164,6 +165,18 @@ class OpenSandboxBackend(Backend):
             if spec is not None and spec.entrypoint is not None
             else list(self._DEFAULT_ENTRYPOINT)
         )
+        return self._runner.run(
+            self._open_coro(image, timeout, env, entrypoint, spec)
+        )
+
+    async def _open_coro(
+        self,
+        image: str,
+        timeout: timedelta,
+        env: dict[str, str] | None,
+        entrypoint: list[str],
+        spec: BackendSandboxSpec | None,
+    ) -> BackendSandbox:
         native = await _OSBSandbox.create(
             image,
             timeout=timeout,
@@ -174,16 +187,19 @@ class OpenSandboxBackend(Backend):
         self._natives[native.id] = native
         return BackendSandbox(backend=self, handle=native.id, spec=spec)
 
-    async def close(self, sandbox: BackendSandbox) -> None:
+    def close(self, sandbox: BackendSandbox) -> None:
         if sandbox.closed:
             return
         sandbox.closed = True
         native = self._natives.pop(sandbox.handle, None)
         if native is not None:
-            await native.kill()
-            await native.close()
+            self._runner.run(self._close_coro(native))
 
-    async def dispatch(
+    async def _close_coro(self, native: "_OSBSandboxT") -> None:
+        await native.kill()
+        await native.close()
+
+    def dispatch(
         self, sandbox: BackendSandbox, call: BackendTool
     ) -> ToolResult | bool:
         if sandbox.closed:
@@ -191,6 +207,11 @@ class OpenSandboxBackend(Backend):
         native = self._natives.get(sandbox.handle)
         if native is None:
             raise BackendSandboxClosed(sandbox.handle)
+        return self._runner.run(self._dispatch_coro(native, call))
+
+    async def _dispatch_coro(
+        self, native: "_OSBSandboxT", call: BackendTool
+    ) -> ToolResult | bool:
         match call:
             case BackendToolCommandRun():
                 return await self._command_run(native, call)
@@ -238,8 +259,10 @@ class OpenSandboxBackend(Backend):
             ),
             envs=dict(call.env) if call.env is not None else None,
         )
-        with _maybe_timeout(call.timeout):
-            execution = await native.commands.run(cmd_str, opts=opts)
+        execution = await _await_maybe_timeout(
+            native.commands.run(cmd_str, opts=opts),
+            call.timeout,
+        )
         stdout = "".join(m.text for m in execution.logs.stdout).encode("utf-8")
         stderr = "".join(m.text for m in execution.logs.stderr).encode("utf-8")
         elapsed_ms = (
@@ -317,8 +340,10 @@ class OpenSandboxBackend(Backend):
         if call.language not in _SUPPORTED_LANGUAGES:
             raise UnsupportedBackendTool(type(call), self.name)
         ci = await CodeInterpreter.create(native)
-        with _maybe_timeout(call.timeout):
-            execution = await ci.codes.run(call.code, language=call.language)
+        execution = await _await_maybe_timeout(
+            ci.codes.run(call.code, language=call.language),
+            call.timeout,
+        )
         stdout = "".join(m.text for m in execution.logs.stdout).encode("utf-8")
         stderr = "".join(m.text for m in execution.logs.stderr).encode("utf-8")
         text = execution.result[0].text if execution.result else None

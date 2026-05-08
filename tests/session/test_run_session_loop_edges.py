@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, AgentLLMProvider
+from rath.flow.agent import Agent, Provider
 from rath.llm import (
     RathLLMAssistantMessage,
     RathLLMChatChoice,
@@ -19,8 +19,6 @@ from rath.llm import (
 from rath.session.chunk import ChunkKind
 from rath.session import Session, run_session_loop, session_registry
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
-
-pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture(autouse=True)
@@ -64,12 +62,12 @@ def _shell_echo_cmd(marker: str) -> str:
     return f"echo {marker}"
 
 
-async def test_missing_user_sandbox_raises() -> None:
+def test_missing_user_sandbox_raises() -> None:
     executor = ScriptedSessionLoopExecutor([])
-    agent = Agent(Session.from_system_prompt("sys"), AgentLLMProvider())
-    user = Session.user_message("no sandbox attached")
+    agent = Agent(Session.from_system_prompt("sys"), Provider())
+    user = Session.user_message("no sandbox attached", sandbox_backend=None)
     with pytest.raises(RuntimeError, match="no sandbox to take"):
-        await run_session_loop(
+        run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
@@ -77,7 +75,7 @@ async def test_missing_user_sandbox_raises() -> None:
         )
 
 
-async def test_tool_arguments_parse_error_raises_value_error() -> None:
+def test_tool_arguments_parse_error_raises_value_error() -> None:
     part = RathLLMToolCallPart(
         id="bad",
         type="function",
@@ -103,11 +101,11 @@ async def test_tool_arguments_parse_error_raises_value_error() -> None:
     executor = ScriptedSessionLoopExecutor([resp])
 
     backend = get("local")
-    agent = Agent(Session.from_system_prompt("s"), AgentLLMProvider())
-    async with await backend.open() as sb:
+    agent = Agent(Session.from_system_prompt("s"), Provider())
+    with backend.open() as sb:
         user = Session.user_message("x").with_sandbox(sb)
         with pytest.raises(ValueError, match="non-JSON"):
-            await run_session_loop(
+            run_session_loop(
                 user,
                 agent.agent_session,
                 agent_provider=agent.provider,
@@ -115,7 +113,7 @@ async def test_tool_arguments_parse_error_raises_value_error() -> None:
             )
 
 
-async def test_unknown_tool_name_raises_key_error() -> None:
+def test_unknown_tool_name_raises_key_error() -> None:
     part = RathLLMToolCallPart(
         id="u",
         type="function",
@@ -140,11 +138,11 @@ async def test_unknown_tool_name_raises_key_error() -> None:
     )
     executor = ScriptedSessionLoopExecutor([resp])
     backend = get("local")
-    agent = Agent(Session.from_system_prompt("s"), AgentLLMProvider())
-    async with await backend.open() as sb:
+    agent = Agent(Session.from_system_prompt("s"), Provider())
+    with backend.open() as sb:
         user = Session.user_message("x").with_sandbox(sb)
         with pytest.raises(KeyError):
-            await run_session_loop(
+            run_session_loop(
                 user,
                 agent.agent_session,
                 agent_provider=agent.provider,
@@ -152,15 +150,15 @@ async def test_unknown_tool_name_raises_key_error() -> None:
             )
 
 
-async def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
+def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
     scripted = [_write_tool_response(f"w{i}") for i in range(20)]
     executor = ScriptedSessionLoopExecutor(scripted)
 
     backend = get("local")
-    agent = Agent(Session.from_system_prompt("cap"), AgentLLMProvider())
-    async with await backend.open() as sb:
+    agent = Agent(Session.from_system_prompt("cap"), Provider())
+    with backend.open() as sb:
         user = Session.user_message("loop").with_sandbox(sb)
-        out = await run_session_loop(
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
@@ -174,7 +172,7 @@ async def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
     assert tool_results == 3
 
 
-async def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
+def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
     marker = "RATH_SHELL_LINE_442"
     body = {"cmd": _shell_echo_cmd(marker)}
     part = RathLLMToolCallPart(
@@ -213,10 +211,10 @@ async def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
     )
     executor = ScriptedSessionLoopExecutor([first, second])
     backend = get("local")
-    agent = Agent(Session.from_system_prompt("sh"), AgentLLMProvider())
-    async with await backend.open() as sb:
+    agent = Agent(Session.from_system_prompt("sh"), Provider())
+    with backend.open() as sb:
         user = Session.user_message("run echo").with_sandbox(sb)
-        out = await run_session_loop(
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,

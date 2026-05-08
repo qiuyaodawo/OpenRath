@@ -24,7 +24,7 @@ from rath.backend import (
 from rath.backend.opensandbox import OpenSandboxBackend
 from tests.conftest import opensandbox_real
 
-pytestmark = [pytest.mark.anyio, opensandbox_real, pytest.mark.opensandbox]
+pytestmark = [opensandbox_real, pytest.mark.opensandbox]
 
 
 def test_capabilities_match_spec() -> None:
@@ -53,92 +53,89 @@ def test_registered_under_name_opensandbox() -> None:
     assert inst.name == "opensandbox"
 
 
-async def test_open_close_roundtrip() -> None:
+def test_open_close_roundtrip() -> None:
     backend = get("opensandbox")
-    sb = await backend.open()
+    sb = backend.open()
     try:
         assert backend.sandbox_count() == 1
         assert sb.handle != ""
     finally:
-        await backend.close(sb)
+        backend.close(sb)
     assert backend.sandbox_count() == 0
 
 
-async def test_command_run_stdin_raises_unsupported() -> None:
+def test_command_run_stdin_raises_unsupported() -> None:
     """OpenSandbox's commands.run has no stdin; the adapter must surface that."""
     backend = get("opensandbox")
-    async with await backend.open() as sb:
+    with backend.open() as sb:
         with pytest.raises(UnsupportedBackendTool):
-            await sb.dispatch(
+            sb.dispatch(
                 BackendToolCommandRun(cmd=["python3", "-c", "pass"], stdin=b"x")
             )
 
 
-async def test_files_list_returns_entries_with_metadata() -> None:
+def test_files_list_returns_entries_with_metadata() -> None:
     """Adapter's ``files.search`` -> ``FileEntries`` mapping must be well-formed."""
     backend = get("opensandbox")
-    async with await backend.open() as sb:
-        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_a.txt", data="a"))
-        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_b.txt", data="b"))
-        result = await sb.dispatch(BackendToolFilesList(path="/tmp"))
+    with backend.open() as sb:
+        sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_a.txt", data="a"))
+        sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_b.txt", data="b"))
+        result = sb.dispatch(BackendToolFilesList(path="/tmp"))
         assert isinstance(result, FileEntries)
         names = {e.name for e in result.entries}
         assert {"rath_a.txt", "rath_b.txt"}.issubset(names)
 
 
-async def test_files_exists_true_and_false() -> None:
+def test_files_exists_true_and_false() -> None:
     backend = get("opensandbox")
-    async with await backend.open() as sb:
-        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
+    with backend.open() as sb:
+        sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
         assert (
-            await sb.dispatch(BackendToolFilesExists(path="/tmp/rath_present.txt"))
-            is True
+            sb.dispatch(BackendToolFilesExists(path="/tmp/rath_present.txt")) is True
         )
         assert (
-            await sb.dispatch(
+            sb.dispatch(
                 BackendToolFilesExists(path="/tmp/rath_definitely_missing.txt")
             )
             is False
         )
 
 
-async def test_unsupported_language_raises() -> None:
+def test_unsupported_language_raises() -> None:
     backend = get("opensandbox")
-    async with await backend.open() as sb:
+    with backend.open() as sb:
         with pytest.raises(UnsupportedBackendTool):
-            await sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))
+            sb.dispatch(BackendToolCodeRun(code="puts 'hi'", language="ruby"))
 
 
-async def test_code_run_python_round_trip() -> None:
+def test_code_run_python_round_trip() -> None:
     """Smoke that ``codes.run`` produces both stdout and a result text."""
     backend = get("opensandbox")
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
-            BackendToolCodeRun(code="x = 1 + 1\nprint(x)\nx")
-        )
+    with backend.open() as sb:
+        result = sb.dispatch(BackendToolCodeRun(code="x = 1 + 1\nprint(x)\nx"))
         assert isinstance(result, CodeResult)
         assert result.error is None
         assert b"2" in result.stdout
 
 
-async def test_files_read_text_and_bytes() -> None:
+def test_files_read_text_and_bytes() -> None:
     backend = get("opensandbox")
-    async with await backend.open() as sb:
-        await sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_rw.txt", data="hello"))
-        text = await sb.dispatch(BackendToolFilesRead(path="/tmp/rath_rw.txt"))
+    with backend.open() as sb:
+        sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_rw.txt", data="hello"))
+        text = sb.dispatch(BackendToolFilesRead(path="/tmp/rath_rw.txt"))
         assert isinstance(text, FileContent)
         assert text.data == "hello"
-        raw = await sb.dispatch(
+        raw = sb.dispatch(
             BackendToolFilesRead(path="/tmp/rath_rw.txt", encoding=None)
         )
         assert isinstance(raw, FileContent)
         assert raw.data == b"hello"
 
 
-async def test_simple_command_run_exit_code_and_stdout() -> None:
+def test_simple_command_run_exit_code_and_stdout() -> None:
     backend = get("opensandbox")
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(cmd=["python3", "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)

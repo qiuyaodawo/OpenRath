@@ -539,7 +539,6 @@ name = "openrath"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "anyio" },
     { name = "openai" },
     { name = "python-dotenv" },
 ]
@@ -560,7 +559,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "opensandbox", marker = "extra == 'opensandbox'", specifier = ">=0.1.7" },
     { name = "opensandbox-code-interpreter", marker = "extra == 'opensandbox'", specifier = ">=0.1.2" },

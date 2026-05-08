@@ -18,17 +18,17 @@ class ScriptedSessionLoopExecutor:
         self._queue = list(responses)
         register_builtin_session_tools()
 
-    async def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
+    def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
         if not self._queue:
             raise RuntimeError("scripted LLM queue empty")
         return self._queue.pop(0)
 
-    async def dispatch_tool(
+    def dispatch_tool(
         self,
         session: Session,
         call: FlowToolCall,
     ) -> ToolResult | bool:
-        return await session.require_sandbox().dispatch(call)
+        return session.require_sandbox().dispatch(call)
 
     def tool_schemas(self) -> tuple[RathLLMFunctionTool, ...]:
         return global_tool_table().schemas()

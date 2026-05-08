@@ -11,12 +11,10 @@ from rath.backend import (
     BackendToolFilesWrite,
 )
 
-pytestmark = pytest.mark.anyio
 
-
-async def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(cmd=[*python_cmd, "-c", "print('hello')"])
         )
         assert isinstance(result, CommandResult)
@@ -25,11 +23,9 @@ async def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
         assert result.elapsed_ms >= 0
 
 
-async def test_nonzero_exit_code(
-    backend: Backend, python_cmd: list[str]
-) -> None:
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+def test_nonzero_exit_code(backend: Backend, python_cmd: list[str]) -> None:
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(
                 cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"]
             )
@@ -38,11 +34,9 @@ async def test_nonzero_exit_code(
         assert result.exit_code == 7
 
 
-async def test_stderr_capture(
-    backend: Backend, python_cmd: list[str]
-) -> None:
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+def test_stderr_capture(backend: Backend, python_cmd: list[str]) -> None:
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(
                 cmd=[*python_cmd, "-c", "import sys; sys.stderr.write('boom')"]
             )
@@ -51,11 +45,9 @@ async def test_stderr_capture(
         assert b"boom" in result.stderr
 
 
-async def test_env_passthrough(
-    backend: Backend, python_cmd: list[str]
-) -> None:
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+def test_env_passthrough(backend: Backend, python_cmd: list[str]) -> None:
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(
                 cmd=[
                     *python_cmd,
@@ -69,13 +61,11 @@ async def test_env_passthrough(
         assert b"hello42" in result.stdout
 
 
-async def test_stdin_input(
-    backend: Backend, python_cmd: list[str]
-) -> None:
+def test_stdin_input(backend: Backend, python_cmd: list[str]) -> None:
     if backend.name == "opensandbox":
         pytest.skip("OpenSandbox commands.run has no stdin parameter")
-    async with await backend.open() as sb:
-        result = await sb.dispatch(
+    with backend.open() as sb:
+        result = sb.dispatch(
             BackendToolCommandRun(
                 cmd=[
                     *python_cmd,
@@ -89,14 +79,12 @@ async def test_stdin_input(
         assert b"ABC" in result.stdout
 
 
-async def test_default_cwd_is_sandbox_root(
-    backend: Backend, python_cmd: list[str]
-) -> None:
+def test_default_cwd_is_sandbox_root(backend: Backend, python_cmd: list[str]) -> None:
     """A relative path written via BackendToolFilesWrite must be readable by a
     command that defaults to the sandbox cwd."""
-    async with await backend.open() as sb:
-        await sb.dispatch(BackendToolFilesWrite(path="marker.txt", data="found"))
-        result = await sb.dispatch(
+    with backend.open() as sb:
+        sb.dispatch(BackendToolFilesWrite(path="marker.txt", data="found"))
+        result = sb.dispatch(
             BackendToolCommandRun(
                 cmd=[
                     *python_cmd,
@@ -110,12 +98,10 @@ async def test_default_cwd_is_sandbox_root(
         assert b"found" in result.stdout
 
 
-async def test_timeout_raises_timeout_error(
-    backend: Backend, python_cmd: list[str]
-) -> None:
-    async with await backend.open() as sb:
+def test_timeout_raises_timeout_error(backend: Backend, python_cmd: list[str]) -> None:
+    with backend.open() as sb:
         with pytest.raises(TimeoutError):
-            await sb.dispatch(
+            sb.dispatch(
                 BackendToolCommandRun(
                     cmd=[
                         *python_cmd,

@@ -1,93 +1,74 @@
-"""Stream and :class:`Event` — async FIFO dispatch bound to one :class:`~rath.backend.abc.BackendSandbox`."""
+"""Stream and :class:`Event` — threading-based FIFO dispatch bound to one sandbox."""
 
 from __future__ import annotations
 
-import math
+import queue
+import threading
 import time
 from dataclasses import dataclass
 from types import TracebackType
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import anyio
-
 from rath.backend.tool_types import BackendTool
 from rath.backend.results import ToolResult
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-
     from rath.backend.abc import BackendSandbox
 
 T = TypeVar("T")
 
 
 class Future(Generic[T]):
-    """Awaitable handle to the result of a submitted :class:`~rath.backend.tool_types.BackendTool`.
+    """Blocking handle to the result of a submitted tool call."""
 
-    Awaiting the future blocks until the worker has dispatched the call. If
-    dispatch raised, awaiting re-raises the same exception.
-    """
-
-    __slots__ = ("_event", "_result", "_exc")
+    __slots__ = ("_evt", "_result", "_exc")
 
     def __init__(self) -> None:
-        self._event: anyio.Event = anyio.Event()
+        self._evt = threading.Event()
         self._result: T | None = None
         self._exc: BaseException | None = None
 
     def _set_result(self, result: T) -> None:
         self._result = result
-        self._event.set()
+        self._evt.set()
 
     def _set_exception(self, exc: BaseException) -> None:
         self._exc = exc
-        self._event.set()
+        self._evt.set()
 
-    async def wait(self) -> T:
-        await self._event.wait()
+    def result(self) -> T:
+        self._evt.wait()
         if self._exc is not None:
             raise self._exc
         return self._result  # type: ignore[return-value]
 
-    def __await__(self) -> Generator[object, None, T]:
-        return self.wait().__await__()
-
     def done(self) -> bool:
-        return self._event.is_set()
+        return self._evt.is_set()
 
 
 class Event:
-    """Synchronization marker that crosses :class:`Stream` boundaries.
+    """Synchronization marker that crosses :class:`Stream` boundaries."""
 
-    An event records a logical point in a stream's submission timeline.
-    Other streams can wait on an event so their next submission only runs
-    after the recording stream has passed that point.
-    """
-
-    __slots__ = ("_anyio_event", "_set_at")
+    __slots__ = ("_thread_evt", "_set_at")
 
     def __init__(self) -> None:
-        self._anyio_event: anyio.Event = anyio.Event()
+        self._thread_evt = threading.Event()
         self._set_at: float | None = None
 
     def _signal(self) -> None:
         self._set_at = time.perf_counter()
-        self._anyio_event.set()
+        self._thread_evt.set()
 
-    async def wait(self) -> None:
-        await self._anyio_event.wait()
+    def wait(self) -> None:
+        self._thread_evt.wait()
 
     def query(self) -> bool:
-        return self._anyio_event.is_set()
+        return self._thread_evt.is_set()
 
-    async def synchronize(self) -> None:
-        await self.wait()
+    def synchronize(self) -> None:
+        self.wait()
 
     def elapsed_time(self, end: "Event") -> float:
-        """Return milliseconds elapsed between this event and ``end``.
-
-        Both events must have fired before this is called.
-        """
         if self._set_at is None or end._set_at is None:
             raise RuntimeError(
                 "elapsed_time requires both events to have been signaled"
@@ -113,94 +94,88 @@ class _WaitEventOp:
 
 @dataclass(frozen=True, slots=True)
 class _SyncOp:
-    done: anyio.Event
+    evt: threading.Event
 
 
-_Op = _CallOp | _RecordEventOp | _WaitEventOp | _SyncOp
+@dataclass(frozen=True, slots=True)
+class _ShutdownOp:
+    pass
+
+
+_Op = _CallOp | _RecordEventOp | _WaitEventOp | _SyncOp | _ShutdownOp
 
 
 class Stream:
-    """Per-sandbox FIFO queue of tool-call operations.
-
-    A stream is itself an async context manager. The worker task that drains
-    its queue lives inside that context; on exit the stream stops accepting
-    new submissions and awaits in-flight work.
-
-    ``buffer=0`` (the default) means an unbounded queue. Set ``buffer`` to a
-    positive integer to apply backpressure: :meth:`submit` will await when
-    the queue is full.
-    """
+    """Per-sandbox FIFO queue of tool-call operations (blocking worker thread)."""
 
     def __init__(self, sandbox: "BackendSandbox", *, buffer: int = 0) -> None:
         self._sandbox = sandbox
-        size: int | float = math.inf if buffer == 0 else buffer
-        send, recv = anyio.create_memory_object_stream[_Op](max_buffer_size=size)
-        self._send = send
-        self._recv = recv
-        self._task_group: anyio.abc.TaskGroup | None = None
-        self._busy: bool = False
-        self._closed: bool = False
+        maxsize = 0 if buffer == 0 else buffer
+        self._queue: queue.Queue[_Op | None] = queue.Queue(maxsize=maxsize)
+        self._worker: threading.Thread | None = None
+        self._busy = threading.Event()
+        self._closed = False
+        self._lock = threading.Lock()
 
-    async def __aenter__(self) -> "Stream":
-        if self._closed:
-            raise RuntimeError("stream is already closed")
-        self._task_group = anyio.create_task_group()
-        await self._task_group.__aenter__()
-        self._task_group.start_soon(self._run)
+    def __enter__(self) -> Stream:
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("stream is already closed")
+            self._worker = threading.Thread(target=self._run, daemon=True)
+            self._worker.start()
         return self
 
-    async def __aexit__(
+    def __exit__(
         self,
         exc_type: type[BaseException] | None,
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        await self._send.aclose()
+        self._queue.put(None)  # type: ignore[arg-type]
         self._closed = True
-        assert self._task_group is not None
-        await self._task_group.__aexit__(exc_type, exc, tb)
+        if self._worker is not None:
+            self._worker.join(timeout=120.0)
 
-    async def submit(self, call: BackendTool) -> Future[ToolResult | bool]:
+    def submit(self, call: BackendTool) -> Future[ToolResult | bool]:
         future: Future[ToolResult | bool] = Future()
-        await self._send.send(_CallOp(call=call, future=future))
+        self._queue.put(_CallOp(call=call, future=future))
         return future
 
-    async def synchronize(self) -> None:
-        done = anyio.Event()
-        await self._send.send(_SyncOp(done=done))
-        await done.wait()
+    def synchronize(self) -> None:
+        done = threading.Event()
+        self._queue.put(_SyncOp(evt=done))
+        done.wait()
 
-    async def query(self) -> bool:
-        """Return ``True`` iff the queue is empty and the worker is idle."""
-        return (
-            self._send.statistics().current_buffer_used == 0 and not self._busy
-        )
+    def query(self) -> bool:
+        return self._queue.empty() and not self._busy.is_set()
 
-    async def record_event(self) -> Event:
+    def record_event(self) -> Event:
         event = Event()
-        await self._send.send(_RecordEventOp(event=event))
+        self._queue.put(_RecordEventOp(event=event))
         return event
 
-    async def wait_event(self, event: Event) -> None:
-        await self._send.send(_WaitEventOp(event=event))
+    def wait_event(self, event: Event) -> None:
+        self._queue.put(_WaitEventOp(event=event))
 
-    async def wait_stream(self, other: "Stream") -> None:
-        e = await other.record_event()
-        await self.wait_event(e)
+    def wait_stream(self, other: Stream) -> None:
+        evt = other.record_event()
+        self.wait_event(evt)
 
-    async def _run(self) -> None:
-        async with self._recv:
-            async for op in self._recv:
-                self._busy = True
-                try:
-                    await self._handle(op)
-                finally:
-                    self._busy = False
+    def _run(self) -> None:
+        while True:
+            op = self._queue.get()
+            if op is None:
+                break
+            self._busy.set()
+            try:
+                self._handle(op)
+            finally:
+                self._busy.clear()
 
-    async def _handle(self, op: _Op) -> None:
+    def _handle(self, op: _Op) -> None:
         if isinstance(op, _CallOp):
             try:
-                result = await self._sandbox.dispatch(op.call)
+                result = self._sandbox.dispatch(op.call)
             except Exception as exc:
                 op.future._set_exception(exc)
             else:
@@ -208,6 +183,6 @@ class Stream:
         elif isinstance(op, _RecordEventOp):
             op.event._signal()
         elif isinstance(op, _WaitEventOp):
-            await op.event.wait()
+            op.event.wait()
         elif isinstance(op, _SyncOp):
-            op.done.set()
+            op.evt.set()

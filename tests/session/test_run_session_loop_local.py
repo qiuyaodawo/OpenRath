@@ -7,7 +7,7 @@ import json
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, AgentLLMProvider
+from rath.flow.agent import Agent, Provider
 from rath.llm import (
     RathLLMAssistantMessage,
     RathLLMChatChoice,
@@ -19,8 +19,6 @@ from rath.session.chunk import ChunkKind
 from rath.session import Session, run_session_loop, session_registry
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
 
-pytestmark = pytest.mark.anyio
-
 
 @pytest.fixture(autouse=True)
 def _clear_active_session_registry() -> None:
@@ -28,7 +26,7 @@ def _clear_active_session_registry() -> None:
     session_registry().set_active(None)
 
 
-async def test_run_session_loop_stop_without_tools() -> None:
+def test_run_session_loop_stop_without_tools() -> None:
     scripted = RathLLMChatResponse(
         id="s1",
         choices=(
@@ -44,13 +42,13 @@ async def test_run_session_loop_stop_without_tools() -> None:
     executor = ScriptedSessionLoopExecutor([scripted])
     agent = Agent(
         Session.from_system_prompt("You are a scripted test assistant."),
-        AgentLLMProvider(),
+        Provider(),
     )
 
     backend = get("local")
-    async with await backend.open() as sandbox:
+    with backend.open() as sandbox:
         user = Session.user_message("Say something short.").with_sandbox(sandbox)
-        out = await run_session_loop(
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
@@ -72,7 +70,7 @@ async def test_run_session_loop_stop_without_tools() -> None:
     assert "final answer" in last_assistant_payloads
 
 
-async def test_run_session_loop_write_file_via_tool_then_stop() -> None:
+def test_run_session_loop_write_file_via_tool_then_stop() -> None:
     body = {"path": "_rath_loop_probe.txt", "content": "LOCAL_SCRIPTED_MARKER"}
     arg_str = json.dumps(body)
     tool_part = RathLLMToolCallPart(
@@ -114,13 +112,13 @@ async def test_run_session_loop_write_file_via_tool_then_stop() -> None:
     executor = ScriptedSessionLoopExecutor([first, second])
     agent = Agent(
         Session.from_system_prompt("Scripted tool harness."),
-        AgentLLMProvider(),
+        Provider(),
     )
 
     backend = get("local")
-    async with await backend.open() as sandbox:
+    with backend.open() as sandbox:
         user = Session.user_message("Write the marker file.").with_sandbox(sandbox)
-        out = await run_session_loop(
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
