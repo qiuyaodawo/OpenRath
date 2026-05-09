@@ -24,7 +24,7 @@ class _ScriptedEchoWorkflow(Workflow):
         super().__init__()
         self._exec = ScriptedSessionLoopExecutor([scripted])
         self.agent = Agent(
-            Session.from_system_prompt("System prompt for workflow test."),
+            Session.from_agent_prompt("System prompt for workflow test."),
             Provider(),
         )
 
@@ -59,7 +59,7 @@ def test_workflow_registers_agent_and_runs_loop() -> None:
 
     backend = get("local")
     with backend.open() as sandbox:
-        user = Session.user_message("Trigger scripted reply.").with_sandbox(sandbox)
+        user = Session.from_user_message("Trigger scripted reply.").with_sandbox(sandbox)
         out = wf.forward(user)
 
     assert out.sandbox is sandbox

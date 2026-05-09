@@ -20,7 +20,7 @@ from rath.session import Session
 
 def test_take_sandbox_raises_when_no_backend_and_no_handle() -> None:
 
-    user = Session.user_message("x", sandbox_backend=None)
+    user = Session.from_user_message("x")
 
     assert user.sandbox is None
 
@@ -34,7 +34,7 @@ def test_take_sandbox_raises_when_no_backend_and_no_handle() -> None:
 
 def test_take_sandbox_lazy_opens_when_backend_is_local() -> None:
 
-    user = Session.user_message("x")
+    user = Session.from_user_message("x").to("local")
 
     assert user.sandbox is None
 
@@ -52,7 +52,7 @@ def test_take_sandbox_lazy_opens_when_backend_is_local() -> None:
 
 def test_with_session_optional_closes_handle() -> None:
 
-    s = Session.user_message("y")
+    s = Session.from_user_message("y").to("local")
 
     assert s.sandbox is None
 
@@ -74,7 +74,7 @@ def test_with_session_optional_closes_handle() -> None:
 
 def test_to_chainable_returns_self() -> None:
 
-    s = Session.user_message("z")
+    s = Session.from_user_message("z")
 
     assert s.to("local") is s
 
@@ -90,7 +90,7 @@ def test_take_sandbox_detaches_then_can_rebind() -> None:
 
     with backend.open() as sb:
 
-        user = Session.user_message("x").with_sandbox(sb)
+        user = Session.from_user_message("x").with_sandbox(sb)
 
         assert user.take_sandbox() is sb
 
@@ -112,7 +112,7 @@ def test_require_sandbox_raises_after_backend_closed() -> None:
 
     try:
 
-        user = Session.user_message("x").with_sandbox(sandbox)
+        user = Session.from_user_message("x").with_sandbox(sandbox)
 
         assert user.require_sandbox() is sandbox
 
@@ -129,7 +129,7 @@ def test_require_sandbox_raises_after_backend_closed() -> None:
 
 def test_to_accepts_str_spec_as_working_dir(tmp_path: Path) -> None:
     root = str(tmp_path.resolve())
-    s = Session.user_message("w").to("local", spec=root)
+    s = Session.from_user_message("w").to("local", spec=root)
     assert s._sandbox_open_spec is not None
     assert s._sandbox_open_spec.working_dir == root
     sb = s.take_sandbox()

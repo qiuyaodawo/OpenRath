@@ -21,7 +21,7 @@ from rath.session.session import Session
 
 
 def _sess(parents: tuple[uuid.UUID, ...]) -> Session:
-    s = Session.user_message("_")
+    s = Session.from_user_message("_")
     s.parent_session_ids = parents
     s.lineage_kind = LineageKind.OP_FORK
     return s
@@ -29,11 +29,11 @@ def _sess(parents: tuple[uuid.UUID, ...]) -> Session:
 
 def test_validate_acyclic_rejects_missing_parent() -> None:
     a_id, b_id = uuid.uuid4(), uuid.uuid4()
-    a = Session.user_message("_")
+    a = Session.from_user_message("_")
     a.id = a_id
     a.parent_session_ids = ()
 
-    b = Session.user_message("_")
+    b = Session.from_user_message("_")
     b.id = b_id
     b.parent_session_ids = (a_id, uuid.uuid4())
 
@@ -43,7 +43,7 @@ def test_validate_acyclic_rejects_missing_parent() -> None:
 
 def test_validate_acyclic_rejects_cycle() -> None:
     uid = uuid.uuid4()
-    a = Session.user_message("_")
+    a = Session.from_user_message("_")
     a.id = uid
     a.parent_session_ids = (uid,)
     with pytest.raises(LineageConsistencyError):
@@ -52,13 +52,13 @@ def test_validate_acyclic_rejects_cycle() -> None:
 
 def test_ancestors_bfs_order_linear() -> None:
     c_id, b_id, a_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    a = Session.user_message("_")
+    a = Session.from_user_message("_")
     a.id = a_id
     a.parent_session_ids = ()
-    b = Session.user_message("_")
+    b = Session.from_user_message("_")
     b.id = b_id
     b.parent_session_ids = (a_id,)
-    c = Session.user_message("_")
+    c = Session.from_user_message("_")
     c.id = c_id
     c.parent_session_ids = (b_id,)
     by_id = {a_id: a, b_id: b, c_id: c}
@@ -76,7 +76,7 @@ def test_edge_pairs() -> None:
 
 
 def test_lineage_recorder_respects_mode_off() -> None:
-    s = Session.user_message("x")
+    s = Session.from_user_message("x")
     pid = uuid.uuid4()
     with session_graph_mode_override(False):
         LineageRecorder.stamp_new_session(
@@ -90,7 +90,7 @@ def test_lineage_recorder_respects_mode_off() -> None:
 
 
 def test_lineage_recorder_stamps_when_on() -> None:
-    s = Session.user_message("x")
+    s = Session.from_user_message("x")
     p = uuid.uuid4()
     LineageRecorder.stamp_new_session(
         s,

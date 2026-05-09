@@ -34,7 +34,6 @@ from rath.session.primitives import (
     detach_session,
     fork_session,
     merge_sessions,
-    split_session,
 )
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
@@ -66,7 +65,6 @@ __all__ = [
     "session_graph_mode_override",
     "Session",
     "SessionLineage",
-    "split_session",
     "SessionLoopExecutor",
     "SessionRegistry",
     "run_session_loop",

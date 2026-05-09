@@ -59,7 +59,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
     model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
     marker = "RATH_SESSION_E2E_ECHO_92653"
     agent = Agent(
-        Session.from_system_prompt(
+        Session.from_agent_prompt(
             "You are a test harness. Follow user instructions exactly. "
             "When the user asks you to run a shell command via a tool, call "
             "run_shell_command once with the cmd string they specify—no extra steps."
@@ -67,7 +67,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
         Provider(model=model),
     )
     with backend.open() as sandbox:
-        user = Session.user_message(
+        user = Session.from_user_message(
             f"Use run_shell_command exactly once. The cmd must run: echo {marker}"
         ).with_sandbox(sandbox)
 
@@ -102,7 +102,7 @@ class _ShellEchoWorkflow(Workflow):
     ) -> None:
         super().__init__()
         self.actor = Agent(
-            Session.from_system_prompt(system_prompt), Provider(model=model)
+            Session.from_agent_prompt(system_prompt), Provider(model=model)
         )
         self._loop_executor = executor
 
@@ -127,7 +127,7 @@ def test_workflow_opensandbox_shell_echo() -> None:
         "for a shell command, exactly once with the cmd they describe."
     )
     with backend.open() as sandbox:
-        user = Session.user_message(
+        user = Session.from_user_message(
             f"Call run_shell_command once with cmd: echo {marker}"
         ).with_sandbox(sandbox)
 

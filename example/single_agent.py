@@ -7,7 +7,7 @@ class SingAgentWorkflow(flow.Workflow):
     def __init__(self, system_prompt: str, model: str):
         super().__init__()
         self.agent = flow.Agent(
-            agent_session=Session.from_system_prompt(prompt=system_prompt),
+            agent_session=Session.from_agent_prompt(system_prompt),
             provider=flow.Provider(model=model),
         )
 
@@ -26,8 +26,8 @@ if __name__ == "__main__":
     )
     print(agent_wf)
 
-    user_session = Session.user_message(
-        text="Please summarize this repository in one short paragraph."
+    user_session = Session.from_user_message(
+        "Please summarize this repository in one short paragraph."
     ).to("local", spec="./")
     out_session = agent_wf.forward(user_session)
     print(out_session)

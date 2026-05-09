@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from rath.backend import BackendSandbox, BackendSandboxSpec, get
 from rath.session.chunk import ChunkKind, ChunkRow, ChunkTable
 from rath.session.graph.kind import LineageKind
+from rath.session.graph.recording import LineageRecorder
 from rath.session.graph.legacy import SessionLineage
 
 
@@ -95,16 +96,13 @@ def _format_chunks_block(rows: tuple[ChunkRow, ...], *, edge: int) -> str:
 class Session:
     """Chunk transcript (:attr:`chunk_table`), optional sandbox, and lineage metadata.
 
-    Sandbox placement is **torch-like**: :attr:`sandbox_backend` names the target
-    (default ``"local"``). Call :meth:`to` to switch backends; the handle in
-    :attr:`sandbox` is opened **lazily** on first use (e.g. :meth:`take_sandbox`,
+    Sandbox placement is **torch-like**: :attr:`sandbox_backend` is ``None`` until
+    you call :meth:`to` (or :meth:`with_sandbox` / :meth:`bind_sandbox`). The handle
+    in :attr:`sandbox` is opened **lazily** on first use (e.g. :meth:`take_sandbox`,
     :meth:`require_sandbox`, or entering ``with session:``). Call
     :meth:`close_sandbox` to release the handle; the backend name is kept so the
     next use can open again. ``with session:`` is optional; when used, the outermost
     exit calls :meth:`close_sandbox`.
-
-    Set ``sandbox_backend=None`` only when you need a session that never auto-opens
-    (e.g. tests for missing-sandbox errors).
 
     :func:`~rath.session.loop.run_session_loop` takes the sandbox attached to an
     incoming user session and rebinds it to the returned session.
@@ -112,14 +110,19 @@ class Session:
     Flat lineage (preferred graph substrate): :attr:`parent_session_ids` (ordered
     parents), :attr:`lineage_operator`, :attr:`lineage_kind`, :attr:`lineage_extras`.
     :attr:`lineage` is an optional legacy DTO tying loop outputs to producer sessions.
-    Writes to lineage fields honour :func:`~rath.session.graph.session_graph_mode`;
-    primitives and ``run_session_loop`` are the intended mutation sites.
+    Primitives :meth:`~Session.fork`, :meth:`~Session.detach`, and :meth:`~Session.__add__`
+    duplicate chunk rows only; **open sandbox handles are never copied**. The source
+    session keeps its handle; derived sessions start with :attr:`sandbox` ``None``
+    but may inherit :attr:`sandbox_backend` / reopen spec from the left operand /
+    fork source. For merge via ``a + b``, backend targeting follows the **left**
+    session (same as :func:`~rath.session.primitives.merge_sessions` with the first
+    parent).
     """
 
     chunk_table: ChunkTable
     id: UUID = field(default_factory=uuid4)
     sandbox: BackendSandbox | None = None
-    sandbox_backend: str | None = "local"
+    sandbox_backend: str | None = None
     _sandbox_open_spec: BackendSandboxSpec | None = field(default=None, repr=False)
     _cm_depth: int = field(default=0, repr=False)
     lineage: SessionLineage | None = None
@@ -129,23 +132,19 @@ class Session:
     lineage_extras: tuple[tuple[str, Any], ...] = ()
 
     @classmethod
-    def from_system_prompt(
-        cls, prompt: str, *, sandbox_backend: str | None = "local"
-    ) -> Session:
+    def from_agent_prompt(cls, prompt: str) -> Session:
         from rath.session.chunk import system_text_chunk
 
         return cls(
             chunk_table=ChunkTable(rows=(system_text_chunk(prompt),)),
-            sandbox_backend=sandbox_backend,
         )
 
     @classmethod
-    def user_message(cls, text: str, *, sandbox_backend: str | None = "local") -> Session:
+    def from_user_message(cls, text: str) -> Session:
         from rath.session.chunk import user_text_chunk
 
         return cls(
             chunk_table=ChunkTable(rows=(user_text_chunk(text),)),
-            sandbox_backend=sandbox_backend,
         )
 
     def to(
@@ -242,6 +241,68 @@ class Session:
         self.sandbox_backend = sandbox.backend.name
         self._sandbox_open_spec = sandbox.spec
         return self
+
+    def fork(self) -> "Session":
+        """Copy transcript and sandbox **target** (backend + open spec); no open handle.
+
+        Does not move or close the source session's sandbox; the fork starts with
+        :attr:`sandbox` ``None``. Open a new handle via :meth:`to`, context manager,
+        or :meth:`take_sandbox` / :meth:`require_sandbox` when appropriate.
+        """
+
+        rows = tuple(self.chunk_table.rows)
+        forked = Session(
+            chunk_table=ChunkTable(rows=rows),
+            sandbox_backend=self.sandbox_backend,
+            _sandbox_open_spec=self._sandbox_open_spec,
+        )
+        LineageRecorder.stamp_new_session(
+            forked,
+            parent_session_ids=(self.id,),
+            lineage_operator="Session.fork",
+            lineage_kind=LineageKind.OP_FORK,
+        )
+        return forked
+
+    def detach(self) -> "Session":
+        """Copy transcript and sandbox target with a fresh lineage root (no parents)."""
+
+        rows = tuple(self.chunk_table.rows)
+        detached = Session(
+            chunk_table=ChunkTable(rows=rows),
+            sandbox_backend=self.sandbox_backend,
+            _sandbox_open_spec=self._sandbox_open_spec,
+        )
+        LineageRecorder.stamp_new_session(
+            detached,
+            parent_session_ids=(),
+            lineage_operator="Session.detach",
+            lineage_kind=LineageKind.OP_DETACH,
+            lineage_extras=(),
+        )
+        return detached
+
+    def __add__(self, other: Any) -> Session:
+        """Concat-merge: chunk rows from ``self`` then ``other``; sandbox target from ``self``.
+
+        The result has no open sandbox handle. Parent ids are ``(self.id, other.id)``.
+        """
+
+        if not isinstance(other, Session):
+            return NotImplemented  # type: ignore[return-value]
+        merged = Session(
+            chunk_table=ChunkTable(rows=self.chunk_table.rows + other.chunk_table.rows),
+            sandbox_backend=self.sandbox_backend,
+            _sandbox_open_spec=self._sandbox_open_spec,
+        )
+        LineageRecorder.stamp_new_session(
+            merged,
+            parent_session_ids=(self.id, other.id),
+            lineage_operator="Session.merge",
+            lineage_kind=LineageKind.OP_MERGE,
+            lineage_extras=(("strategy", "concat"),),
+        )
+        return merged
 
     def __str__(self) -> str:
         cls_name = type(self).__name__

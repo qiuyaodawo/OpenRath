@@ -15,7 +15,6 @@ class LineageKind(str, Enum):
     OP_SESSION_LOOP = "op_session_loop"
     OP_FORK = "op_fork"
     OP_DETACH = "op_detach"
-    OP_SPLIT_CHILD = "op_split_child"
     OP_MERGE = "op_merge"
 
 

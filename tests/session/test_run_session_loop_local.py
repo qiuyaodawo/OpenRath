@@ -41,13 +41,13 @@ def test_run_session_loop_stop_without_tools() -> None:
     )
     executor = ScriptedSessionLoopExecutor([scripted])
     agent = Agent(
-        Session.from_system_prompt("You are a scripted test assistant."),
+        Session.from_agent_prompt("You are a scripted test assistant."),
         Provider(),
     )
 
     backend = get("local")
     with backend.open() as sandbox:
-        user = Session.user_message("Say something short.").with_sandbox(sandbox)
+        user = Session.from_user_message("Say something short.").with_sandbox(sandbox)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -111,13 +111,13 @@ def test_run_session_loop_write_file_via_tool_then_stop() -> None:
     )
     executor = ScriptedSessionLoopExecutor([first, second])
     agent = Agent(
-        Session.from_system_prompt("Scripted tool harness."),
+        Session.from_agent_prompt("Scripted tool harness."),
         Provider(),
     )
 
     backend = get("local")
     with backend.open() as sandbox:
-        user = Session.user_message("Write the marker file.").with_sandbox(sandbox)
+        user = Session.from_user_message("Write the marker file.").with_sandbox(sandbox)
         out = run_session_loop(
             user,
             agent.agent_session,
