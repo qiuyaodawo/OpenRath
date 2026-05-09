@@ -15,3 +15,6 @@ htmlcov/
 
 # OpenSandbox
 .sandbox.toml
+
+# Sphinx
+docs/_build/
