@@ -1,10 +1,10 @@
-"""Workflow base type: assigns ``Agent`` attributes and orchestrates sessions."""
+"""Workflow base type: assigns ``AgentParam`` attributes and orchestrates sessions."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from rath.flow.agent import Agent
+from rath.flow.agent_param import AgentParam
 from rath.session.loop import SessionLoopExecutor, run_session_loop
 from rath.session.session import Session
 
@@ -21,18 +21,18 @@ def _indent_child_module_repr(body: str, spaces: int = 2) -> str:
 
 
 class Workflow:
-    """Collects attached ``Agent`` instances and subclasses run sessions here."""
+    """Collects attached ``AgentParam`` instances and subclasses run sessions here."""
 
     __slots__ = ("_agents",)
 
-    _agents: dict[str, Agent]
+    _agents: dict[str, AgentParam]
 
     def __init__(self) -> None:
         object.__setattr__(self, "_agents", {})
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Agent):
-            agents: dict[str, Agent] = object.__getattribute__(self, "_agents")
+        if isinstance(value, AgentParam):
+            agents: dict[str, AgentParam] = object.__getattribute__(self, "_agents")
             agents[name] = value
         super().__setattr__(name, value)
 
@@ -41,10 +41,10 @@ class Workflow:
         agents.pop(name, None)
         super().__delattr__(name)
 
-    def named_agents(self) -> tuple[tuple[str, Agent], ...]:
-        """Agents registered via attribute assignment."""
+    def named_agents(self) -> tuple[tuple[str, AgentParam], ...]:
+        """Agent params registered via attribute assignment."""
 
-        agents: dict[str, Agent] = object.__getattribute__(self, "_agents")
+        agents: dict[str, AgentParam] = object.__getattribute__(self, "_agents")
         return tuple(sorted(agents.items(), key=lambda x: x[0]))
 
     def forward(self, session: Session) -> Session:
@@ -73,13 +73,13 @@ class Workflow:
 
 def run_session_loop_from_agent(
     user_session: Session,
-    agent: Agent,
+    agent: AgentParam,
     *,
     tools: list[str] | None = None,
     executor: SessionLoopExecutor | None = None,
     max_tool_rounds: int = 16,
 ) -> Session:
-    """Maps ``Agent`` fields to ``run_session_loop`` keyword arguments.
+    """Maps ``AgentParam`` fields to ``run_session_loop`` keyword arguments.
 
     Omitted ``executor`` uses the default from :func:`~rath.session.loop.run_session_loop`.
     """

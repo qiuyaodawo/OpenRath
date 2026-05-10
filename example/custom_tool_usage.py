@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 import rath.flow as flow
 from rath.flow.tool import global_tool_table, tool
-from rath.session import Session, run_session_loop
+from rath.session import Session
 
 BIGMODEL_IMAGES_URL = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 
@@ -57,29 +57,19 @@ def image_gen(prompt: str, size: str = "1280x1280") -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    try:
-        agent = flow.Agent(
-            agent_session=Session.from_agent_prompt(
-                "You have an image_gen tool for Zhipu GLM-Image. "
-                "When the user asks for an image, call image_gen with a concise prompt "
-                "and optional size (default 1280x1280). The tool returns API JSON; "
-                "mention the image URL from the response."
-            ),
-            provider=flow.Provider(model="glm-5.1"),
-        )
-        user_session = Session.from_user_message(
-            "Generate a simple cartoon cat on a sofa (no text in the image). "
-            "Use image_gen once, then answer in one short sentence. "
-            "Save in ./custom_tool_usage.png"
-        ).to("local", spec="./")
+    agent = flow.Agent(
+        system_prompt="You have an image_gen tool for Zhipu GLM-Image. "
+        "When the user asks for an image, call image_gen with a concise prompt "
+        "and optional size (default 1280x1280). The tool returns API JSON; "
+        "mention the image URL from the response.",
+        model="glm-5.1",
+        tools=["image_gen"],
+    )
+    user_session = Session.from_user_message(
+        "Generate a simple cartoon cat on a sofa (no text in the image). "
+        "Use image_gen once, then answer in one short sentence. "
+        "Save in ./custom_tool_usage.png"
+    ).to("local", spec="./")
 
-        out_session = run_session_loop(
-            user_session=user_session,
-            agent_session=agent.agent_session,
-            agent_provider=agent.provider,
-            tools=["image_gen"],
-        )
-        last = out_session.chunk_table.rows[-1].payload
-        print(last.get("content") or last)
-    finally:
-        global_tool_table().unregister("image_gen")
+    out_session = agent(user_session)
+    print(out_session)

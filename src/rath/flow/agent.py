@@ -1,56 +1,30 @@
-"""Agent: system :class:`~rath.session.session.Session` plus LLM prefs.
-
-See :class:`~rath.llm.Provider`.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from types import MappingProxyType
-from typing import Any, Mapping
-
+from rath.flow.workflow import Workflow
+from rath.flow.agent_param import AgentParam
+from rath.session import Session, run_session_loop
 from rath.llm.provider import Provider
-from rath.session.session import Session
 
 
-def _indent_child_module_repr(body: str, spaces: int = 2) -> str:
-    """Indent a child ``repr`` like ``torch.nn.Module`` (first line unindented)."""
-
-    lines = body.split("\n")
-    if len(lines) <= 1:
-        return body
-    first, *rest = lines
-    pad = " " * spaces
-    return first + "\n" + "\n".join(pad + line for line in rest)
-
-
-@dataclass(slots=True)
-class Agent:
-    """System session plus LLM options for ``run_session_loop``."""
-
-    agent_session: Session
-    provider: Provider
-
-    @property
-    def data(self) -> Mapping[str, Any]:
-        """Read-only mapping of underlying ``agent_session`` and ``provider``."""
-
-        return MappingProxyType(
-            {"agent_session": self.agent_session, "provider": self.provider}
+class Agent(Workflow):
+    def __init__(self, system_prompt: str, model: str, tools: list[str] = None):
+        super().__init__()
+        self.tools = tools or []
+        self.agent = AgentParam(
+            agent_session=Session.from_agent_prompt(system_prompt),
+            provider=Provider(model=model),
         )
 
-    def __repr__(self) -> str:
-        name = type(self).__name__
-        sess_body = repr(self.agent_session)
-        sess_body = _indent_child_module_repr(sess_body, 2)
-        return (
-            f"{name}(\n"
-            f"  (agent_session): {sess_body}\n"
-            f"  (provider): {self.provider!s}\n"
-            f")"
+    def forward(self, session: Session) -> Session:
+        return run_session_loop(
+            user_session=session,
+            agent_session=self.agent.agent_session,
+            agent_provider=self.agent.provider,
+            tools=self.tools,
         )
 
-    __str__ = __repr__
+    def register_tool(self, tool_name: str):
+        if tool_name not in self.tools:
+            self.tools.append(tool_name)
 
-
-__all__ = ["Agent", "Provider"]
+    def unregister_tool(self, tool_name: str):
+        if tool_name in self.tools:
+            self.tools.remove(tool_name)

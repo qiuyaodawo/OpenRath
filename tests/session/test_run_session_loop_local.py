@@ -7,7 +7,7 @@ import json
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, Provider
+from rath.flow.agent_param import AgentParam, Provider
 from rath.llm import (
     RathLLMAssistantMessage,
     RathLLMChatChoice,
@@ -40,7 +40,7 @@ def test_run_session_loop_stop_without_tools() -> None:
         model="scripted",
     )
     executor = ScriptedSessionLoopExecutor([scripted])
-    agent = Agent(
+    agent = AgentParam(
         Session.from_agent_prompt("You are a scripted test assistant."),
         Provider(),
     )
@@ -110,7 +110,7 @@ def test_run_session_loop_write_file_via_tool_then_stop() -> None:
         model="scripted",
     )
     executor = ScriptedSessionLoopExecutor([first, second])
-    agent = Agent(
+    agent = AgentParam(
         Session.from_agent_prompt("Scripted tool harness."),
         Provider(),
     )

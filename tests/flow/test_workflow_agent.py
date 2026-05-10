@@ -1,11 +1,11 @@
-"""Workflow / Agent registration and scripted forward path."""
+"""Workflow / AgentParam registration and scripted forward path."""
 
 from __future__ import annotations
 
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, Provider
+from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow, run_session_loop_from_agent
 from rath.llm import RathLLMAssistantMessage, RathLLMChatChoice, RathLLMChatResponse
 from rath.session import Session, session_registry
@@ -23,7 +23,7 @@ class _ScriptedEchoWorkflow(Workflow):
     def __init__(self, scripted: RathLLMChatResponse) -> None:
         super().__init__()
         self._exec = ScriptedSessionLoopExecutor([scripted])
-        self.agent = Agent(
+        self.agent = AgentParam(
             Session.from_agent_prompt("System prompt for workflow test."),
             Provider(),
         )
@@ -54,7 +54,7 @@ def test_workflow_registers_agent_and_runs_loop() -> None:
     assert len(wf.named_agents()) == 1
     name, leaf = wf.named_agents()[0]
     assert name == "agent"
-    assert isinstance(leaf, Agent)
+    assert isinstance(leaf, AgentParam)
     assert isinstance(leaf.provider, Provider)
 
     backend = get("local")

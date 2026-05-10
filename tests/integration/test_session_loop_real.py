@@ -10,7 +10,7 @@ import os
 import pytest
 
 from rath.backend import preferred
-from rath.flow.agent import Agent, Provider
+from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow, run_session_loop_from_agent
 from rath.llm import RathOpenAIChatClient
 from rath.session import (
@@ -58,7 +58,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
     executor = DefaultSessionLoopExecutor(client)
     model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
     marker = "RATH_SESSION_E2E_ECHO_92653"
-    agent = Agent(
+    agent = AgentParam(
         Session.from_agent_prompt(
             "You are a test harness. Follow user instructions exactly. "
             "When the user asks you to run a shell command via a tool, call "
@@ -101,7 +101,7 @@ class _ShellEchoWorkflow(Workflow):
         model: str | None,
     ) -> None:
         super().__init__()
-        self.actor = Agent(
+        self.actor = AgentParam(
             Session.from_agent_prompt(system_prompt), Provider(model=model)
         )
         self._loop_executor = executor

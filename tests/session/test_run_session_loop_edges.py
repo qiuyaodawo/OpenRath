@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from rath.backend import get
-from rath.flow.agent import Agent, Provider
+from rath.flow.agent_param import AgentParam, Provider
 from rath.llm import (
     RathLLMAssistantMessage,
     RathLLMChatChoice,
@@ -64,7 +64,7 @@ def _shell_echo_cmd(marker: str) -> str:
 
 def test_missing_user_sandbox_raises() -> None:
     executor = ScriptedSessionLoopExecutor([])
-    agent = Agent(Session.from_agent_prompt("sys"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
     user = Session.from_user_message("no sandbox attached")
     with pytest.raises(RuntimeError, match="no sandbox to take"):
         run_session_loop(
@@ -113,7 +113,7 @@ def test_tool_arguments_parse_error_surfaces_in_tool_chunk() -> None:
     executor = ScriptedSessionLoopExecutor([resp, stop])
 
     backend = get("local")
-    agent = Agent(Session.from_agent_prompt("s"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("s"), Provider())
     with backend.open() as sb:
         user = Session.from_user_message("x").with_sandbox(sb)
         out = run_session_loop(
@@ -167,7 +167,7 @@ def test_unknown_tool_name_surfaces_in_tool_chunk() -> None:
     )
     executor = ScriptedSessionLoopExecutor([resp, stop])
     backend = get("local")
-    agent = Agent(Session.from_agent_prompt("s"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("s"), Provider())
     with backend.open() as sb:
         user = Session.from_user_message("x").with_sandbox(sb)
         out = run_session_loop(
@@ -189,7 +189,7 @@ def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
     executor = ScriptedSessionLoopExecutor(scripted)
 
     backend = get("local")
-    agent = Agent(Session.from_agent_prompt("cap"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("cap"), Provider())
     with backend.open() as sb:
         user = Session.from_user_message("loop").with_sandbox(sb)
         out = run_session_loop(
@@ -245,7 +245,7 @@ def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
     )
     executor = ScriptedSessionLoopExecutor([first, second])
     backend = get("local")
-    agent = Agent(Session.from_agent_prompt("sh"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("sh"), Provider())
     with backend.open() as sb:
         user = Session.from_user_message("run echo").with_sandbox(sb)
         out = run_session_loop(
@@ -320,7 +320,7 @@ def test_dispatch_exception_surfaces_in_tool_chunk() -> None:
     )
     executor = _ExplodingExecutor([first, second])
     backend = get("local")
-    agent = Agent(Session.from_agent_prompt("ex"), Provider())
+    agent = AgentParam(Session.from_agent_prompt("ex"), Provider())
     with backend.open() as sb:
         user = Session.from_user_message("x").with_sandbox(sb)
         out = run_session_loop(

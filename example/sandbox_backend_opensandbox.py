@@ -7,9 +7,10 @@ from rath.session import Session, run_session_loop
 
 SANDBOX_BACKEND = "opensandbox"
 
-Agent = flow.Agent(
-    agent_session=Session.from_agent_prompt("You are a helpful assistant."),
-    provider=flow.Provider(model="glm-5.1"),
+
+agent = flow.Agent(
+    system_prompt="You are a helpful assistant.",
+    model="glm-5.1",
 )
 
 
@@ -21,20 +22,12 @@ def main() -> None:
 
     # No host bind: empty ``/workspace``.
     user_session = user_session.to(SANDBOX_BACKEND, spec=None)
-    out_session = run_session_loop(
-        user_session=user_session,
-        agent_session=Agent.agent_session,
-        agent_provider=Agent.provider,
-    )
+    out_session = agent(user_session)
     print(out_session.chunk_table.rows[-1].payload["content"])
 
     # Bind ``.`` to the sandbox workspace.
     user_session = user_session.to(SANDBOX_BACKEND, spec=".")
-    out_session = run_session_loop(
-        user_session=user_session,
-        agent_session=Agent.agent_session,
-        agent_provider=Agent.provider,
-    )
+    out_session = agent(user_session)
     print(out_session.chunk_table.rows[-1].payload["content"])
 
 

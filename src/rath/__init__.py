@@ -2,7 +2,7 @@
 
 Tool payloads are :class:`~rath.backend.tool_types.BackendTool` (aliased as
 :class:`~rath.flow.tool.FlowToolCall`). Import submodules explicitly, e.g.
-``rath.flow.agent``; ``rath.session`` is lazy-loaded via :func:`__getattr__`.
+``rath.flow.agent_param``; ``rath.session`` is lazy-loaded via :func:`__getattr__`.
 """
 
 from __future__ import annotations
