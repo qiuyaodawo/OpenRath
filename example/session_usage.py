@@ -1,25 +1,38 @@
-from rath.session import Session
+from rath import flow
+from rath.session import Session, run_session_loop, run_session_compress
 
 
-def main() -> None:
+def session_usage() -> None:
     # Session Create
-    agent = Session.from_agent_prompt("You are a helpful assistant.")
-    user = Session.from_user_message("Hello, how are you?")
-    print(agent)
-    print(user)
-
+    agent_session = Session.from_agent_prompt("You are a helpful assistant.")
+    user_session = Session.from_user_message("Hello, how are you?")
+    
     # Session Merge
-    merged = agent + user
-    print(merged)
-
+    merged_session = agent_session + user_session
+    
     # Session Fork
-    forked = merged.fork()
-    print(forked)
-
+    forked_session = merged_session.fork()
+    
     # Session Detach
-    detached = forked.detach()
-    print(detached)
+    detached_session = forked_session.detach()
+    return
 
 
 if __name__ == "__main__":
-    main()
+    agent_session = Session.from_agent_prompt("You are a helpful assistant.")
+    user_session = Session.from_user_message("Please use tool to summarize this workspace. And return the summary.")
+    user_session = user_session.to("local", spec="./")
+    provider = flow.Provider(model="glm-5.1")
+    out_session = run_session_loop(
+        user_session=user_session,
+        agent_session=agent_session,
+        agent_provider=provider,
+    )
+    print(out_session)
+
+    out_session = run_session_compress(
+        user_session=out_session,
+        agent_session=agent_session,
+        agent_provider=provider,
+    )
+    print(out_session)

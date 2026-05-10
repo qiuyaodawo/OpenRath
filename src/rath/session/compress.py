@@ -26,26 +26,21 @@ def run_session_compress(
     agent_session: Session,
     *,
     agent_provider: Provider,
-    tools: list[str] | None = None,
     executor: SessionLoopExecutor | None = None,
     compress_instruction: str | None = None,
     register_sessions: bool = True,
 ) -> Session:
     """Summarize transcript via LLM into a new user-only session (no SYSTEM chunks).
 
-    Mirrors :func:`~rath.session.loop.run_session_loop` inputs; ``agent_session`` and
-    ``user_session`` chunks are folded into the completion request only — they are not
-    copied into ``out.chunk_table``. The returned session contains **USER** rows built
-    from the model reply.
+    ``agent_session`` and ``user_session`` chunks are folded into the completion
+    request only — they are not copied into ``out.chunk_table``. The returned session
+    contains **USER** rows built from the model reply.
 
-    ``tools`` is accepted for signature parity but **ignored**: completions run with
-    ``tools=None`` and ``tool_choice=none``. If the model returns tool calls, raises
-    ``RuntimeError``.
+    Completions use ``tools=None`` and ``tool_choice=none``. If the model returns tool
+    calls, raises ``RuntimeError``.
 
     Rebases sandbox from ``user_session`` onto the returned session (same as the loop).
     """
-
-    _ = tools  # API parity with run_session_loop; compression never exposes tools.
 
     if executor is None:
         executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
