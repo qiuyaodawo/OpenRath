@@ -1,9 +1,8 @@
-def test_import_rath() -> None:
-    import rath
+"""Import surface and public API contracts."""
 
-    assert rath is not None
-    assert rath.backend is not None
-    assert rath.flow is not None
+from __future__ import annotations
+
+import inspect
 
 
 def test_namespace_flow_submodules() -> None:
@@ -15,14 +14,13 @@ def test_namespace_flow_submodules() -> None:
     assert rath.flow is flow
 
     from rath.flow.agent_param import AgentParam
-    from rath.flow.workflow import Workflow, run_session_loop_from_agent
+    from rath.flow.workflow import Workflow
     from rath.llm import Provider
 
     assert flow.AgentParam is AgentParam
     assert AgentParam.__name__ == "AgentParam"
     assert Provider.__name__ == "Provider"
     assert Workflow.__name__ == "Workflow"
-    assert run_session_loop_from_agent.__name__ == "run_session_loop_from_agent"
 
 
 def test_provider_lives_in_llm_reexported_from_flow_agent_param() -> None:
@@ -55,3 +53,19 @@ def test_import_session_and_flow_modules() -> None:
     assert run_session_loop.__name__ == "run_session_loop"
     assert DefaultSessionLoopExecutor.__name__ == "DefaultSessionLoopExecutor"
     assert SessionLoopExecutor.__name__ == "SessionLoopExecutor"
+
+
+def test_run_session_loop_tools_parameter_documents_flow_tool_calls() -> None:
+    from rath.session.loop import run_session_loop
+
+    ann = inspect.signature(run_session_loop).parameters["tools"].annotation
+    assert "FlowToolCall" in str(ann)
+
+
+def test_global_system_tools_contains_builtin_instances() -> None:
+    from rath.flow.tool import FlowToolCall, global_system_tools
+
+    g = global_system_tools()
+    for key in ("run_shell_command", "write_workspace_file"):
+        assert key in g
+        assert isinstance(g[key], FlowToolCall)

@@ -110,15 +110,12 @@ class Session:
     Flat lineage (preferred graph substrate): :attr:`parent_session_ids` (ordered
     parents), :attr:`lineage_operator`, :attr:`lineage_kind`, :attr:`lineage_extras`.
     :attr:`lineage` is an optional legacy DTO tying loop outputs to producer sessions.
-    Primitives :meth:`~Session.fork`, :meth:`~Session.detach`, and :meth:`~Session.__add__`
-    duplicate chunk rows only; **open sandbox handles are never copied**. The source
-    session keeps its handle; derived sessions start with :attr:`sandbox` ``None``
-    but may inherit :attr:`sandbox_backend` / reopen spec from the left operand /
-    fork source. For merge via ``a + b``, backend targeting follows the **left**
-    session (same as :func:`~rath.session.primitives.merge_sessions` with the first
-    parent).
-    """
+    :meth:`~Session.fork` and :meth:`~Session.detach` duplicate chunk rows only;
+    **open sandbox handles are never copied**. The source session keeps its handle;
+    derived sessions start with :attr:`sandbox` ``None`` but may inherit
+    :attr:`sandbox_backend` / reopen spec from the fork source.
 
+    """
     chunk_table: ChunkTable
     id: UUID = field(default_factory=uuid4)
     sandbox: BackendSandbox | None = None
@@ -281,28 +278,6 @@ class Session:
             lineage_extras=(),
         )
         return detached
-
-    def __add__(self, other: Any) -> Session:
-        """Concat-merge: chunk rows from ``self`` then ``other``; sandbox target from ``self``.
-
-        The result has no open sandbox handle. Parent ids are ``(self.id, other.id)``.
-        """
-
-        if not isinstance(other, Session):
-            return NotImplemented  # type: ignore[return-value]
-        merged = Session(
-            chunk_table=ChunkTable(rows=self.chunk_table.rows + other.chunk_table.rows),
-            sandbox_backend=self.sandbox_backend,
-            _sandbox_open_spec=self._sandbox_open_spec,
-        )
-        LineageRecorder.stamp_new_session(
-            merged,
-            parent_session_ids=(self.id, other.id),
-            lineage_operator="Session.merge",
-            lineage_kind=LineageKind.OP_MERGE,
-            lineage_extras=(("strategy", "concat"),),
-        )
-        return merged
 
     def __str__(self) -> str:
         cls_name = type(self).__name__

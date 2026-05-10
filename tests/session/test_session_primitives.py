@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from rath.session.chunk import ChunkKind, ChunkTable
 from rath.session import (
     LineageKind,
     create_leaf_system,
     create_leaf_user,
     detach_session,
     fork_session,
-    merge_sessions,
 )
+from rath.session.chunk import ChunkKind
 
 
 def test_create_leaf_user_sets_lineage_when_mode_on() -> None:
@@ -41,19 +40,3 @@ def test_detach_copies_chunks_without_graph_parents() -> None:
     assert d.lineage_operator == "Session.detach"
     e = detach_session(base)
     assert e.parent_session_ids == ()
-
-
-def test_merge_concat_via_add() -> None:
-    a = create_leaf_user("a")
-    b = create_leaf_user("b")
-    m = a + b
-    assert len(m.chunk_table.rows) == 2
-    assert m.parent_session_ids == (a.id, b.id)
-    assert m.lineage_kind == LineageKind.OP_MERGE
-    assert dict(m.lineage_extras).get("strategy") == "concat"
-
-    def cat(tables: tuple[ChunkTable, ...]) -> ChunkTable:
-        return ChunkTable(rows=tables[0].rows + tables[1].rows)
-
-    m2 = merge_sessions((a, b), cat, strategy_name="concat")
-    assert m2.chunk_table.rows == m.chunk_table.rows

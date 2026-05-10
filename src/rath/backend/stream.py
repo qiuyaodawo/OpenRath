@@ -7,13 +7,10 @@ import threading
 import time
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, TypeVar
 
-from rath.backend.tool_types import BackendTool
 from rath.backend.results import ToolResult
-
-if TYPE_CHECKING:
-    from rath.backend.abc import BackendSandbox
+from rath.backend.tool_types import BackendTool
 
 T = TypeVar("T")
 

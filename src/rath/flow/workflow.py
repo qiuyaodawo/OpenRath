@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from rath.flow.agent_param import AgentParam
-from rath.session.loop import SessionLoopExecutor, run_session_loop
 from rath.session.session import Session
 
 
@@ -71,26 +70,4 @@ class Workflow:
     __str__ = __repr__
 
 
-def run_session_loop_from_agent(
-    user_session: Session,
-    agent: AgentParam,
-    *,
-    tools: list[str] | None = None,
-    executor: SessionLoopExecutor | None = None,
-    max_tool_rounds: int = 16,
-) -> Session:
-    """Maps ``AgentParam`` fields to ``run_session_loop`` keyword arguments.
-
-    Omitted ``executor`` uses the default from :func:`~rath.session.loop.run_session_loop`.
-    """
-    return run_session_loop(
-        user_session,
-        agent.agent_session,
-        agent_provider=agent.provider,
-        tools=tools,
-        executor=executor,
-        max_tool_rounds=max_tool_rounds,
-    )
-
-
-__all__ = ["Workflow", "run_session_loop_from_agent"]
+__all__ = ["Workflow"]

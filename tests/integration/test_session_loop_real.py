@@ -11,12 +11,13 @@ import pytest
 
 from rath.backend import preferred
 from rath.flow.agent_param import AgentParam, Provider
-from rath.flow.workflow import Workflow, run_session_loop_from_agent
+from rath.flow.workflow import Workflow
 from rath.llm import RathOpenAIChatClient
 from rath.session import (
     ChunkKind,
     DefaultSessionLoopExecutor,
     Session,
+    run_session_loop,
     session_registry,
 )
 from rath.session.graph import LineageKind
@@ -71,9 +72,10 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
             f"Use run_shell_command exactly once. The cmd must run: echo {marker}"
         ).with_sandbox(sandbox)
 
-        out = run_session_loop_from_agent(
+        out = run_session_loop(
             user,
-            agent,
+            agent.agent_session,
+            agent_provider=agent.provider,
             executor=executor,
             max_tool_rounds=12,
         )
@@ -107,9 +109,10 @@ class _ShellEchoWorkflow(Workflow):
         self._loop_executor = executor
 
     def forward(self, session: Session) -> Session:
-        return run_session_loop_from_agent(
+        return run_session_loop(
             session,
-            self.actor,
+            self.actor.agent_session,
+            agent_provider=self.actor.provider,
             executor=self._loop_executor,
         )
 

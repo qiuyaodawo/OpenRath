@@ -6,9 +6,9 @@ import pytest
 
 from rath.backend import get
 from rath.flow.agent_param import AgentParam, Provider
-from rath.flow.workflow import Workflow, run_session_loop_from_agent
+from rath.flow.workflow import Workflow
 from rath.llm import RathLLMAssistantMessage, RathLLMChatChoice, RathLLMChatResponse
-from rath.session import Session, session_registry
+from rath.session import Session, run_session_loop, session_registry
 from rath.session.chunk import ChunkKind
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
 
@@ -29,9 +29,10 @@ class _ScriptedEchoWorkflow(Workflow):
         )
 
     def forward(self, session: Session) -> Session:
-        return run_session_loop_from_agent(
+        return run_session_loop(
             session,
-            self.agent,
+            self.agent.agent_session,
+            agent_provider=self.agent.provider,
             executor=self._exec,
         )
 

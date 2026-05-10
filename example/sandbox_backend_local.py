@@ -2,7 +2,7 @@
 
 import rath.flow as flow
 import rath.backend as backend
-from rath.session import Session, run_session_loop
+from rath.session import Session
 
 
 SANDBOX_BACKEND = "local"

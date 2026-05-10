@@ -7,15 +7,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from types import TracebackType
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 
 from rath.backend.capabilities import Capabilities
 from rath.backend.errors import BackendSandboxClosed
-from rath.backend.tool_types import BackendTool
 from rath.backend.results import ToolResult
-
-if TYPE_CHECKING:
-    from rath.backend.stream import Stream
+from rath.backend.tool_types import BackendTool
 
 
 @dataclass

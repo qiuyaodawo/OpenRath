@@ -181,7 +181,7 @@ def test_unknown_tool_name_surfaces_in_tool_chunk() -> None:
     assert len(tool_rows) >= 1
     payload = json.loads(tool_rows[0].payload["content"])
     assert payload.get("ok") is False
-    assert payload.get("error_kind") == "tool_resolve_failed"
+    assert payload.get("error_kind") == "unknown_tool"
 
 
 def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
@@ -278,7 +278,7 @@ def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
 class _ExplodingExecutor(ScriptedSessionLoopExecutor):
     """Fails tool dispatch to exercise loop scheme A wrapping."""
 
-    def dispatch_tool(self, session, call):  # type: ignore[no-untyped-def]
+    def dispatch_tool(self, session, tool, arguments):  # type: ignore[no-untyped-def]
         raise RuntimeError("simulated dispatch failure")
 
 

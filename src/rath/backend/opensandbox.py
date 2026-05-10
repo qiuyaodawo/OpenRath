@@ -23,7 +23,7 @@ import stat as stat_module
 from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import Any, ClassVar
 
 from rath.backend.abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend.capabilities import Capabilities, IsolationLevel
@@ -77,10 +77,6 @@ _STRICT_WORKSPACE_BIND = os.environ.get(
     "RATH_OPENSANDBOX_STRICT_WORKSPACE_BIND", ""
 ).lower() in ("1", "true", "yes")
 
-if TYPE_CHECKING:
-    from opensandbox import Sandbox as _OSBSandboxT
-    from opensandbox.models.sandboxes import Volume as _VolumeT
-
 
 async def _await_maybe_timeout(awaitable, timeout: float | None):
     if timeout is None:
@@ -94,7 +90,7 @@ async def _await_maybe_timeout(awaitable, timeout: float | None):
 def bind_workspace_volumes_from_spec(
     spec: BackendSandboxSpec | None,
     sandbox_root: str,
-) -> list["_VolumeT"] | None:
+) -> list[Any] | None:
     """Return a host-bind ``Volume`` for ``sandbox_root``, else ``None``.
 
     Creates the directory if needed (see :class:`~rath.backend.local.LocalBackend`).
@@ -237,7 +233,7 @@ class OpenSandboxBackend(Backend):
     )
 
     def __init__(self) -> None:
-        self._natives: dict[str, "_OSBSandboxT"] = {}
+        self._natives: dict[str, Any] = {}
         self._runner = shared_opensandbox_loop()
 
     @classmethod
@@ -318,7 +314,7 @@ class OpenSandboxBackend(Backend):
         if native is not None:
             self._runner.run(self._close_coro(native))
 
-    async def _close_coro(self, native: "_OSBSandboxT") -> None:
+    async def _close_coro(self, native: Any) -> None:
         await native.kill()
         await native.close()
 
@@ -352,7 +348,7 @@ class OpenSandboxBackend(Backend):
             )
 
     async def _dispatch_coro(
-        self, native: "_OSBSandboxT", call: BackendTool
+        self, native: Any, call: BackendTool
     ) -> ToolResult | bool:
         match call:
             case BackendToolCommandRun():
@@ -388,7 +384,7 @@ class OpenSandboxBackend(Backend):
         return f"{self._SANDBOX_ROOT}/{path}"
 
     async def _command_run(
-        self, native: "_OSBSandboxT", call: BackendToolCommandRun
+        self, native: Any, call: BackendToolCommandRun
     ) -> CommandResult:
         """Run a shell command; stdin is not supported."""
         if call.stdin is not None:
@@ -430,7 +426,7 @@ class OpenSandboxBackend(Backend):
         )
 
     async def _files_read(
-        self, native: "_OSBSandboxT", call: BackendToolFilesRead
+        self, native: Any, call: BackendToolFilesRead
     ) -> FileContent:
         path = self._resolve(call.path)
         try:
@@ -454,7 +450,7 @@ class OpenSandboxBackend(Backend):
             )
 
     async def _files_write(
-        self, native: "_OSBSandboxT", call: BackendToolFilesWrite
+        self, native: Any, call: BackendToolFilesWrite
     ) -> FileWriteResult:
         path = self._resolve(call.path)
         await native.files.write_file(path, call.data, mode=call.mode)
@@ -464,7 +460,7 @@ class OpenSandboxBackend(Backend):
         return FileWriteResult(bytes_written=len(payload))
 
     async def _files_list(
-        self, native: "_OSBSandboxT", call: BackendToolFilesList
+        self, native: Any, call: BackendToolFilesList
     ) -> FileEntries:
         path = self._resolve(call.path)
         infos = await native.files.search(SearchEntry(path=path, pattern="*"))
@@ -480,7 +476,7 @@ class OpenSandboxBackend(Backend):
         return FileEntries(entries=tuple(entries))
 
     async def _files_exists(
-        self, native: "_OSBSandboxT", call: BackendToolFilesExists
+        self, native: Any, call: BackendToolFilesExists
     ) -> bool:
         path = self._resolve(call.path)
         try:
@@ -490,7 +486,7 @@ class OpenSandboxBackend(Backend):
         return path in infos
 
     async def _code_run(
-        self, native: "_OSBSandboxT", call: BackendToolCodeRun
+        self, native: Any, call: BackendToolCodeRun
     ) -> CodeResult:
         if not _CI_AVAILABLE:  # pragma: no cover -- ``is_available()`` gate
             return ToolExecutionFailure(

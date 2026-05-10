@@ -34,7 +34,6 @@ from rath.session.primitives import (
     create_leaf_user,
     detach_session,
     fork_session,
-    merge_sessions,
 )
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
@@ -61,7 +60,6 @@ __all__ = [
     "LineageKind",
     "LineageRecorder",
     "lineage_view_dataclass",
-    "merge_sessions",
     "session_graph_mode",
     "session_graph_mode_override",
     "Session",

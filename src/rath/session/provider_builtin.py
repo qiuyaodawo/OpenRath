@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from rath.backend import ToolResult
+from collections.abc import Mapping
+from typing import Any
+
 from rath.flow.tool import FlowToolCall
 from rath.llm import (
     RathLLMChatRequest,
@@ -34,11 +36,12 @@ class DefaultSessionLoopExecutor:
     def dispatch_tool(
         self,
         session: Session,
-        call: FlowToolCall,
-    ) -> ToolResult | bool:
-        """Run ``call`` on ``session``'s sandbox."""
+        tool: FlowToolCall,
+        arguments: Mapping[str, Any],
+    ) -> Any:
+        """Invoke ``tool(session, arguments)`` (sandbox or user-defined)."""
 
-        return session.require_sandbox().dispatch(call)
+        return tool(session, dict(arguments or {}))
 
 
 __all__ = ["DefaultSessionLoopExecutor"]

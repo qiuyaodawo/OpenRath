@@ -1,11 +1,33 @@
-"""Aliases for sandbox tool payloads (:class:`~rath.backend.tool_types.BackendTool`)."""
+"""Flow-layer tool abstraction: schema + :meth:`~FlowToolCall.__call__` execution."""
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from typing import Any
 
-from rath.backend.tool_types import BackendTool
+from rath.session.session import Session
 
-FlowToolCall: TypeAlias = BackendTool
+__all__ = ["FlowToolCall"]
 
-__all__ = ["BackendTool", "FlowToolCall"]
+
+class FlowToolCall(ABC):
+    """User- or system-defined tool for the session loop (distinct from :class:`~rath.backend.tool_types.BackendTool`)."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        ...
+
+    @property
+    def description(self) -> str | None:
+        return None
+
+    @property
+    @abstractmethod
+    def parameters(self) -> Mapping[str, Any]:
+        """JSON Schema object for OpenAI ``parameters``."""
+
+    @abstractmethod
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
+        """Execute the tool. Sandbox tools may return :class:`~rath.backend.ToolResult` or ``bool``."""

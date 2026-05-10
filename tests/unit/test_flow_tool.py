@@ -41,8 +41,9 @@ def test_flow_tool_factories_match_constructors() -> None:
     )
 
 
-def test_flow_toolcall_alias_is_backend_tool_marker() -> None:
-    assert ft.FlowToolCall is rb.BackendTool
+def test_flow_toolcall_is_distinct_abc_not_backend_marker() -> None:
+    assert ft.FlowToolCall is not rb.BackendTool
+    assert issubclass(ft.RunShellCommandTool, ft.FlowToolCall)
 
 
 @pytest.mark.parametrize(
