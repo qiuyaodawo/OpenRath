@@ -12,6 +12,7 @@ htmlcov/
 
 # Local env (API keys); use .env.example as the template.
 .env
+.workspace/
 
 # OpenSandbox
 .sandbox.toml
