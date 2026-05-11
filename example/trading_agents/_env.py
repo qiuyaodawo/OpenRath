@@ -21,10 +21,10 @@ def require_openai() -> tuple[str, str | None]:
 
 
 def require_alpha_vantage_key() -> str:
-    key = os.environ.get("ALPHA_VANTAGE_API_KEY", "PW2FBNP02JA924O9").strip()
+    key = os.environ.get("ALPHA_VANTAGE_API_KEY", "").strip()
     if not key:
         print(
-            "ERROR: ALPHA_VANTAGE_API_KEY is empty. "
+            "ERROR: ALPHA_VANTAGE_API_KEY is required. "
             "Get a key at https://www.alphavantage.co/support/#api-key "
             "and export it (TradingAgents documents the same variable).",
             file=sys.stderr,

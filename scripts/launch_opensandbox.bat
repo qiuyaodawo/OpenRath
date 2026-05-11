@@ -55,6 +55,13 @@ if exist "%CONFIG_PATH%" (
   )
 )
 
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p = '%CONFIG_PATH%'; $root = (Resolve-Path '%CD%').Path; $text = Get-Content -Raw $p; if ($text.Contains('allowed_host_paths = []')) { $escaped = $root.Replace('\', '\\'); $text = $text.Replace('allowed_host_paths = []', 'allowed_host_paths = [\"' + $escaped + '\"]'); Set-Content -NoNewline -Path $p -Value $text; Write-Host ('allowlisted OpenRath workspace for host bind: ' + $root) } else { Write-Host 'keeping existing storage.allowed_host_paths' }"
+if errorlevel 1 (
+  set "EXITCODE=!ERRORLEVEL!"
+  popd
+  exit /b !EXITCODE!
+)
+
 if not defined OPENSANDBOX_INSECURE_SERVER set "OPENSANDBOX_INSECURE_SERVER=YES"
 
 echo starting opensandbox-server ^(Ctrl+C to stop^)...
