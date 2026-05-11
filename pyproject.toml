@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "openrath"
 version = "0.0.0"
-description = "A opensource, torch-like api framework for dynamic multi-agent workflow."
+description = "An open-source, torch-like API framework for dynamic multi-agent workflow."
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = { file = "LICENSE" }
@@ -22,6 +22,11 @@ dependencies = [
     "pydantic>=2.0.0,<3",
     "python-dotenv>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Rath-Team/OpenRath"
+Repository = "https://github.com/Rath-Team/OpenRath"
+"Bug Tracker" = "https://github.com/Rath-Team/OpenRath/issues"
 
 [project.optional-dependencies]
 opensandbox = [
