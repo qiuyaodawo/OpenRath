@@ -40,6 +40,7 @@ from rath.backend.tool_types import (
     BackendToolFilesRead,
     BackendToolFilesWrite,
 )
+from rath.utils.decoding import decode_subprocess_output
 
 
 @register("local")
@@ -303,7 +304,7 @@ class LocalBackend(Backend):
                 tmp.unlink()
         assert proc is not None
         error = (
-            proc.stderr.decode("utf-8", errors="replace")
+            decode_subprocess_output(proc.stderr)
             if proc.returncode != 0
             else None
         )

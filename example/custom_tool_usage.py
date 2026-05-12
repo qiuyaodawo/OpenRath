@@ -89,4 +89,3 @@ if __name__ == "__main__":
     ).to("local", spec="./")
 
     out_session = agent(user_session)
-    print(out_session)

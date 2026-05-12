@@ -27,7 +27,6 @@ if __name__ == "__main__":
         agent_provider=provider,
         chunk_print=example_chunk_print(),
     )
-    print(out_session)
 
     out_session = run_session_compress(
         user_session=out_session,
@@ -35,4 +34,3 @@ if __name__ == "__main__":
         agent_provider=provider,
         chunk_print=example_chunk_print(),
     )
-    print(out_session)

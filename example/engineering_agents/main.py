@@ -60,7 +60,6 @@ def main(argv: list[str] | None = None) -> None:
         provider=provider,
         chunk_print=optional_chunk_print(args.print_chunks),
     ).forward(user)
-    print(out, file=sys.stdout)
 
 
 if __name__ == "__main__":

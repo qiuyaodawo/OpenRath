@@ -33,6 +33,7 @@ from rath.llm import (
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
+from rath.utils.decoding import decode_subprocess_output
 from rath.session.chunk import (
     ChunkRow,
     ChunkTable,
@@ -171,15 +172,15 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
         return json.dumps(
             {
                 "exit_code": raw.exit_code,
-                "stdout": raw.stdout.decode("utf-8", errors="replace"),
-                "stderr": raw.stderr.decode("utf-8", errors="replace"),
+                "stdout": decode_subprocess_output(raw.stdout),
+                "stderr": decode_subprocess_output(raw.stderr),
                 "elapsed_ms": raw.elapsed_ms,
             }
         )
     if isinstance(raw, FileContent):
         data = raw.data
         if isinstance(data, bytes):
-            data = data.decode("utf-8", errors="replace")
+            data = decode_subprocess_output(data)
         text = str(data)
         if len(text) > 12_000:
             text = text[:12_000] + "...(truncated)"
@@ -193,8 +194,8 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
     if isinstance(raw, FileWriteResult):
         return json.dumps({"bytes_written": raw.bytes_written})
     if isinstance(raw, CodeResult):
-        stdout = raw.stdout.decode("utf-8", errors="replace")
-        stderr = raw.stderr.decode("utf-8", errors="replace")
+        stdout = decode_subprocess_output(raw.stdout)
+        stderr = decode_subprocess_output(raw.stderr)
         return json.dumps(
             {
                 "text": raw.text,

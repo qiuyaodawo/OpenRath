@@ -30,12 +30,10 @@ def main() -> None:
     # No host bind: empty ``/workspace``.
     user_session = user_session.to(SANDBOX_BACKEND, spec=None)
     out_session = agent(user_session)
-    print(out_session.chunk_table.rows[-1].payload["content"])
 
     # Bind ``.`` to the sandbox workspace.
     user_session = user_session.to(SANDBOX_BACKEND, spec=".")
     out_session = agent(user_session)
-    print(out_session.chunk_table.rows[-1].payload["content"])
 
 
 if __name__ == "__main__":

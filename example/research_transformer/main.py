@@ -118,7 +118,6 @@ def main(argv: list[str] | None = None) -> int:
         chunk_print=optional_chunk_print(args.print_chunks),
     )
     out = wf.forward(user)
-    print(out, file=sys.stdout)
     return 0
 
 

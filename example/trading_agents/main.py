@@ -62,8 +62,6 @@ def main(argv: list[str] | None = None) -> None:
     user = Session.from_user_message(msg).to("local", spec=workdir)
     out = workflow.forward(user)
 
-    print(out, file=sys.stdout)
-
 
 if __name__ == "__main__":
     main()
