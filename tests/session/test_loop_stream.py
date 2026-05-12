@@ -102,6 +102,23 @@ class _ScriptedStreamingClient:
         raise NotImplementedError("scripted client is stream-only")
 
 
+def test_run_session_loop_stream_refuses_anthropic_provider_kind() -> None:
+    """Streaming + Anthropic must fail upfront, not after sessions are stamped."""
+    agent = AgentParam(
+        Session.from_agent_prompt("sys"),
+        Provider(provider_kind="anthropic", model="claude-opus-4-7"),
+    )
+    backend = get("local")
+    with backend.open() as sb:
+        user = Session.from_user_message("hi").with_sandbox(sb)
+        with pytest.raises(NotImplementedError, match="streaming.*anthropic"):
+            run_session_loop_stream(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+            )
+
+
 def test_run_session_loop_stream_emits_per_delta_and_settles_to_chunk() -> None:
     script = [
         [

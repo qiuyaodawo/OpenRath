@@ -219,12 +219,22 @@ def run_session_loop_stream(
 
     ``client`` is any object with a ``complete_stream(req)`` method (typically
     :class:`~rath.llm.RathOpenAIChatClient`). When omitted it is built from
-    ``agent_provider`` using the same dispatch as the non-streaming loop, so
-    ``provider_kind="anthropic"`` continues to route to the right adapter -
-    but note that streaming for Anthropic is not implemented in this PR;
-    use the OpenAI path for streaming today.
+    ``agent_provider`` using the same dispatch as the non-streaming loop.
+
+    Streaming for ``provider_kind="anthropic"`` is **not** implemented in this
+    PR: rather than build an Anthropic client that lacks ``complete_stream``
+    and only fail mid-loop (after sessions are stamped and lineage written),
+    this entrypoint refuses the combination upfront with a clear error. Pass
+    an explicit ``client=`` to override - e.g. a custom Anthropic streaming
+    adapter once one exists.
     """
     if client is None:
+        if agent_provider.provider_kind == "anthropic":
+            raise NotImplementedError(
+                "streaming + provider_kind='anthropic' is not implemented; "
+                "use the OpenAI provider for streaming today, or pass an "
+                "explicit client= with a complete_stream(req) method.",
+            )
         client = _build_default_client(agent_provider)
     adapter = _StreamingExecutorAdapter(client, on_event)
     return run_session_loop(
