@@ -77,7 +77,16 @@ def run_session_compress(
         default_tool_choice="none",
     )
 
-    sb = user_session.take_sandbox()
+    # Compress is a pure-LLM operation (tool_choice is forced to "none"); a
+    # sandbox is only useful for rebinding to the output session. Skip
+    # take_sandbox() entirely when the caller has not attached one, so
+    # Session.from_user_message("...") works without a prior .to("local").
+    sb = None
+    if (
+        user_session.sandbox is not None
+        or user_session.sandbox_backend is not None
+    ):
+        sb = user_session.take_sandbox()
     body = _completion_body(executor.complete(req))
     if body is None or not str(body).strip():
         raise RuntimeError("run_session_compress: empty model content")
@@ -93,7 +102,8 @@ def run_session_compress(
             operator="run_session_compress",
         ),
     )
-    out.bind_sandbox(sb)
+    if sb is not None:
+        out.bind_sandbox(sb)
 
     LineageRecorder.stamp_new_session(
         out,

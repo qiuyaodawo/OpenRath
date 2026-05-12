@@ -159,6 +159,39 @@ def test_run_session_compress_chunk_print_hook_called() -> None:
     )
 
 
+def test_run_session_compress_without_sandbox() -> None:
+    """compress must accept a user_session that never called .to(...)."""
+    from rath.session import run_session_compress
+
+    scripted = RathLLMChatResponse(
+        id="c-no-sb",
+        choices=(
+            RathLLMChatChoice(
+                index=0,
+                finish_reason="stop",
+                message=RathLLMAssistantMessage(content="short summary"),
+            ),
+        ),
+        created=10,
+        model="scripted",
+    )
+    executor = ScriptedSessionLoopExecutor([scripted])
+    user = Session.from_user_message("Some long transcript.")
+    agent_sess = Session.from_agent_prompt("You compress transcripts.")
+
+    out = run_session_compress(
+        user,
+        agent_sess,
+        agent_provider=Provider(api_key="k", model="scripted"),
+        executor=executor,
+        register_sessions=False,
+    )
+
+    assert out.sandbox is None
+    assert out.sandbox_backend is None
+    assert "short summary" in out.chunk_table.rows[0].payload.get("content", "")
+
+
 def test_run_session_loop_write_file_via_tool_then_stop() -> None:
     body = {"path": "_rath_loop_probe.txt", "content": "LOCAL_SCRIPTED_MARKER"}
     arg_str = json.dumps(body)
