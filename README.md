@@ -2,60 +2,45 @@
 
 English · [简体中文](README_zh.md)
 
-OpenRath is an open-source multi-agent framework for Python. You can assemble APIs in a Torch-like composition style—session handling, Workflow orchestration, tool dispatch, and sandbox backends—as they evolve together on a Session Graph built from agents and Sessions.
+OpenRath is an open-source multi-agent framework. You compose APIs close to familiar PyTorch style: session lifecycle, Workflow wiring, tools, and sandbox backends evolve together on a Session Graph woven from Agents and Sessions.
 
 ---
 
 ## Recent updates
 
-- 2026-05-12: Released `v1.0.0`; code and docs are available to the community as open source.
+- 2026-05-12: Tagged `v1.0.0` and opened the codebase and docs to the community.
 
 ---
 
 ## Highlights
 
-### Session-centric Sandbox, Tool, and Workflow design
+### Session-centric system design
 
-Session keeps an ordered tape of system / user / assistant / tool chunks—the primary state carried through a multi-agent run. Sandbox backends execute tool payloads for real; `ToolTable` maps OpenAI-shaped tool names to `FlowToolCall` values or in-process `@tool` callables; `Workflow` stitches multiple `AgentParam` modules via `forward(session) -> session`. All three revolve around the same Session tape instead of drifting apart.
+### Context via chunk tables, improving reuse when Agents collaborate
 
-### Managed Session graphs toward larger agent fleets
+### Session-Loop over Agent-Loop for sparse Agent Cluster execution
 
-Chunk tables and lineage at the conversation layer preserve a trace across chat turns, tool round-trips, and nested sub-workflows. Grounding responsibilities in Sessions makes it simpler to attach larger clusters of agents, branch or merge transcripts, or plug in auditing—all on top of one abstraction (topology and orchestration policies stay under your product and deployment control).
+### Automatic Session Graph management toward multi-agent fleets
 
-### Modular Workflow and agent implementation
-
-`Workflow` subclasses register `AgentParam` children through attributes, much like `nn.Module` composes submodules. Tool factories live under `rath.flow.tool`; sandbox execution lives under `rath.backend`, and the two stay deliberately decoupled. Split files by domain and team-owned sub-workflows, then wire them in a top-level `Workflow`.
-
-### Conceptual parallels with PyTorch
-
-The table helps intuition migration only—OpenRath does not provide autograd or tensor kernels.
-
-| Layer | PyTorch | OpenRath | Similarity |
-| ----- | ------- | -------- | ---------- |
-| Flowing unit | Tensor | Session | The core carrier that progresses along the computation / dialogue axis and can be re-read as new state arrives. |
-| Execution structure | Compute graph | Session chunks + lineage | Graphs record operator dependencies; Sessions capture dialogue plus tool traces and grow across rounds. |
-| Execution backend | GPU / CPU | Sandbox | “Where arithmetic runs” becomes “which isolated runtime executes commands and tools.” |
-| Call surface | Kernel / op | Tool | The smallest externally invokable execution unit handed to a backend. |
-| State & knobs | `nn.Parameter` | `flow.AgentParam` | Pins per-role prompts on the assistant side plus model provider hints for reuse. |
-| Modularity | `nn.Module` | `flow.Workflow` | Recursive composition, explicit `forward`, named enumeration helpers. |
+### Modular implementation, orchestration, and management of Workflows and Agents
 
 ---
 
 ## Quickstart
 
-### PyPI installation
+### Install from PyPI
 
 ```bash
 pip install openrath
 ```
 
-Optional OpenSandbox extra:
+Optional OpenSandbox extras:
 
 ```bash
 pip install "openrath[opensandbox]"
 ```
 
-### Source installation
+### Install from source
 
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
@@ -63,60 +48,244 @@ cd OpenRath
 pip install .
 ```
 
-### Environment variables
+### OpenSandbox backend (optional)
 
-Copy `.env.example` to `.env` and fill at least:
-
-| Variable | Purpose |
-| -------- | ------- |
-| `OPENAI_API_KEY` | Compatible OpenAI-style API credential |
-| `OPENAI_BASE_URL` | Gateway base URL for Chat Completions |
-| `OPENAI_DEFAULT_MODEL` | Fallback model ID when callers omit `model` |
-
-OpenSandbox knobs and mirrored server secrets are annotated inside `.env.example`.
-
-### Configure the OpenSandbox backend (optional)
-
-When sessions should execute inside OpenSandbox, add the optional extra atop your source checkout:
+Attach the optional extra on top of your checkout when sessions should execute in OpenSandbox:
 
 ```bash
 pip install "openrath[opensandbox]"
 # or: pip install ".[opensandbox]"
 ```
 
-You still need a healthy OpenSandbox deployment plus allowlisting / bind policies—the hosted docs explain the setup alongside `.env.example`.
+---
+
+## How OpenRath maps onto PyTorch (by layer)
+
+Analogies guide intuition only—OpenRath does not ship autograd or tensor kernels.
+
+| Layer | PyTorch | OpenRath | Parallel (short) |
+| ----- | ------- | -------- | ---------------- |
+| Flowing carrier | Tensor | Session | Advances along compute / dialogue; append and reread stable state. |
+| Execution structure | Compute graph | Session Graph | Graphs encode op deps; Sessions record multi-agent chat + tool traces. |
+| Runtime | GPU / CPU | Sandbox | “Where math runs” → “which isolation shell runs commands/tools.” |
+| Invoke surface | Kernel / op | Tool | Minimal callable surfaced to backends. |
+| State / knobs | `nn.Parameter` | `flow.AgentParam` | Agents are not executors—they hold configuration akin to typed parameters. |
+| Modularity | `nn.Module` | `flow.Workflow` | Compose children recursively. |
+
+### 1. Flowing carrier
+
+OpenRath
+
+```python
+from rath.session import Session
+
+a = Session.from_user_message(
+    "Please impl a full-stack todo app with auth, DB, React frontend."
+)
+b = a.fork()  # like clone()
+c = a.detach()
+```
+
+PyTorch
+
+```python
+import torch
+
+a = torch.ones(3, requires_grad=True)
+b = a.clone()
+c = a.detach()
+```
+
+### 2. Execution structure
+
+OpenRath
+
+```python
+from rath.session import Session
+
+a = Session.from_user_message("Hello, how are you?")
+b = a.fork()
+c = a.detach()
+
+print(a.id)
+print(b.parent_session_ids)
+print(c.parent_session_ids)
+```
+
+PyTorch
+
+```python
+import torch
+
+a = torch.tensor([1.0], requires_grad=True)
+b = a * 2
+c = a.detach()
+
+print("a:", a)
+print("b grad_fn:", b.grad_fn)
+print("c.grad_fn:", c.grad_fn)
+```
+
+### 3. Runtime / “device”
+
+OpenRath
+
+```python
+from rath.session import Session
+
+a = Session.from_user_message(
+    "Please impl a full-stack todo app with auth, DB, React frontend."
+)
+a = a.to("local", spec="./")  # working directory on the host
+a = a.to("opensandbox", spec="./")
+```
+
+PyTorch
+
+```python
+import torch
+
+a = torch.ones(2, 3)
+a = a.to("cuda:0")
+```
+
+### 4. Invoke surface
+
+OpenRath
+
+```python
+from rath.flow.tool import flow_tool_files_list
+from rath.session import Session
+
+a = Session.from_user_message(
+    "Please impl a full-stack todo app with auth, DB, React frontend."
+)
+a = a.to("local", spec="./")
+
+payload = flow_tool_files_list(path="./")
+a.require_sandbox().dispatch(payload)
+```
+
+PyTorch
+
+```python
+import torch
+import torch.nn.functional as F
+
+logits = torch.tensor(
+    [
+        [2.0, 1.0, 0.1, -1.0, 0.3],
+        [0.2, 3.1, 0.5, 0.1, -0.4],
+        [1.2, 0.7, 2.5, 0.3, 0.1],
+    ]
+)
+target = torch.tensor([0, 1, 2])
+loss = F.cross_entropy(logits, target)
+```
+
+### 5. State / hyper-parameters
+
+OpenRath
+
+```python
+from rath import flow
+from rath.session import Session
+
+agent = flow.AgentParam(
+    agent_session=Session.from_agent_prompt("You are a helpful assistant."),
+    provider=flow.Provider(model="glm-5.1"),
+)
+```
+
+PyTorch
+
+```python
+import torch
+from torch import nn
+
+weight = nn.Parameter(torch.randn(1024, 4096))
+```
+
+### 6. Modularity
+
+OpenRath
+
+```python
+from rath import flow
+from rath.flow.tool import FlowToolCall
+from rath.session import Session, run_session_loop
+
+
+class Agent(flow.Workflow):
+    def __init__(
+        self,
+        system_prompt: str,
+        model: str,
+        tools: list[FlowToolCall] | None = None,
+    ) -> None:
+        super().__init__()
+        self.tools = list(tools or [])
+        self.agent = flow.AgentParam(
+            agent_session=Session.from_agent_prompt(system_prompt),
+            provider=flow.Provider(model=model),
+        )
+
+    def forward(self, session: Session) -> Session:
+        return run_session_loop(
+            user_session=session,
+            agent_session=self.agent.agent_session,
+            agent_provider=self.agent.provider,
+            tools=self.tools,
+        )
+
+
+agent_model = Agent(
+    system_prompt="You are a helpful assistant.",
+    model="glm-5.1",
+)
+
+user_session = Session.from_user_message(
+    "List all files in the current directory. Summarize what you found."
+)
+user_session = user_session.to("local", spec="./")
+out_session = agent_model(user_session)
+```
+
+PyTorch
+
+```python
+import torch
+import torch.nn as nn
+
+
+class Linear(nn.Module):
+    def __init__(self, in_features: int, out_features: int) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(out_features, in_features))
+        self.bias = nn.Parameter(torch.zeros(out_features))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x @ self.weight.T + self.bias
+
+
+model = Linear(4, 2)
+x = torch.randn(3, 4)
+y = model(x)
+```
 
 ---
 
 ## Examples
 
-Minimal runnable demos live under `example/`:
-
-Engineering-focused multi-agent (local sandbox directory):
-
-```bash
-cd example/engineering_agents
-python main.py --goal "Full-stack todo app with auth, DB, React frontend."
-# optional: --workdir /path/to/sandbox/root (defaults to .workspace/)
-```
-
-Trading-oriented multi-agents (`ALPHA_VANTAGE_API_KEY` required):
-
-```bash
-cd example/trading_agents
-python main.py --ticker NVDA --as-of 2026-01-15
-# same optional --workdir flag
-```
-
-Request an Alpha Vantage key at https://www.alphavantage.co/support/#api-key
+The repository carries minimal runnable samples under `example/`.
 
 ---
 
 ## Documentation
 
-Prefer the hosted handbook: https://docs.openrath.com
+Prefer the hosted site: https://docs.openrath.com
 
-Build Sphinx locally whenever needed:
+Build Sphinx offline:
 
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
@@ -124,10 +293,10 @@ uv sync --group dev --group docs
 uv run sphinx-build -M html docs/source docs/_build
 ```
 
-HTML output appears under `docs/_build/html/`.
+HTML lands in `docs/_build/html/`.
 
 ---
 
 ## License
 
-OpenRath ships under a BSD-style license; see [`LICENSE`](LICENSE) in the repository root.
+OpenRath is BSD-licensed—see [`LICENSE`](LICENSE).

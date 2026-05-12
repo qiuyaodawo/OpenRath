@@ -7,7 +7,6 @@ def session_usage() -> None:
     user_session = Session.from_user_message("Hello, how are you?")
     forked_user = user_session.fork()
     detached_user = forked_user.detach()
-    _ = (agent_session, detached_user)
 
 
 if __name__ == "__main__":
