@@ -2,27 +2,39 @@
 
 English · [简体中文](README_zh.md)
 
-OpenRath is an open-source multi-agent framework. You compose APIs close to familiar PyTorch style: session lifecycle, Workflow wiring, tools, and sandbox backends evolve together on a Session Graph woven from Agents and Sessions.
+OpenRath is an open-source multi-agent framework. You can compose APIs in a PyTorch-flavored style: session lifecycle, workflow orchestration, tool dispatch, and sandbox backends evolve together on a session graph woven from agents and sessions.
 
 ---
 
 ## Recent updates
 
-- 2026-05-12: Tagged `v1.0.0` and opened the codebase and docs to the community.
+- 2026-05-12: Released v1.0.0 and opened the codebase and docs to the community.
 
 ---
 
-## Highlights
+## Core highlights
 
-### Session-centric system design
+Many stacks keep conversation state, orchestration logic, and execution environments separate: each agent holds its own message list or inner while-loop, the outer layer uses graphs or hand-written steps, and sandboxes or shells are bolted on later. That works for demos, but whole histories get copied across agent boundaries, the execution environment drifts from the workspace the session points at, and at cluster scale it is hard to say which branch and context a round belongs to. OpenRath treats the session as the primary carrier through a run (analogous to a tensor advancing through computation, without replacing PyTorch itself). The split differs in five ways below.
 
-### Context via chunk tables, improving reuse when Agents collaborate
+### Sandbox as the execution backend of a session
 
-### Session-Loop over Agent-Loop for sparse Agent Cluster execution
+Separate ledgers for messages and “where commands actually run” stay in sync only by hand. After machine or directory changes—or tighter isolation—tool landing points and the workspace implied by the conversation often diverge, which hurts reproducibility and audit. Here backend choice chain-loads off the same object, much like putting data on a device. After a dialogue-and-tool round, ownership of the active sandbox is written back into the returned session so later dispatch still targets the same workflow outcome.
 
-### Automatic Session Graph management toward multi-agent fleets
+### Context through chunk tables for better reuse in multi-agent collaboration
 
-### Modular implementation, orchestration, and management of Workflows and Agents
+Flat message lists encourage whole-history copies and repeated stitching of system prompts and tool results, so it is hard to grab semantic slices while context length and traffic grow. This project keeps an ordered chunk table for system, user, assistant, tool feedback, and related rows; agent-side instructions are prepended before user chunks in the loop for structured sharing and composition. Session fork and merge primitives are described in the Session chapter of the user guide.
+
+### Session-first loops instead of agent-first loops for a sparse agent cluster
+
+A common pattern is a small inner loop per agent (read, model, tools) wrapped by outer orchestration, which yields nested loops and unnecessary completions at a fixed cadence when many roles exist. The default path is session-centric: completions and tool rounds interleave on one evolving session; agents attach to the workflow mainly as prompts and sampling configuration, not each with its own closed executor—better when only a subset of roles should activate.
+
+### Dynamic multi-agent fleets: automatic session-graph tracking
+
+When topology is wired by hand or an external DAG, lineage often depends on ad-hoc IDs and log excerpts. At scale it becomes hard to say which fork or merge produced a given output. With session-graph tracking enabled, new sessions carry lineage metadata and register centrally into a queryable session graph for dialogue and tool traces; this has nothing to do with autograd and only records execution and conversation.
+
+### Modular workflows: compose and orchestrate cleanly
+
+If one agent type owns prompts, network I/O, tools, and the loop, inheritance and callbacks stack up and even changing a system prompt or sampling field pulls the whole class. Workflows expose a forward step that takes a session and returns an updated session; agent-side settings sit in parameter-like objects; networking and sandbox dispatch live with the loop executor so module boundaries stay clearer for nesting and reuse.
 
 ---
 
@@ -34,7 +46,7 @@ OpenRath is an open-source multi-agent framework. You compose APIs close to fami
 pip install openrath
 ```
 
-Optional OpenSandbox extras:
+Optional OpenSandbox dependencies:
 
 ```bash
 pip install "openrath[opensandbox]"
@@ -50,7 +62,7 @@ pip install .
 
 ### OpenSandbox backend (optional)
 
-Attach the optional extra on top of your checkout when sessions should execute in OpenSandbox:
+To run sessions in isolation on top of a checkout, install the opensandbox extra group:
 
 ```bash
 pip install "openrath[opensandbox]"
@@ -61,20 +73,20 @@ pip install "openrath[opensandbox]"
 
 ## How OpenRath maps onto PyTorch (by layer)
 
-Analogies guide intuition only—OpenRath does not ship autograd or tensor kernels.
+| Layer | PyTorch | OpenRath | In parallel (short) |
+| --- | --- | --- | --- |
+| Flowing carrier | Tensor | Session | Advances along compute or dialogue; state can be read again and appended. |
+| Execution structure | Compute graph | Session Graph | Graphs encode dependencies; sessions carry multi-agent dialogue and tool traces. |
+| Runtime | GPU / CPU | Sandbox | “Where math runs” ↔ which isolation environment runs commands and tools. |
+| Invoke surface | Kernel / op | Tool | Smallest callable surface the backend actually executes. |
+| State / hyperparameters | nn.Parameter | flow.AgentParam | Agents are not “executors”; the object is closer to typed configuration. |
+| Modularity | nn.Module | flow.Workflow | Recursive composition of child modules. |
 
-| Layer | PyTorch | OpenRath | Parallel (short) |
-| ----- | ------- | -------- | ---------------- |
-| Flowing carrier | Tensor | Session | Advances along compute / dialogue; append and reread stable state. |
-| Execution structure | Compute graph | Session Graph | Graphs encode op deps; Sessions record multi-agent chat + tool traces. |
-| Runtime | GPU / CPU | Sandbox | “Where math runs” → “which isolation shell runs commands/tools.” |
-| Invoke surface | Kernel / op | Tool | Minimal callable surfaced to backends. |
-| State / knobs | `nn.Parameter` | `flow.AgentParam` | Agents are not executors—they hold configuration akin to typed parameters. |
-| Modularity | `nn.Module` | `flow.Workflow` | Compose children recursively. |
+1. **Flowing carrier**
 
-### 1. Flowing carrier
+In OpenRath a session carries ordered semantic chunks, not a numeric array. Like a tensor in PyTorch as the core of data flow and execution, naming follows PyTorch habits: fork and detach behave as familiar counterparts.
 
-OpenRath
+In OpenRath
 
 ```python
 from rath.session import Session
@@ -86,7 +98,7 @@ b = a.fork()  # like clone()
 c = a.detach()
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -96,9 +108,11 @@ b = a.clone()
 c = a.detach()
 ```
 
-### 2. Execution structure
+2. **Execution structure**
 
-OpenRath
+In PyTorch a multiply attaches the new tensor to the graph and grad_fn points at the backward node; after detach on a leaf, grad_fn is None. In OpenRath the session tracks identity and fork metadata: each session has a stable id, fork products record parent session ids, and detach products no longer declare a parent chain.
+
+In OpenRath
 
 ```python
 from rath.session import Session
@@ -112,7 +126,7 @@ print(b.parent_session_ids)
 print(c.parent_session_ids)
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -126,9 +140,11 @@ print("b grad_fn:", b.grad_fn)
 print("c.grad_fn:", c.grad_fn)
 ```
 
-### 3. Runtime / “device”
+3. **Execution backend**
 
-OpenRath
+OpenRath treats the sandbox backend in a device-like way: the session is bound to an execution environment and a recognized working directory; chunk contents are not rewritten when you rebind. The API follows the familiar “build the object, then declare where it runs” pattern, similar to PyTorch’s to(device).
+
+In OpenRath
 
 ```python
 from rath.session import Session
@@ -136,11 +152,11 @@ from rath.session import Session
 a = Session.from_user_message(
     "Please impl a full-stack todo app with auth, DB, React frontend."
 )
-a = a.to("local", spec="./")  # working directory on the host
+a = a.to("local", spec="./")  # spec: host workspace path
 a = a.to("opensandbox", spec="./")
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -149,9 +165,13 @@ a = torch.ones(2, 3)
 a = a.to("cuda:0")
 ```
 
-### 4. Invoke surface
+4. **Invoke surface**
 
-OpenRath
+In PyTorch kernels or high-level ops take placed tensors, run numerically on that device, and return tensors. In OpenRath the tool path takes structured payloads, the current sandbox interprets them inside an isolation boundary, and command or file feedback is written back into session chunks.
+
+The call shapes align: prepare inputs, call a thin API surface, and let the runtime do the heavy work.
+
+In OpenRath
 
 ```python
 from rath.flow.tool import flow_tool_files_list
@@ -166,7 +186,7 @@ payload = flow_tool_files_list(path="./")
 a.require_sandbox().dispatch(payload)
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -180,12 +200,15 @@ logits = torch.tensor(
     ]
 )
 target = torch.tensor([0, 1, 2])
+
 loss = F.cross_entropy(logits, target)
 ```
 
-### 5. State / hyper-parameters
+5. **State and hyperparameters**
 
-OpenRath
+Module parameters in PyTorch register on the module dict and optimizers collect tensors by name. AgentParam in OpenRath binds two pieces: agent-side session chunks seeded from the agent prompt (a stable prefix before each completion) and a Provider with model name and sampling-style request fields.
+
+In OpenRath
 
 ```python
 from rath import flow
@@ -197,7 +220,7 @@ agent = flow.AgentParam(
 )
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -206,9 +229,11 @@ from torch import nn
 weight = nn.Parameter(torch.randn(1024, 4096))
 ```
 
-### 6. Modularity
+6. **Modularity**
 
-OpenRath
+Workflow implementations become modular in a PyTorch Module-like way. With OpenRath’s session design, you can focus on composing workflows while leaning on the framework for session and context structure during multi-agent collaboration.
+
+In OpenRath
 
 ```python
 from rath import flow
@@ -251,7 +276,7 @@ user_session = user_session.to("local", spec="./")
 out_session = agent_model(user_session)
 ```
 
-PyTorch
+In PyTorch
 
 ```python
 import torch
@@ -277,15 +302,15 @@ y = model(x)
 
 ## Examples
 
-The repository carries minimal runnable samples under `example/`.
+The repo includes minimal runnable samples under the `example/` directory (local and OpenSandbox backends, custom tools) plus larger scenario subfolders.
 
 ---
 
 ## Documentation
 
-Prefer the hosted site: https://docs.openrath.com
+Start with the hosted site: https://docs.openrath.com
 
-Build Sphinx offline:
+To build Sphinx locally:
 
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
@@ -293,10 +318,10 @@ uv sync --group dev --group docs
 uv run sphinx-build -M html docs/source docs/_build
 ```
 
-HTML lands in `docs/_build/html/`.
+HTML output is in `docs/_build/html/`.
 
 ---
 
 ## License
 
-OpenRath is BSD-licensed—see [`LICENSE`](LICENSE).
+OpenRath uses a BSD-style license; see [LICENSE](LICENSE) at the repository root.
