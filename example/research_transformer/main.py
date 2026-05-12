@@ -12,6 +12,7 @@ if str(_EXAMPLE_DIR) not in sys.path:
 
 from rath.session.session import Session  # noqa: E402
 
+from _chunk_print import optional_chunk_print  # noqa: E402
 from research_transformer.providers import providers_from_env  # noqa: E402
 from research_transformer.tools import optional_image_tools  # noqa: E402
 from research_transformer.workflow import ResearchTransformerWorkflow  # noqa: E402
@@ -70,6 +71,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable run_session_compress between major stages (may grow context quickly)",
     )
+    p.add_argument(
+        "--print-chunks",
+        action="store_true",
+        help="Print one brief line per newly appended chunk (loop, compress, preamble)",
+    )
     return p
 
 
@@ -109,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         ddl_note=str(args.ddl_note),
         image_tools=image_tools,
         enable_compress=not args.no_compress,
+        chunk_print=optional_chunk_print(args.print_chunks),
     )
     out = wf.forward(user)
     print(out, file=sys.stdout)

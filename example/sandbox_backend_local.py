@@ -7,6 +7,7 @@ import rath.backend as backend
 from rath.session import Session
 
 from _openai_provider import provider_from_env
+from _chunk_print import example_chunk_print
 
 
 SANDBOX_BACKEND = "local"
@@ -16,6 +17,7 @@ _PROVIDER = replace(provider_from_env(), model="glm-5.1")
 agent = flow.Agent(
     system_prompt="You are a helpful assistant.",
     provider=_PROVIDER,
+    chunk_print=example_chunk_print(),
 )
 
 

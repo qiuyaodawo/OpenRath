@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Mapping, Protocol, runtime_checkable
+from collections.abc import Callable
+from typing import Any, Mapping, Protocol, TypeAlias, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -32,9 +33,11 @@ from rath.llm import (
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.chunk import (
+    ChunkRow,
     ChunkTable,
     assistant_turn_chunk,
     chunk_table_to_messages,
+    format_chunk_row_brief,
     tool_feedback_chunk,
 )
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
@@ -42,6 +45,39 @@ from rath.session.manager import session_registry
 from rath.session.session import Session
 
 logger = logging.getLogger(__name__)
+
+ChunkAppendHook: TypeAlias = Callable[[ChunkRow, int, Session], object]
+"""Called after each **new** assistant or tool-result row is appended to the loop session."""
+
+# Back-compat name for documentation / external greps (same type as :class:`ChunkAppendHook`).
+ChunkPrintFn = ChunkAppendHook
+
+
+def sink_chunk_print(write: Callable[[object], object] | None = None) -> ChunkAppendHook:
+    """Build a hook that prints one line per appended row via ``write`` (default: :func:`print`)."""
+
+    sink = print if write is None else write
+
+    def _hook(row: ChunkRow, index: int, session: Session) -> object:
+        del session
+        return sink(format_chunk_row_brief(index, row))
+
+    return _hook
+
+
+def _notify_chunk_append(
+    hook: ChunkAppendHook | None,
+    rows_list: list[Any],
+    out: Session,
+) -> None:
+    if hook is None:
+        return
+    idx = len(rows_list) - 1
+    hook(rows_list[idx], idx, out)
+
+
+def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
+    out.chunk_table = ChunkTable(rows=tuple(rows_list))
 
 
 @runtime_checkable
@@ -161,6 +197,7 @@ def run_session_loop(
     tools: list[FlowToolCall] | None = None,
     executor: SessionLoopExecutor | None = None,
     max_tool_rounds: int = 16,
+    chunk_print: ChunkAppendHook | None = None,
 ) -> Session:
     """Run one multi-turn assistant pass with optional tool rounds.
 
@@ -181,6 +218,11 @@ def run_session_loop(
 
     When ``session_graph_mode()`` is true, stamps flat lineage on ``out`` and attaches
     legacy :class:`~rath.session.graph.SessionLineage`.
+
+    If ``chunk_print`` is set, it is invoked as ``hook(row, index, out)`` after **each**
+    new assistant or tool-result row is appended (indices follow ``out.chunk_table.rows``).
+    Use :func:`sink_chunk_print` to print a one-line summary per row; bare :func:`print`
+    is not suitable (wrong arity).
     """
 
     table = merge_tools_for_loop(tools)
@@ -243,6 +285,8 @@ def run_session_loop(
             rows_list.append(
                 assistant_turn_chunk(tool_calls=tcalls, content=msg.content)
             )
+            _sync_loop_out_rows(out, rows_list)
+            _notify_chunk_append(chunk_print, rows_list, out)
             for tc in tcalls:
                 tool_name = tc.function.name
                 if (
@@ -287,11 +331,15 @@ def run_session_loop(
                 rows_list.append(
                     tool_feedback_chunk(tc.id, tool_name, body)
                 )
+                _sync_loop_out_rows(out, rows_list)
+                _notify_chunk_append(chunk_print, rows_list, out)
             continue
 
         rows_list.append(
             assistant_turn_chunk(tool_calls=None, content=msg.content)
         )
+        _sync_loop_out_rows(out, rows_list)
+        _notify_chunk_append(chunk_print, rows_list, out)
         if choice.finish_reason in ("stop", "length", "content_filter"):
             break
 
@@ -301,6 +349,9 @@ def run_session_loop(
 
 
 __all__ = [
+    "ChunkAppendHook",
+    "ChunkPrintFn",
     "SessionLoopExecutor",
+    "sink_chunk_print",
     "run_session_loop",
 ]

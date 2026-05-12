@@ -78,6 +78,47 @@ class ChunkTable:
         return ChunkTable(rows=self.rows + tuple(additional))
 
 
+def _preview_brief(s: str, *, max_chars: int = 256) -> str:
+    """Truncate long single-line previews (for logging / chunk hooks)."""
+
+    if not s:
+        return ""
+    t = s.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
+    if max_chars <= 8 or len(t) <= max_chars:
+        return t
+    edge = max(1, (max_chars - 5) // 2)
+    return f"{t[:edge]} ... {t[-edge:]}"
+
+
+def format_chunk_row_brief(index: int, row: ChunkRow, *, max_payload: int = 400) -> str:
+    """Single-line description of one chunk row (for :func:`~rath.session.loop.sink_chunk_print`)."""
+
+    kind = row.kind.value
+    p = row.payload
+    if row.kind in (ChunkKind.SYSTEM, ChunkKind.USER):
+        body = _preview_brief(str(p.get("content", "")), max_chars=max_payload)
+        return f"[{index}] {kind}: {body!r}"
+    if row.kind == ChunkKind.ASSISTANT:
+        parts: list[str] = []
+        c = p.get("content")
+        if c is not None and str(c).strip():
+            parts.append(f"text={_preview_brief(str(c), max_chars=max_payload)!r}")
+        tc_raw = p.get("tool_calls") or []
+        if tc_raw:
+            names: list[str] = []
+            for d in tc_raw:
+                fn = d.get("function") or {}
+                names.append(str(fn.get("name", "?")))
+            parts.append(f"tools=[{', '.join(names)}]")
+        summary = ", ".join(parts) if parts else "(empty)"
+        return f"[{index}] {kind}: {summary}"
+    if row.kind == ChunkKind.TOOL_RESULT:
+        name = str(p.get("name", ""))
+        body = _preview_brief(str(p.get("content", "")), max_chars=max_payload)
+        return f"[{index}] {kind}: name={name!r} body={body!r}"
+    return f"[{index}] {kind}: {p!r}"
+
+
 def chunk_table_to_messages(tab: ChunkTable) -> tuple[RathLLMMessage, ...]:
     """Flatten chunk history into Rath LLM wire messages."""
 

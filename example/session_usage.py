@@ -2,6 +2,8 @@ from dataclasses import replace
 
 from rath.session import Session, run_session_loop, run_session_compress
 
+from _chunk_print import example_chunk_print
+
 from _openai_provider import provider_from_env
 
 
@@ -23,6 +25,7 @@ if __name__ == "__main__":
         user_session=user_session,
         agent_session=agent_session,
         agent_provider=provider,
+        chunk_print=example_chunk_print(),
     )
     print(out_session)
 
@@ -30,5 +33,6 @@ if __name__ == "__main__":
         user_session=out_session,
         agent_session=agent_session,
         agent_provider=provider,
+        chunk_print=example_chunk_print(),
     )
     print(out_session)

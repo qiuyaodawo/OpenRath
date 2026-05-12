@@ -21,7 +21,8 @@ uv run python example/research_transformer/main.py ^
   --supervisor-notes "Advisor constraints" ^
   --thesis-path path/to/senior_thesis_excerpt.txt ^
   --ddl-note "Defense in two weeks" ^
-  --layers 2
+  --layers 2 ^
+  --print-chunks
 ```
 
 ## Environment

@@ -10,7 +10,11 @@ from pathlib import Path
 from rath.llm import Provider
 from rath.session.session import Session
 
-from workflows import EngineeringProjectWorkflow
+_EX = Path(__file__).resolve().parent.parent
+if str(_EX) not in sys.path:
+    sys.path.insert(0, str(_EX))
+from _chunk_print import optional_chunk_print  # noqa: E402
+from workflows import EngineeringProjectWorkflow  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -30,6 +34,11 @@ def main(argv: list[str] | None = None) -> None:
         default=".workspace/",
         help="Local sandbox root.",
     )
+    parser.add_argument(
+        "--print-chunks",
+        action="store_true",
+        help="Print one brief line per newly appended chunk (verbose)",
+    )
     args = parser.parse_args(argv)
 
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -47,7 +56,10 @@ def main(argv: list[str] | None = None) -> None:
 
     workdir = str(Path(args.workdir).resolve())
     user = Session.from_user_message(args.goal.strip()).to("local", spec=workdir)
-    out = EngineeringProjectWorkflow(provider=provider).forward(user)
+    out = EngineeringProjectWorkflow(
+        provider=provider,
+        chunk_print=optional_chunk_print(args.print_chunks),
+    ).forward(user)
     print(out, file=sys.stdout)
 
 

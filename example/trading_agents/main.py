@@ -8,8 +8,13 @@ from pathlib import Path
 
 from rath.session.session import Session
 
-from _env import require_alpha_vantage_key, require_openai_provider
-from workflow import TradingAgentsWorkflow
+_EX = Path(__file__).resolve().parent.parent
+if str(_EX) not in sys.path:
+    sys.path.insert(0, str(_EX))
+from _chunk_print import optional_chunk_print  # noqa: E402
+
+from _env import require_alpha_vantage_key, require_openai_provider  # noqa: E402
+from workflow import TradingAgentsWorkflow  # noqa: E402
 
 
 def _build_user_message(*, ticker: str, as_of: str) -> str:
@@ -36,6 +41,11 @@ def main(argv: list[str] | None = None) -> None:
         default=".workspace/",
         help="Local sandbox working directory (absolute after resolve).",
     )
+    parser.add_argument(
+        "--print-chunks",
+        action="store_true",
+        help="Print one brief line per newly appended chunk (verbose)",
+    )
     args = parser.parse_args(argv)
 
     prov = require_openai_provider()
@@ -44,7 +54,10 @@ def main(argv: list[str] | None = None) -> None:
     as_of = args.as_of.strip() or "(not specified)"
     workdir = str(Path(args.workdir).resolve())
 
-    workflow = TradingAgentsWorkflow(provider=prov)
+    workflow = TradingAgentsWorkflow(
+        provider=prov,
+        chunk_print=optional_chunk_print(args.print_chunks),
+    )
     msg = _build_user_message(ticker=args.ticker, as_of=as_of)
     user = Session.from_user_message(msg).to("local", spec=workdir)
     out = workflow.forward(user)

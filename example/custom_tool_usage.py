@@ -11,6 +11,7 @@ from rath.flow.tool import FlowToolCall
 from pydantic import BaseModel, Field
 
 from _openai_provider import provider_from_env
+from _chunk_print import example_chunk_print
 from rath.session.session import Session
 
 BIGMODEL_IMAGES_URL = "https://open.bigmodel.cn/api/paas/v4/images/generations"
@@ -79,6 +80,7 @@ if __name__ == "__main__":
         "mention the image URL from the response.",
         provider=replace(provider_from_env(), model="glm-5.1"),
         tools=[ImageGenTool()],
+        chunk_print=example_chunk_print(),
     )
     user_session = Session.from_user_message(
         "Generate a simple cartoon cat on a sofa (no text in the image). "
