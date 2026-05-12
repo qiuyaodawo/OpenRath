@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from openai import OpenAI
@@ -16,17 +17,27 @@ __all__ = ["RathOpenAIChatClient"]
 
 
 class RathOpenAIChatClient:
-    """Thin client around ``openai.OpenAI`` chat completions (non-streaming)."""
+    """Thin client around ``openai.OpenAI`` chat completions (non-streaming).
+
+    Empty ``Provider.api_key`` / ``Provider.base_url`` fall back to the
+    ``OPENAI_API_KEY`` / ``OPENAI_BASE_URL`` environment variables. The values
+    are typically populated from the project ``.env`` file when ``rath`` is
+    imported (see :mod:`rath.__init__`).
+    """
 
     def __init__(self, provider: Provider) -> None:
-        key = (provider.api_key or "").strip()
+        key = (provider.api_key or os.environ.get("OPENAI_API_KEY") or "").strip()
         if not key:
             raise ValueError(
-                "Provider.api_key is required to construct RathOpenAIChatClient",
+                "OPENAI_API_KEY is not set and Provider.api_key is empty; "
+                "either pass api_key= to Provider(...) or export "
+                "OPENAI_API_KEY (e.g. via a project .env file).",
             )
         self._provider = provider
         init_kw: dict[str, Any] = {"api_key": key}
-        bu = (provider.base_url or "").strip()
+        bu = (
+            provider.base_url or os.environ.get("OPENAI_BASE_URL") or ""
+        ).strip()
         if bu:
             init_kw["base_url"] = bu
         self._client = OpenAI(**init_kw)
