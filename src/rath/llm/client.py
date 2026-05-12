@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Iterator
 
 from openai import AzureOpenAI, OpenAI
 
 from rath.llm._retry import retry_with_backoff
-from rath.llm.openai_create_kwargs import to_create_kwargs
+from rath.llm.openai_create_kwargs import to_create_kwargs, to_create_kwargs_stream
 from rath.llm.openai_normalize import normalize_chat_completion
 from rath.llm.chat_request import RathLLMChatRequest
-from rath.llm.chat_response import RathLLMChatResponse
+from rath.llm.chat_response import (
+    RathLLMChatResponse,
+    RathLLMFinishReason,
+    RathLLMStreamDelta,
+    RathLLMTokenUsage,
+)
 from rath.llm.provider import Provider
 
 __all__ = ["RathOpenAIChatClient"]
@@ -55,6 +60,17 @@ def _resolve_api_key(provider: Provider, base_url: str) -> str:
         if candidate and candidate.strip():
             return candidate.strip()
     return ""
+
+
+_STREAM_FINISH_REASONS = frozenset(
+    {"stop", "length", "tool_calls", "content_filter", "function_call"}
+)
+
+
+def _coerce_stream_finish(value: Any) -> RathLLMFinishReason | None:
+    if isinstance(value, str) and value in _STREAM_FINISH_REASONS:
+        return value  # type: ignore[return-value]
+    return None
 
 
 class RathOpenAIChatClient:
@@ -133,3 +149,69 @@ class RathOpenAIChatClient:
             max_attempts=self._provider.retry_max_attempts,
             base_seconds=self._provider.retry_base_seconds,
         )
+
+    def complete_stream(
+        self, req: RathLLMChatRequest
+    ) -> Iterator[RathLLMStreamDelta]:
+        """Yield ``RathLLMStreamDelta`` for each chunk of a streaming completion.
+
+        Transient errors during the initial ``create`` call are retried; once
+        the iterator starts producing chunks, retries are no longer possible
+        (the stream is committed).
+        """
+        default_model = (
+            self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
+        )
+        kwargs = to_create_kwargs_stream(req, default_model=default_model)
+
+        def _open_stream() -> Any:
+            return self._client.chat.completions.create(**kwargs)
+
+        stream = retry_with_backoff(
+            _open_stream,
+            max_attempts=self._provider.retry_max_attempts,
+            base_seconds=self._provider.retry_base_seconds,
+        )
+        for chunk in stream:
+            yield from _chunk_to_deltas(chunk)
+
+
+def _chunk_to_deltas(chunk: Any) -> Iterator[RathLLMStreamDelta]:
+    """Map one OpenAI stream chunk to one or more :class:`RathLLMStreamDelta`."""
+    payload = chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else dict(chunk)
+    choices = payload.get("choices") or []
+    if not choices:
+        # Final usage-only chunk (when stream_options['include_usage'] is set).
+        usage = payload.get("usage") or {}
+        if isinstance(usage, dict) and (usage.get("prompt_tokens") or usage.get("completion_tokens")):
+            yield RathLLMStreamDelta(
+                usage=RathLLMTokenUsage(
+                    prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),
+                    completion_tokens=int(usage.get("completion_tokens", 0) or 0),
+                    total_tokens=int(usage.get("total_tokens", 0) or 0),
+                ),
+            )
+        return
+
+    choice = choices[0] if isinstance(choices[0], dict) else {}
+    delta = choice.get("delta") or {}
+    finish = _coerce_stream_finish(choice.get("finish_reason"))
+    content_delta = delta.get("content")
+    if isinstance(content_delta, str) and content_delta:
+        yield RathLLMStreamDelta(content_delta=content_delta)
+
+    tcalls = delta.get("tool_calls") or []
+    for tc in tcalls:
+        if not isinstance(tc, dict):
+            continue
+        idx = tc.get("index")
+        fn = tc.get("function") or {}
+        yield RathLLMStreamDelta(
+            tool_call_index=int(idx) if isinstance(idx, int) else None,
+            tool_call_id=tc.get("id"),
+            tool_call_name_delta=fn.get("name"),
+            tool_call_args_delta=fn.get("arguments"),
+        )
+
+    if finish is not None:
+        yield RathLLMStreamDelta(finish_reason=finish)
