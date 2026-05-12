@@ -33,6 +33,7 @@ from rath.session.loop import (
     ChunkAppendHook,
     ChunkPrintFn,
     SessionLoopExecutor,
+    ensure_stdio_utf8,
     run_session_loop,
     sink_chunk_print,
 )
@@ -76,6 +77,7 @@ __all__ = [
     "SessionLineage",
     "SessionLoopExecutor",
     "SessionRegistry",
+    "ensure_stdio_utf8",
     "run_session_compress",
     "run_session_loop",
     "session_registry",

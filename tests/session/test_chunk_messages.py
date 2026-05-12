@@ -14,10 +14,24 @@ from rath.session.chunk import (
     ChunkTable,
     assistant_turn_chunk,
     chunk_table_to_messages,
+    format_chunk_row_brief,
     system_text_chunk,
     tool_feedback_chunk,
     user_text_chunk,
 )
+
+
+def test_format_chunk_row_brief_tool_json_unicode_not_ascii_escaped() -> None:
+    """JSON ``\\uXXXX`` in wire text becomes real characters in the preview line."""
+
+    payload = json.dumps(
+        {"exit_code": 0, "stdout": "ok\n──\n", "stderr": ""},
+        ensure_ascii=True,
+    )
+    row = tool_feedback_chunk("tc1", "run_shell_command", payload)
+    line = format_chunk_row_brief(40, row, max_payload=500)
+    assert "──" in line
+    assert "\\u2500" not in line
 
 
 def test_chunk_table_to_messages_order_and_roles() -> None:

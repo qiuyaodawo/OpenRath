@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from collections.abc import Callable
 from typing import Any, Mapping, Protocol, TypeAlias, runtime_checkable
 
@@ -53,12 +54,34 @@ ChunkAppendHook: TypeAlias = Callable[[ChunkRow, int, Session], object]
 ChunkPrintFn = ChunkAppendHook
 
 
+def ensure_stdio_utf8() -> None:
+    """Best-effort UTF-8 on ``stdout`` / ``stderr`` (e.g. Windows console)."""
+
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, TypeError, IsADirectoryError):
+            continue
+
+
 def sink_chunk_print(write: Callable[[object], object] | None = None) -> ChunkAppendHook:
-    """Build a hook that prints one line per appended row via ``write`` (default: :func:`print`)."""
+    """Build a hook that prints one line per appended row via ``write`` (default: :func:`print`).
+
+    On first use, calls :func:`ensure_stdio_utf8` so Unicode (CJK, box-drawing, emoji)
+    is not replaced or mangled when the process default encoding is legacy (cp1252, etc.).
+    """
 
     sink = print if write is None else write
+    configured = False
 
     def _hook(row: ChunkRow, index: int, session: Session) -> object:
+        nonlocal configured
+        if not configured:
+            ensure_stdio_utf8()
+            configured = True
         del session
         return sink(format_chunk_row_brief(index, row))
 
@@ -352,6 +375,7 @@ __all__ = [
     "ChunkAppendHook",
     "ChunkPrintFn",
     "SessionLoopExecutor",
+    "ensure_stdio_utf8",
     "sink_chunk_print",
     "run_session_loop",
 ]

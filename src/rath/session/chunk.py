@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping, cast
@@ -90,6 +91,27 @@ def _preview_brief(s: str, *, max_chars: int = 256) -> str:
     return f"{t[:edge]} ... {t[-edge:]}"
 
 
+def _tool_result_body_preview(raw: str, *, max_chars: int) -> str:
+    """Decode JSON tool payloads and re-encode with real Unicode (not ``\\u`` escapes)."""
+
+    t = raw.strip()
+    if not t:
+        return ""
+    try:
+        parsed: Any = json.loads(t)
+    except json.JSONDecodeError:
+        return _preview_brief(raw, max_chars=max_chars)
+    try:
+        normalized = json.dumps(
+            parsed,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+    except (TypeError, ValueError):
+        return _preview_brief(raw, max_chars=max_chars)
+    return _preview_brief(normalized, max_chars=max_chars)
+
+
 def format_chunk_row_brief(index: int, row: ChunkRow, *, max_payload: int = 400) -> str:
     """Single-line description of one chunk row (for :func:`~rath.session.loop.sink_chunk_print`)."""
 
@@ -114,8 +136,8 @@ def format_chunk_row_brief(index: int, row: ChunkRow, *, max_payload: int = 400)
         return f"[{index}] {kind}: {summary}"
     if row.kind == ChunkKind.TOOL_RESULT:
         name = str(p.get("name", ""))
-        body = _preview_brief(str(p.get("content", "")), max_chars=max_payload)
-        return f"[{index}] {kind}: name={name!r} body={body!r}"
+        body = _tool_result_body_preview(str(p.get("content", "")), max_chars=max_payload)
+        return f"[{index}] {kind}: name={name!r} body={body}"
     return f"[{index}] {kind}: {p!r}"
 
 
