@@ -45,6 +45,11 @@ __all__ = [
 ]
 
 
+# Fallback ``max_tokens`` for Anthropic's required field when neither the
+# request nor the provider set one. Deliberately conservative - current Claude
+# models accept far more, but a low default avoids accidentally racking up
+# token bills on a stray call. Callers that need long outputs should set
+# ``RathLLMChatRequest.max_tokens`` (or ``max_completion_tokens``) explicitly.
 _DEFAULT_MAX_TOKENS = 4096
 
 
