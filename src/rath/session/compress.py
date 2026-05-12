@@ -8,7 +8,6 @@ from rath.llm import (
     Provider,
     RathLLMChatResponse,
     RathLLMMessage,
-    RathOpenAIChatClient,
     add_usage,
 )
 from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
@@ -46,10 +45,8 @@ def run_session_compress(
     Completions use ``tools=None`` and ``tool_choice=none``. If the model returns tool
     calls, raises ``RuntimeError``.
 
-    When ``executor`` is ``None``, a default executor is built from ``agent_provider``.
-    Empty ``agent_provider.api_key`` falls back to
-    ``OPENAI_API_KEY`` / ``AZURE_OPENAI_API_KEY`` (see
-    :class:`~rath.llm.client.RathOpenAIChatClient` for the full lookup order).
+    When ``executor`` is ``None``, a default executor is built from ``agent_provider``;
+    it must carry a non-empty ``api_key``.
 
     Rebases sandbox from ``user_session`` onto the returned session (same as the loop).
 
@@ -58,7 +55,9 @@ def run_session_compress(
     """
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
+        from rath.session.loop import _build_default_client
+
+        executor = DefaultSessionLoopExecutor(_build_default_client(agent_provider))
 
     instruction = (
         compress_instruction.strip()

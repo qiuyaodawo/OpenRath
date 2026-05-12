@@ -37,6 +37,9 @@ opensandbox = [
 mcp = [
     "mcp>=1.0.0",
 ]
+anthropic = [
+    "anthropic>=0.40.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rath"]

@@ -5,6 +5,10 @@ from rath.llm.provider import Provider
 from rath.llm.client import RathOpenAIChatClient
 from rath.llm.openai_create_kwargs import to_create_kwargs
 from rath.llm.openai_normalize import normalize_chat_completion
+from rath.llm.anthropic_normalize import (
+    build_anthropic_kwargs,
+    normalize_anthropic_response,
+)
 from rath.llm.chat_request import (
     RathLLMChatRequest,
     RathLLMFunctionTool,
@@ -40,6 +44,8 @@ __all__ = [
     "BudgetExceededError",
     "to_create_kwargs",
     "normalize_chat_completion",
+    "build_anthropic_kwargs",
+    "normalize_anthropic_response",
     "add_usage",
     "RathLLMChatRequest",
     "RathLLMMessage",
