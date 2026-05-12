@@ -24,6 +24,12 @@ from rath.session.graph.traverse import (
     lineage_view_dataclass,
     validate_acyclic,
 )
+from rath.session.graph.export import (
+    export_journal_jsonl,
+    export_jsonl,
+    export_jsonl_string,
+    session_to_jsonl_row,
+)
 
 __all__ = [
     "FrozenLineageView",
@@ -35,10 +41,14 @@ __all__ = [
     "ancestors_bfs",
     "descendants_dfs_preorder",
     "edge_pairs",
+    "export_journal_jsonl",
+    "export_jsonl",
+    "export_jsonl_string",
     "lineage_journal_optional",
     "lineage_journal_tracking",
     "lineage_view_dataclass",
     "session_graph_mode",
     "session_graph_mode_override",
+    "session_to_jsonl_row",
     "validate_acyclic",
 ]
