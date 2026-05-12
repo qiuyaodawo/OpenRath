@@ -2,6 +2,23 @@
 
 ![OpenRath logo](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/logo.png)
 
+<p align="center">
+  <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/v/openrath.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/pyversions/openrath.svg" alt="Python"></a>
+  <a href="https://github.com/Rath-Team/OpenRath/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License"></a>
+  <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyLS4wNTYiIHN0eWxlPSJzdHJva2U6bm9uZTtmaWxsLXJ1bGU6ZXZlbm9kZDtmaWxsOiNlY2VjZWM7ZmlsbC1vcGFjaXR5OjEiLz48cGF0aCBkPSJNNDcuMjY2IDIuOTU3cTIyLjUzLS42NSAzNy43NzcgMTUuNzM4YTQ5LjcgNDkuNyAwIDAgMSA2Ljg2NyAxMC4xNTdxLTQxLjk2NC4yMjItODMuOTMgMCA5Ljc1LTE4LjYxNiAzMC4wMjQtMjQuMzg3YTYxIDYxIDAgMCAxIDkuMjYyLTEuNTA4IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojMTkxOTE5O2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTcuOTggNzAuOTI2YzI3Ljk3Ny0uMDM1IDU1Ljk1NCAwIDgzLjkzLjExM1E4My40MjYgODcuNDczIDY2LjEzIDk0LjA4NnEtMTguODEgNi41NDQtMzYuODMyLTEuODk4LTE0LjIwMy03LjA5LTIxLjMxNy0yMS4yNjIiIHN0eWxlPSJzdHJva2U6bm9uZTtmaWxsLXJ1bGU6ZXZlbm9kZDtmaWxsOiNmOWFmMDA7ZmlsbC1vcGFjaXR5OjEiLz48L3N2Zz4=" alt="LINUX DO"></a>
+</p>
+
+---
+
+<div align="center">
+
+English · [简体中文](README_zh.md)
+
+</div>
+
+---
+
 **OpenRath** is an open-source multi-agent framework. You can compose APIs in a PyTorch-like style: session lifecycle, workflow orchestration, tool dispatch, and sandbox backends evolve together on a session graph woven from agents and sessions.
 
 ## Recent updates
