@@ -118,6 +118,7 @@ Runnable examples live under [`example/`](example/):
 | `sandbox_backend_opensandbox.py` | OpenSandbox backend binding. |
 | `trading_agents/` | Sequential multi-agent research workflow with a market-data tool. |
 | `engineering_agents/` | Nested engineering workflow with lead, squad, backend pair, and QA roles. |
+| `research_transformer/` on `main` | Transformer-metaphor academic pipeline with branch workflows, compression, per-role providers, and an optional image tool. |
 
 ## Current Scope
 
