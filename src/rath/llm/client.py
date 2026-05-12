@@ -177,7 +177,12 @@ class RathOpenAIChatClient:
 
 
 def _chunk_to_deltas(chunk: Any) -> Iterator[RathLLMStreamDelta]:
-    """Map one OpenAI stream chunk to one or more :class:`RathLLMStreamDelta`."""
+    """Map one OpenAI stream chunk to one or more :class:`RathLLMStreamDelta`.
+
+    OpenRath does not support ``n>1`` completions (the chat request shape
+    only carries a single choice downstream), so only ``choices[0]`` is
+    inspected here; additional choices in the chunk are silently dropped.
+    """
     payload = chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else dict(chunk)
     choices = payload.get("choices") or []
     if not choices:

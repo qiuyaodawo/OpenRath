@@ -12,8 +12,9 @@ forks / lineage / token accounting all see complete messages.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Iterator, Protocol, runtime_checkable
 
 from rath.flow.tool import FlowToolCall
 from rath.llm import (
@@ -45,8 +46,9 @@ __all__ = [
 ]
 
 
-class StreamingChatClient:
-    """Minimal Protocol-like type hint for clients with ``complete_stream``.
+@runtime_checkable
+class StreamingChatClient(Protocol):
+    """Minimal Protocol for clients with ``complete_stream``.
 
     The :class:`~rath.llm.RathOpenAIChatClient` already exposes
     ``complete_stream``; callers passing custom clients only need the same
@@ -55,8 +57,8 @@ class StreamingChatClient:
 
     def complete_stream(
         self, req: RathLLMChatRequest
-    ) -> Any:  # Iterator[RathLLMStreamDelta]
-        raise NotImplementedError
+    ) -> Iterator[RathLLMStreamDelta]:
+        ...
 
 
 def accumulate_stream_to_response(
@@ -108,8 +110,6 @@ def accumulate_stream_to_response(
             parse_error: bool
             if arg_str:
                 try:
-                    import json
-
                     parsed_val = json.loads(arg_str)
                     if isinstance(parsed_val, dict):
                         parsed, parse_error = parsed_val, False
