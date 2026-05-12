@@ -8,7 +8,7 @@ from pathlib import Path
 
 from rath.session.session import Session
 
-from _env import require_alpha_vantage_key, require_openai
+from _env import require_alpha_vantage_key, require_openai_provider
 from workflow import TradingAgentsWorkflow
 
 
@@ -38,13 +38,13 @@ def main(argv: list[str] | None = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    model, _base = require_openai()
+    prov = require_openai_provider()
     require_alpha_vantage_key()
 
     as_of = args.as_of.strip() or "(not specified)"
     workdir = str(Path(args.workdir).resolve())
 
-    workflow = TradingAgentsWorkflow(model=model)
+    workflow = TradingAgentsWorkflow(provider=prov)
     msg = _build_user_message(ticker=args.ticker, as_of=as_of)
     user = Session.from_user_message(msg).to("local", spec=workdir)
     out = workflow.forward(user)

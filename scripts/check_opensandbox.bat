@@ -2,7 +2,7 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 rem Sanity-check optional OpenSandbox: Python extra imports and server /health endpoint.
-rem Uses OPEN_SANDBOX_DOMAIN from the environment or .env (default 127.0.0.1:8080).
+rem Uses OPEN_SANDBOX_DOMAIN from the environment (default 127.0.0.1:8080).
 
 set "SCRIPT_DIR=%~dp0"
 pushd "%SCRIPT_DIR%.." || exit /b 1
@@ -21,7 +21,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-for /f "delims=" %%D in ('uv run python -c "from pathlib import Path; import os; from dotenv import load_dotenv; p=Path('.env'); load_dotenv(p) if p.is_file() else None; print(os.getenv('OPEN_SANDBOX_DOMAIN','127.0.0.1:8080'))"') do set "OSB_DOMAIN=%%D"
+if defined OPEN_SANDBOX_DOMAIN (set "OSB_DOMAIN=!OPEN_SANDBOX_DOMAIN!") else (set "OSB_DOMAIN=127.0.0.1:8080")
 
 set "BASE_URL=http://!OSB_DOMAIN!"
 set "HEALTH_URL=!BASE_URL!/health"

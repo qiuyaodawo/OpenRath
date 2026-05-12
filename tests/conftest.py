@@ -1,4 +1,4 @@
-"""pytest root: preload ``.env``, asyncio anyio backend, OpenSandbox TCP gate."""
+"""pytest root: asyncio anyio backend, OpenSandbox TCP gate."""
 
 from __future__ import annotations
 
@@ -6,10 +6,6 @@ import os
 import socket
 
 import pytest
-
-from rath.utils.env import default_env_file_path, load_dotenv_if_present
-
-load_dotenv_if_present(default_env_file_path(), override=False)
 
 
 @pytest.fixture

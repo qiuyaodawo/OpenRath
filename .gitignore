@@ -10,7 +10,7 @@ htmlcov/
 .coverage
 .coverage.*
 
-# Local env (API keys); use .env.example as the template.
+# Local env file (optional); not read by OpenRath — export vars in your shell instead.
 .env
 .workspace/
 

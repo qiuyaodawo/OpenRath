@@ -67,8 +67,7 @@ def to_create_kwargs(
     model = req.model or default_model
     if not model:
         raise ValueError(
-            "model is required: set RathLLMChatRequest.model or "
-            "OPENAI_DEFAULT_MODEL",
+            "model is required: set RathLLMChatRequest.model or Provider.model",
         )
     out: dict[str, Any] = {
         "model": model,

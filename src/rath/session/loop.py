@@ -27,7 +27,6 @@ from rath.llm import (
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
-    RathLLMMessage,
     RathOpenAIChatClient,
 )
 from rath.session.chat_request_build import provider_into_chat_request
@@ -172,10 +171,10 @@ def run_session_loop(
     Rebases ``BackendSandbox`` from ``user_session`` onto the returned session.
     LLM routing/sampling kwargs come from ``agent_provider``
     (:class:`~rath.llm.Provider`); completions and tool dispatch go through
-    ``executor``. When ``executor`` is omitted, builds a fresh
+    ``executor``.     When ``executor`` is omitted, builds a fresh
     :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`
-    wrapping :class:`~rath.llm.client.RathOpenAIChatClient()` (``.env`` / env-based
-    API settings).
+    wrapping :class:`~rath.llm.client.RathOpenAIChatClient` built from
+    ``agent_provider`` (which must include a non-empty ``api_key``).
 
     Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
     the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
@@ -187,7 +186,12 @@ def run_session_loop(
     table = merge_tools_for_loop(tools)
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
+        if not (agent_provider.api_key and str(agent_provider.api_key).strip()):
+            raise ValueError(
+                "agent_provider.api_key is required when executor is None "
+                "(build a Provider with api_key, or pass a SessionLoopExecutor).",
+            )
+        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
 
     prefs = agent_provider
 

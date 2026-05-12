@@ -793,7 +793,6 @@ source = { editable = "." }
 dependencies = [
     { name = "openai" },
     { name = "pydantic" },
-    { name = "python-dotenv" },
 ]
 
 [package.optional-dependencies]
@@ -825,7 +824,6 @@ requires-dist = [
     { name = "opensandbox-code-interpreter", marker = "extra == 'opensandbox'", specifier = ">=0.1.2" },
     { name = "opensandbox-server", marker = "extra == 'opensandbox'", specifier = ">=0.1.12" },
     { name = "pydantic", specifier = ">=2.0.0,<3" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
 provides-extras = ["opensandbox"]
 

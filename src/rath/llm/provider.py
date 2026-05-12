@@ -1,4 +1,4 @@
-"""Sampling / routing options folded into Rath LLM chat requests."""
+"""Sampling / routing options and OpenAI HTTP identity for chat requests."""
 
 from __future__ import annotations
 
@@ -9,12 +9,19 @@ from typing import Any, Mapping
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class Provider:
-    """OpenAI-style kwargs for ``run_session_loop`` (no ``messages`` / ``tools``).
+    """LLM routing for ``run_session_loop`` (no ``messages`` / ``tools``).
 
-    Same wire fields as :class:`~rath.llm.chat_request.RathLLMChatRequest`,
-    excluding those the loop sets.
+    ``base_url``, ``api_key``, and ``model`` configure the OpenAI-compatible HTTP
+    client when using :class:`~rath.llm.client.RathOpenAIChatClient`. Other
+    fields mirror :class:`~rath.llm.chat_request.RathLLMChatRequest` (excluding
+    what the loop fills in).
+
+    ``api_key`` may be omitted when callers supply a custom ``executor`` that
+    never instantiates :class:`~rath.llm.client.RathOpenAIChatClient`.
     """
 
+    base_url: str | None = None
+    api_key: str | None = None
     model: str | None = None
     temperature: float | None = None
     top_p: float | None = None

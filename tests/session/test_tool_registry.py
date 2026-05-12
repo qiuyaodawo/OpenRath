@@ -71,6 +71,7 @@ def test_tools_dict_to_schemas_sorted_by_name() -> None:
         "write_workspace_file",
     ]
 
+
 def test_run_shell_command_tool_dispatch_local_exit_code_and_stdout() -> None:
     backend = get("local")
     with backend.open() as sb:
@@ -96,4 +97,3 @@ def test_write_workspace_tool_returns_file_write_result() -> None:
         raw = wt(sess, {"path": "_rath_reg_probe.txt", "content": "Z"})
     assert isinstance(raw, FileWriteResult)
     assert raw.bytes_written == 1
-

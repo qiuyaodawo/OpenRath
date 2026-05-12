@@ -39,11 +39,19 @@ def run_session_compress(
     Completions use ``tools=None`` and ``tool_choice=none``. If the model returns tool
     calls, raises ``RuntimeError``.
 
+    When ``executor`` is ``None``, a default executor is built from ``agent_provider``;
+    it must carry a non-empty ``api_key``.
+
     Rebases sandbox from ``user_session`` onto the returned session (same as the loop).
     """
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
+        if not (agent_provider.api_key and str(agent_provider.api_key).strip()):
+            raise ValueError(
+                "agent_provider.api_key is required when executor is None "
+                "(build a Provider with api_key, or pass a SessionLoopExecutor).",
+            )
+        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
 
     instruction = (
         compress_instruction.strip()

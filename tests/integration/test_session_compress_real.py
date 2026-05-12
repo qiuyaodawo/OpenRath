@@ -12,7 +12,8 @@ import pytest
 
 from rath.backend import FileContent, get
 from rath.flow.tool import flow_tool_files_read, flow_tool_files_write
-from rath.llm import Provider, RathOpenAIChatClient
+from rath.llm import RathOpenAIChatClient
+from tests.openai_env_provider import live_openai_provider
 from rath.session import (
     ChunkKind,
     ChunkTable,
@@ -31,7 +32,7 @@ def _openai_key_plausible() -> bool:
 
 _needs_live_llm = pytest.mark.skipif(
     not _openai_key_plausible(),
-    reason="OPENAI_API_KEY missing or too short (load .env via tests/conftest)",
+    reason="OPENAI_API_KEY missing or too short (export in environment)",
 )
 
 _needs_local_backend = pytest.mark.skipif(
@@ -75,7 +76,7 @@ def _parse_json_object(raw: str) -> dict[str, object]:
 
 def test_run_session_compress_structure_and_lineage_real() -> None:
     backend = get("local")
-    model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
+    prov = live_openai_provider()
 
     filler_rows = tuple(
         user_text_chunk(f"Filler paragraph {i}: discuss widgets, logistics, and noise.")
@@ -97,16 +98,16 @@ def test_run_session_compress_structure_and_lineage_real() -> None:
         '(no markdown fences), keys: "summary" (string) and "guards" (array of '
         'strings). The guards array MUST contain exactly these two strings in order: '
         '"RATH_COMPRESS_GUARD_ALPHA", "RATH_COMPRESS_GUARD_BETA". '
-        'The summary must be shorter than the raw transcript.'
+        "The summary must be shorter than the raw transcript."
     )
 
     with backend.open() as sb:
         user.bind_sandbox(sb)
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
+        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(prov))
         out = run_session_compress(
             user,
             agent,
-            agent_provider=Provider(model=model),
+            agent_provider=prov,
             executor=executor,
             compress_instruction=compress_instruction,
         )
@@ -138,7 +139,7 @@ def test_run_session_compress_structure_and_lineage_real() -> None:
 
 def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
     backend = get("local")
-    model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
+    prov = live_openai_provider()
     token = "RATH_COMPRESS_PROBE_TOKEN_918273"
 
     user = Session(
@@ -163,11 +164,11 @@ def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
         )
         assert wr is not False
 
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
+        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(prov))
         out = run_session_compress(
             user,
             agent,
-            agent_provider=Provider(model=model),
+            agent_provider=prov,
             executor=executor,
             compress_instruction=instruction,
         )

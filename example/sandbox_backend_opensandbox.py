@@ -1,16 +1,21 @@
 """Example: session loop with OpenSandbox (API server, Docker, LLM keys as needed)."""
 
+from dataclasses import replace
+
 import rath.flow as flow
 import rath.backend as backend
 from rath.session import Session
 
+from _openai_provider import provider_from_env
+
 
 SANDBOX_BACKEND = "opensandbox"
 
+_PROVIDER = replace(provider_from_env(), model="glm-5.1")
 
 agent = flow.Agent(
     system_prompt="You are a helpful assistant.",
-    model="glm-5.1",
+    provider=_PROVIDER,
 )
 
 

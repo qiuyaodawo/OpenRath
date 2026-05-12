@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from types import TracebackType
 from typing import Generic, TypeVar
 
+from rath.backend.abc import BackendSandbox
 from rath.backend.results import ToolResult
 from rath.backend.tool_types import BackendTool
 
@@ -105,7 +106,7 @@ _Op = _CallOp | _RecordEventOp | _WaitEventOp | _SyncOp | _ShutdownOp
 class Stream:
     """Per-sandbox FIFO queue of tool-call operations (blocking worker thread)."""
 
-    def __init__(self, sandbox: "BackendSandbox", *, buffer: int = 0) -> None:
+    def __init__(self, sandbox: BackendSandbox, *, buffer: int = 0) -> None:
         self._sandbox = sandbox
         maxsize = 0 if buffer == 0 else buffer
         self._queue: queue.Queue[_Op | None] = queue.Queue(maxsize=maxsize)
@@ -128,7 +129,7 @@ class Stream:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        self._queue.put(None)  # type: ignore[arg-type]
+        self._queue.put(None)
         self._closed = True
         if self._worker is not None:
             self._worker.join(timeout=120.0)

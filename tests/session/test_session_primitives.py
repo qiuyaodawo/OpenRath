@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from rath.session import (
     LineageKind,
-    create_leaf_system,
     create_leaf_user,
     detach_session,
     fork_session,

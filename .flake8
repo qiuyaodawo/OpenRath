@@ -1,6 +1,7 @@
 [flake8]
 max-line-length = 88
-extend-ignore = E203
+# Match common Black/Ruff stacks; line length is not enforced strictly here.
+extend-ignore = E203, E501
 exclude =
     .git,
     .venv,

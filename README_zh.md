@@ -69,7 +69,7 @@ pip install "openrath[opensandbox]"
 
 安装后需能跑 OpenSandbox 服务端（通常依赖 Docker）。在项目根可直接用 `scripts/launch_opensandbox.sh` 或 `launch_opensandbox.bat`：同步可选依赖、生成 `.sandbox.toml` 并拉起 `opensandbox-server`，具体步骤见脚本内说明。
 
-客户端将 `.env.example` 抄为 `.env`，按其中 OpenSandbox 小节填写 `OPEN_SANDBOX_DOMAIN`（及如需的 API 密钥）。自检可运行 `scripts/check_opensandbox.sh` 或 `check_opensandbox.bat`（导入 SDK 与访问 `/health`）。
+在运行环境中导出 `OPEN_SANDBOX_DOMAIN`（自检脚本未设置时的默认值为 `127.0.0.1:8080`）以及部署所需的 API 密钥。自检可运行 `scripts/check_opensandbox.sh` 或 `check_opensandbox.bat`（导入 SDK 与访问 `/health`）。
 
 会话内将后端设为 `opensandbox` 并传入 spec；示例见 `example/sandbox_backend_opensandbox.py`，原理见用户指南中的沙箱后端一章。
 
@@ -282,14 +282,14 @@ class Agent(flow.Workflow):
     def __init__(
         self,
         system_prompt: str,
-        model: str,
+        provider: flow.Provider,
         tools: list[FlowToolCall] | None = None,
     ) -> None:
         super().__init__()
         self.tools = list(tools or [])
         self.agent = flow.AgentParam(
             agent_session=Session.from_agent_prompt(system_prompt),
-            provider=flow.Provider(model=model),
+            provider=provider,
         )
 
     def forward(self, session: Session) -> Session:
@@ -303,7 +303,7 @@ class Agent(flow.Workflow):
 
 agent_model = Agent(
     system_prompt="You are a helpful assistant.",
-    model="glm-5.1",
+    provider=flow.Provider(model="glm-5.1"),
 )
 
 user_session = Session.from_user_message(

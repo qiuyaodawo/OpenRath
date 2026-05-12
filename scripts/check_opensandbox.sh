@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Sanity-check optional OpenSandbox: Python extra imports and server /health endpoint.
-# Uses OPEN_SANDBOX_DOMAIN from the environment or .env (default 127.0.0.1:8080).
+# Uses OPEN_SANDBOX_DOMAIN from the environment (default 127.0.0.1:8080).
 
 set -euo pipefail
 
@@ -8,13 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${ROOT_DIR}"
-
-if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
 
 DOMAIN="${OPEN_SANDBOX_DOMAIN:-127.0.0.1:8080}"
 BASE_URL="http://${DOMAIN}"

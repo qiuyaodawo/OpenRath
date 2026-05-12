@@ -11,14 +11,14 @@ class Agent(Workflow):
     def __init__(
         self,
         system_prompt: str,
-        model: str,
+        provider: Provider,
         tools: list[FlowToolCall] | None = None,
     ):
         super().__init__()
         self.tools = list(tools or [])
         self.agent = AgentParam(
             agent_session=Session.from_agent_prompt(system_prompt),
-            provider=Provider(model=model),
+            provider=provider,
         )
 
     def forward(self, session: Session) -> Session:

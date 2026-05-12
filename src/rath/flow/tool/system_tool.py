@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import Any
 from threading import Lock
 
 from rath.backend.tool_types import (

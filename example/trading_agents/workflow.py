@@ -20,9 +20,9 @@ from tools import AlphaVantageGlobalQuoteTool
 class TradingAgentsWorkflow(Workflow):
     """Sequential analyst → bear → bull → trader → risk/PM."""
 
-    def __init__(self, model: str) -> None:
+    def __init__(self, provider: Provider) -> None:
         super().__init__()
-        prov = Provider(model=model)
+        prov = provider
         self.analyst = AgentParam(Session.from_agent_prompt(ANALYST_SYSTEM), prov)
         self.researcher_bear = AgentParam(
             Session.from_agent_prompt(RESEARCHER_BEAR_SYSTEM),

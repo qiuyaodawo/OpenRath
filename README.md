@@ -69,7 +69,7 @@ pip install "openrath[opensandbox]"
 
 You need a running OpenSandbox server (typically Docker). At the repo root, use `scripts/launch_opensandbox.sh` or `launch_opensandbox.bat` to sync the optional dependency, generate `.sandbox.toml`, and start `opensandbox-server`; see the script comments for details.
 
-Copy `.env.example` to `.env` and fill the OpenSandbox section, including `OPEN_SANDBOX_DOMAIN` (and an API key if required). Run `scripts/check_opensandbox.sh` or `check_opensandbox.bat` to verify imports and `GET /health`.
+Export `OPEN_SANDBOX_DOMAIN` (default if unset in check scripts: `127.0.0.1:8080`) and any API keys your deployment requires. Run `scripts/check_opensandbox.sh` or `check_opensandbox.bat` to verify imports and `GET /health`.
 
 Set the backend to `opensandbox` in-session with a spec; see `example/sandbox_backend_opensandbox.py` and the user guide chapter on sandbox backends.
 
@@ -280,14 +280,14 @@ class Agent(flow.Workflow):
     def __init__(
         self,
         system_prompt: str,
-        model: str,
+        provider: flow.Provider,
         tools: list[FlowToolCall] | None = None,
     ) -> None:
         super().__init__()
         self.tools = list(tools or [])
         self.agent = flow.AgentParam(
             agent_session=Session.from_agent_prompt(system_prompt),
-            provider=flow.Provider(model=model),
+            provider=provider,
         )
 
     def forward(self, session: Session) -> Session:
@@ -301,7 +301,7 @@ class Agent(flow.Workflow):
 
 agent_model = Agent(
     system_prompt="You are a helpful assistant.",
-    model="glm-5.1",
+    provider=flow.Provider(model="glm-5.1"),
 )
 
 user_session = Session.from_user_message(
