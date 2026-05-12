@@ -1,5 +1,6 @@
 """OpenAI-compatible LLM access (synchronous chat completions)."""
 
+from rath.llm._chat_client_proto import ChatClient
 from rath.llm.provider import Provider
 from rath.llm.client import RathOpenAIChatClient
 from rath.llm.openai_create_kwargs import to_create_kwargs
@@ -33,6 +34,7 @@ class BudgetExceededError(RuntimeError):
 
 
 __all__ = [
+    "ChatClient",
     "Provider",
     "RathOpenAIChatClient",
     "BudgetExceededError",
