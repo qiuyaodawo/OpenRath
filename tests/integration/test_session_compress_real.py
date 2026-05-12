@@ -159,9 +159,7 @@ def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
 
     with backend.open() as sb:
         user.bind_sandbox(sb)
-        wr = user.require_sandbox().dispatch(
-            flow_tool_files_write("_rath_compress_probe.txt", token)
-        )
+        wr = flow_tool_files_write(user, "_rath_compress_probe.txt", token)
         assert wr is not False
 
         executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(prov))
@@ -174,9 +172,7 @@ def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
         )
 
         assert user.sandbox is None
-        raw = out.require_sandbox().dispatch(
-            flow_tool_files_read("_rath_compress_probe.txt")
-        )
+        raw = flow_tool_files_read(out, "_rath_compress_probe.txt")
         assert isinstance(raw, FileContent)
         body = raw.data
         if isinstance(body, bytes):

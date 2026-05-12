@@ -219,8 +219,7 @@ a = Session.from_user_message(
 )
 a = a.to("local", spec="./")
 
-payload = flow_tool_files_list(path="./")
-a.require_sandbox().dispatch(payload)
+tool_result = flow_tool_files_list(a, path="./")
 ```
 
 在 PyTorch

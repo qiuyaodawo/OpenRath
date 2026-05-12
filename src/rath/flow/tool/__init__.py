@@ -1,4 +1,4 @@
-"""Tool registration, :class:`~rath.flow.tool.base.FlowToolCall`, and BackendTool factories."""
+"""Tool registration, :class:`~rath.flow.tool.base.FlowToolCall`, and session-scoped helpers."""
 
 from __future__ import annotations
 
