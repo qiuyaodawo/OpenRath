@@ -47,3 +47,11 @@ DEAI_SYSTEM = (
     "openings; keep the academic content. Deliver final group-meeting-ready prose "
     "in Chinese or English matching the dominant language of the prior content."
 )
+
+COMPRESSOR_SYSTEM = (
+    "You assist lossy compression of an academic pipeline transcript between stages. "
+    "When the user message asks to compress the thread, preserve: the research goal, "
+    "supervisor constraints, literature takeaways, open questions, and any "
+    "reproduction or verification conclusions. Drop redundancy and chat filler. "
+    "Output must be plain text only for the next pipeline stage."
+)

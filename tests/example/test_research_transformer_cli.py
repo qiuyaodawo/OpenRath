@@ -53,6 +53,7 @@ def test_prompt_constants_are_non_empty() -> None:
         "VERIFIER_SYSTEM",
         "JARGON_SYSTEM",
         "DEAI_SYSTEM",
+        "COMPRESSOR_SYSTEM",
     ):
         assert len(getattr(prompts, name).strip()) > 40
 
@@ -75,12 +76,16 @@ def test_workflow_run_session_loop_call_count() -> None:
         verifier=stub,
         jargon=stub,
         deai=stub,
+        compressor=stub,
     )
     user = Session.from_user_message("hello").to("local", spec=None)
     with mock.patch(
         "research_transformer.workflow.run_session_loop",
         side_effect=lambda u, *_a, **_k: u,
-    ) as m:
+    ) as m_loop, mock.patch(
+        "rath.flow.compressor.run_session_compress",
+        side_effect=lambda user_session, *_a, **_k: user_session,
+    ) as m_comp:
         wf = ResearchTransformerWorkflow(
             prov,
             layers=2,
@@ -89,7 +94,45 @@ def test_workflow_run_session_loop_call_count() -> None:
             image_tools=None,
         )
         wf.forward(user)
-    assert m.call_count == 11
+    assert m_loop.call_count == 11
+    assert m_comp.call_count == 2
+
+
+def test_workflow_no_compress_skips_run_session_compress() -> None:
+    _prepend_example_path()
+    from research_transformer.providers import ResearchTransformerProviders  # type: ignore[import-not-found]
+    from research_transformer.workflow import ResearchTransformerWorkflow  # type: ignore[import-not-found]
+    from rath.llm import Provider
+    from rath.session.session import Session
+
+    stub = Provider(api_key="k", model="m")
+    prov = ResearchTransformerProviders(
+        packager=stub,
+        literature=stub,
+        rewrite=stub,
+        qa=stub,
+        verifier=stub,
+        jargon=stub,
+        deai=stub,
+        compressor=stub,
+    )
+    user = Session.from_user_message("hello").to("local", spec=None)
+    with mock.patch(
+        "research_transformer.workflow.run_session_loop",
+        side_effect=lambda u, *_a, **_k: u,
+    ), mock.patch(
+        "rath.flow.compressor.run_session_compress",
+    ) as m_comp:
+        wf = ResearchTransformerWorkflow(
+            prov,
+            layers=1,
+            thesis_excerpt="t",
+            ddl_note="d",
+            image_tools=None,
+            enable_compress=False,
+        )
+        wf.forward(user)
+    assert m_comp.call_count == 0
 
 
 def test_main_fails_missing_thesis(tmp_path: Path) -> None:

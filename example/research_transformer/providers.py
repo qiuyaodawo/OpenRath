@@ -19,6 +19,7 @@ class ResearchTransformerProviders:
     verifier: Provider
     jargon: Provider
     deai: Provider
+    compressor: Provider
 
 
 def _strip(key: str) -> str:
@@ -70,4 +71,5 @@ def providers_from_env() -> ResearchTransformerProviders:
         verifier=_one_provider(model_env="RESEARCH_TRANSFORMER_MODEL_VERIFIER"),
         jargon=_one_provider(model_env="RESEARCH_TRANSFORMER_MODEL_JARGON"),
         deai=_one_provider(model_env="RESEARCH_TRANSFORMER_MODEL_DEAI"),
+        compressor=_one_provider(model_env="RESEARCH_TRANSFORMER_MODEL_COMPRESSOR"),
     )

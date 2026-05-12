@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from rath.flow.agent_param import AgentParam
+from rath.flow.compressor import Compressor
 from rath.flow.tool import FlowToolCall
 from rath.flow.workflow import Workflow
 from rath.session import run_session_loop
@@ -10,6 +11,7 @@ from rath.session.chunk import user_text_chunk
 from rath.session.session import Session
 
 from research_transformer.prompts import (
+    COMPRESSOR_SYSTEM,
     DEAI_SYSTEM,
     JARGON_SYSTEM,
     LITERATURE_SYSTEM,
@@ -125,7 +127,7 @@ class OutputHeadWorkflow(Workflow):
 
 
 class ResearchTransformerWorkflow(Workflow):
-    """Full stack: literature branch → reproduction branch → output head."""
+    """Full stack: literature branch → compress → reproduction branch → compress → head."""
 
     def __init__(
         self,
@@ -135,6 +137,7 @@ class ResearchTransformerWorkflow(Workflow):
         thesis_excerpt: str,
         ddl_note: str,
         image_tools: list[FlowToolCall] | None,
+        enable_compress: bool = True,
     ) -> None:
         super().__init__()
         self._literature = LiteratureBranchWorkflow(providers, layers)
@@ -146,8 +149,14 @@ class ResearchTransformerWorkflow(Workflow):
             image_tools=image_tools,
         )
         self._head = OutputHeadWorkflow(providers)
+        self._enable_compress = enable_compress
+        self._compressor = Compressor(COMPRESSOR_SYSTEM, providers.compressor)
 
     def forward(self, session: Session) -> Session:
         s = self._literature.forward(session)
+        if self._enable_compress:
+            s = self._compressor.forward(s)
         s = self._repro.forward(s)
+        if self._enable_compress:
+            s = self._compressor.forward(s)
         return self._head.forward(s)

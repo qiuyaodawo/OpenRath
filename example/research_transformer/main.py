@@ -23,7 +23,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
             "Research Transformer: multi-stage academic pipeline (OpenRath example). "
-            "Default workspace is example/research_transformer/.workspace/."
+            "Default workspace is example/research_transformer/.workspace/"
         ),
     )
     p.add_argument("--research-question", required=True, help="Main research question")
@@ -65,6 +65,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not register the optional background_image tool",
     )
+    p.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable run_session_compress between major stages (may grow context quickly)",
+    )
     return p
 
 
@@ -103,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         thesis_excerpt=thesis_excerpt,
         ddl_note=str(args.ddl_note),
         image_tools=image_tools,
+        enable_compress=not args.no_compress,
     )
     out = wf.forward(user)
     print(out, file=sys.stdout)
