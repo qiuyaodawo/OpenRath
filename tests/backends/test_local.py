@@ -78,6 +78,23 @@ def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
     assert os.path.isdir(target)
 
 
+def test_close_does_not_remove_user_supplied_working_dir(tmp_path: object) -> None:
+    """``close()`` must NOT rmtree a directory the caller supplied."""
+    import pathlib
+
+    target = pathlib.Path(str(tmp_path)) / "keep"  # type: ignore[arg-type]
+    target.mkdir()
+    sentinel = target / "important.txt"
+    sentinel.write_text("do not delete me", encoding="utf-8")
+
+    backend = get("local")
+    sb = backend.open(BackendSandboxSpec(working_dir=str(target)))
+    backend.close(sb)
+
+    assert target.is_dir(), "user-supplied working_dir was removed by close()"
+    assert sentinel.read_text(encoding="utf-8") == "do not delete me"
+
+
 def test_command_missing_executable_returns_failure() -> None:
     backend = get("local")
     with backend.open() as sb:
