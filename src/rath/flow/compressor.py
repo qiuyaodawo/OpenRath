@@ -1,3 +1,5 @@
+"""Workflow wrapper that runs :func:`~rath.session.compress.run_session_compress`."""
+
 from __future__ import annotations
 
 from rath.flow.workflow import Workflow

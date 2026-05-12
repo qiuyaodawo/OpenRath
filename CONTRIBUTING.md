@@ -1,66 +1,98 @@
 # Contributing to OpenRath
 
-Thanks for your interest in contributing to OpenRath.
+Thank you for helping improve OpenRath. This document matches the current repo layout and tool chain. For day-to-day work, treat contributions as **small, verifiable steps**: clarify scope, implement, then run the checks below before opening a pull request.
 
-OpenRath is an open source, torch-like API framework for dynamic multi-agent
-workflow. The project is currently early-stage, so design clarity matters more
-than adding surface area quickly.
+## Project goals (keep the core small)
 
-## Development Principles
+- **Session-first**: chunk tables, loops, and sandbox backends should stay easy to reason about.
+- **Composable APIs**: workflows and agent parameters should feel natural to combine (PyTorch-like ergonomics without copying PyTorch).
+- **Focused changes**: avoid drive-by refactors and unrelated formatting in the same PR as a feature or fix.
+- **Design before large moves**: session graph semantics, tool wiring, and major public surfaces deserve a short design note or issue thread before big diffs.
 
-- Keep the core session-based model small and explicit.
-- Prefer composable APIs that feel familiar to PyTorch users.
-- Treat sessions, effects, tool calls, and runtime boundaries as first-class
-  concepts.
-- Avoid adding production platform complexity before the core abstractions are
-  stable.
-- Keep changes focused. Large design shifts should be discussed before code is
-  written.
+## Development environment
 
-## Development Setup
+Requirements: **Python 3.10–3.13** (see `requires-python` in `pyproject.toml`).
 
-OpenRath uses `uv` for Python dependency and environment management.
+We use **[uv](https://github.com/astral-sh/uv)** for environments.
 
-```powershell
-uv sync --dev
+```bash
+# Runtime + dev tools (flake8, mypy, pytest)
+uv sync --group dev
 ```
 
-The project supports Python 3.10, 3.11, 3.12, and 3.13.
+Optional groups:
 
-## Local Checks
+```bash
+# Editable install with OpenSandbox extras (for backend work)
+uv sync --group dev --extra opensandbox
 
-Run these checks before opening a pull request:
+# Sphinx + extensions (for documentation edits)
+uv sync --group dev --group docs
+```
 
-```powershell
-uv run flake8 src tests
-uv run mypy --no-incremental
+Run Python tools through `uv run …` so they use the synced environment.
+
+## Verify before you push
+
+These commands are what maintainers expect to pass on a typical PR (library code, tests, and **examples**):
+
+```bash
+uv run flake8 src tests example
+uv run mypy src
 uv run pytest
 ```
 
-## Project Layout
+Notes:
 
-```text
-src/rath/       Core Python package
-tests/          Test suite
-pyproject.toml  Package metadata and uv dependency groups
+- **`mypy`** is run on `src/` only (package API surface). If you change typing at boundaries, keep `src` clean.
+- **`flake8`** includes **`example/`**: scripts under `example/` are part of the reviewed surface.
+- **`pytest`** runs the full tree. Many tests run **offline**; some are **conditional** (see below).
+
+### Optional / live test tiers
+
+| Kind | When they run | What you need |
+|------|----------------|---------------|
+| **Default unit & conformance** | Always (unless skipped internally) | Nothing special |
+| **`live_llm` / `integration`** | Skip if `OPENAI_API_KEY` is unset or very short | Valid `OPENAI_API_KEY`; sometimes `OPENAI_DEFAULT_MODEL` / base URL per test docstrings |
+| **`opensandbox`** | Skip if no server on `localhost:8080` (configurable via `OPENSANDBOX_TEST_HOST` / `PORT`) | Running OpenSandbox stack; see `tests/conftest.py` and repo scripts under `scripts/` |
+
+Do not commit secrets. Use environment variables or local-only config.
+
+### Documentation build
+
+If you change `docs/`, build HTML locally:
+
+```bash
+uv sync --group dev --group docs
+uv run sphinx-build -M html docs/source docs/_build
 ```
 
-## Pull Request Guidelines
+Open `docs/_build/html/index.html` in a browser.
 
-- Explain the motivation and scope of the change.
-- Keep unrelated refactors out of feature or bugfix pull requests.
-- Add tests for behavior changes.
-- Update documentation when public behavior or setup steps change.
-- Mention any trade-offs, limitations, or follow-up work clearly.
+## Repository layout
 
-## Design Changes
+```text
+src/rath/          Installable package (wheel maps here via hatch)
+tests/             pytest tree (unit, integration, conformance, examples checks)
+example/           Runnable demos and CLI entry points (also flake8-clean)
+docs/source/       Sphinx + MyST sources
+pyproject.toml     Metadata, dependencies, dependency groups
+```
 
-For changes to core abstractions such as sessions, workflows, runtimes,
-participants, tool calls, tracing, or graph semantics, please start with a
-design discussion. A short design note is better than encoding major decisions
-only in code.
+## Code and review checklist
+
+1. **Scope**: One PR should solve one problem (or one tightly related cluster).
+2. **Tests**: Add or update tests for behavior changes; keep fast tests deterministic without network when possible.
+3. **Public behavior**: Update `README.md`, user-facing docstrings, or `docs/` when CLI or semantics change.
+4. **Style**: Prefer clear names and short module docstrings over long inline chatter. Keep `pragma: no cover` lines purposeful and explained.
+5. **Examples**: If you touch `example/`, run entry points mentally (or briefly) and ensure new env vars are documented in the relevant `README.md` there.
+
+## Pull requests
+
+- Describe **motivation**, **what changed**, and **how you verified** it (commands run).
+- Link related issues when applicable.
+- Call out **breaking changes**, **follow-ups**, or **known limitations** explicitly.
 
 ## License
 
-By contributing to OpenRath, you agree that your contributions will be licensed
-under the BSD 3-Clause License.
+By contributing, you agree your contributions are licensed under the **BSD 3-Clause License** in this repository (`LICENSE`).

@@ -27,13 +27,13 @@ def main() -> None:
     )
     print(user_session.sandbox_backend)
 
-    # No working directory: ephemeral empty workspace.
+    # Ephemeral workspace (no host working directory).
     user_session = user_session.to(SANDBOX_BACKEND, spec=None)
-    out_session = agent(user_session)
+    agent(user_session)
 
-    # Project root on the host.
+    # Repository root bound as the sandbox working directory.
     user_session = user_session.to(SANDBOX_BACKEND, spec=".")
-    out_session = agent(user_session)
+    agent(user_session)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ _SESSION_GRAPH_MODE: ContextVar[bool] = ContextVar(
 class LineageJournal:
     """Append-only visitation log (immutable).
 
-    Mirrors a lightweight forward trace without standalone graph edge types.
+    Ordered session ids visited in this run; edges are not materialized.
     """
 
     visit_order: tuple[UUID, ...] = ()
@@ -89,7 +89,7 @@ class LineageRecorder:
     ) -> None:
         """No-op if ``session_graph_mode()`` is false. Skips ``chunk_table``."""
 
-        # Local import avoids ``Session`` at ``graph.recording`` import time.
+        # Import locally so ``graph.recording`` does not depend on ``Session`` at import time.
         from rath.session.session import Session
 
         if not isinstance(session, Session):

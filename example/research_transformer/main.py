@@ -10,6 +10,7 @@ _EXAMPLE_DIR = Path(__file__).resolve().parent.parent
 if str(_EXAMPLE_DIR) not in sys.path:
     sys.path.insert(0, str(_EXAMPLE_DIR))
 
+# Imports below require ``example/`` on ``sys.path`` (see above).
 from rath.session.session import Session  # noqa: E402
 
 from _chunk_print import optional_chunk_print  # noqa: E402
@@ -117,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         enable_compress=not args.no_compress,
         chunk_print=optional_chunk_print(args.print_chunks),
     )
-    out = wf.forward(user)
+    wf.forward(user)
     return 0
 
 

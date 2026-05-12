@@ -11,6 +11,8 @@ from rath.session.session import Session
 _EX = Path(__file__).resolve().parent.parent
 if str(_EX) not in sys.path:
     sys.path.insert(0, str(_EX))
+
+# Imports below require ``example/`` on ``sys.path`` (see above).
 from _chunk_print import optional_chunk_print  # noqa: E402
 
 from _env import require_alpha_vantage_key, require_openai_provider  # noqa: E402
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     msg = _build_user_message(ticker=args.ticker, as_of=as_of)
     user = Session.from_user_message(msg).to("local", spec=workdir)
-    out = workflow.forward(user)
+    workflow.forward(user)
 
 
 if __name__ == "__main__":

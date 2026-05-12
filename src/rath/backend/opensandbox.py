@@ -146,7 +146,7 @@ def _likely_workspace_bind_rejected(exc: BaseException) -> bool:
                 if code == 422:
                     return True
                 return _message_indicates_workspace_bind_rejected(str(exc))
-        except ImportError:  # pragma: no cover
+        except ImportError:  # pragma: no cover -- optional OpenSandbox SDK
             pass
     return _message_indicates_workspace_bind_rejected(str(exc))
 

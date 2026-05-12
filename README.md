@@ -1,14 +1,10 @@
 # OpenRath
 
-English · [简体中文](README_zh.md)
-
-OpenRath is an open-source multi-agent framework. You can compose APIs in a PyTorch-like style: session lifecycle, workflow orchestration, tool dispatch, and sandbox backends evolve together on a session graph woven from agents and sessions.
-
----
+**OpenRath** is an open-source multi-agent framework. You can compose APIs in a PyTorch-like style: session lifecycle, workflow orchestration, tool dispatch, and sandbox backends evolve together on a session graph woven from agents and sessions.
 
 ## Recent updates
 
-- 2026-05-12: Released v1.0.0 and opened the codebase and docs to the community.
+- 2026-05-12: Released `v1.0.0` and opened the codebase and docs to the community !!!
 
 ---
 
@@ -20,6 +16,8 @@ Many stacks keep conversation state, orchestration logic, and execution environm
 
 Separate ledgers for messages and where commands actually run stay in sync only by hand. After machine or directory changes, or tighter isolation, tool landing points and the workspace implied by the conversation often diverge, which hurts reproducibility and audit. Here backend choice chain-loads off the same object, much like putting data on a device. After a dialogue-and-tool round, ownership of the active sandbox is written back into the returned session so later dispatch still targets the same workflow outcome.
 
+![img](./docs/source/_static/backend.png)
+
 ### Context through chunk tables for better reuse in multi-agent collaboration
 
 Flat message lists encourage whole-history copies and repeated stitching of system prompts and tool results, so it is hard to grab semantic slices while context length and traffic grow. This project keeps an ordered chunk table for system, user, assistant, tool feedback, and related rows; agent-side instructions are prepended before user chunks in the loop for structured sharing and composition. Session fork and merge primitives are described in the Session chapter of the user guide.
@@ -28,6 +26,8 @@ Flat message lists encourage whole-history copies and repeated stitching of syst
 
 A common pattern is a small inner loop per agent (read, model, tools) wrapped by outer orchestration, which yields nested loops and unnecessary completions at a fixed cadence when many roles exist. The default path is session-centric: completions and tool rounds interleave on one evolving session; agents attach to the workflow mainly as prompts and sampling configuration, not each with its own closed executor, which fits sparse clusters better when only part of the roles should activate.
 
+![img](./docs/source/_static/session.png)
+
 ### Dynamic multi-agent fleets: automatic session-graph tracking
 
 When topology is wired by hand or an external DAG, lineage often depends on ad-hoc IDs and log excerpts. At scale it becomes hard to say which fork or merge produced a given output. With session-graph tracking enabled, new sessions carry lineage metadata and register centrally into a queryable session graph for dialogue and tool traces; this has nothing to do with autograd and only records execution and conversation.
@@ -35,6 +35,8 @@ When topology is wired by hand or an external DAG, lineage often depends on ad-h
 ### Modular workflows: compose and orchestrate cleanly
 
 If one agent type owns prompts, network I/O, tools, and the loop, inheritance and callbacks stack up and even changing a system prompt or sampling field pulls the whole class. Workflows expose a forward step that takes a session and returns an updated session; agent-side settings sit in parameter-like objects; networking and sandbox dispatch live with the loop executor so module boundaries stay clearer for nesting and reuse.
+
+![img](./docs/source/_static/workflow.png)
 
 ---
 
@@ -77,8 +79,6 @@ Set the backend to `opensandbox` in-session with a spec; see `example/sandbox_ba
 
 ## Documentation
 
-Read the hosted documentation first: [https://docs.openrath.com](https://docs.openrath.com)
-
 Build Sphinx locally:
 
 ```bash
@@ -103,11 +103,15 @@ Sample OpenRath entry points:
 6. [`engineering_agents/`](example/engineering_agents/): an OpenRath reimplementation of one scenario from [ClawTeam](https://github.com/HKUDS/ClawTeam) (HKUDS, multi-agent software-engineering automation). Nested workflows (e.g. Lead, FeatureSquad, backend pairs, QA) live in the subfolder.
 7. [`research_transformer/`](example/research_transformer/): a **Transformer-metaphor** academic pipeline (literature vs reproduction branches over N layers, optional figure tool, final polish) demonstrating story-first composition on `Session`/`Workflow`; default sandbox root is `example/research_transformer/.workspace/`.
 
+<div align="center">
+  <img src="./docs/source/_static/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
+</div>
+
 The folders above that reimplement or storyboard upstream scenarios (`trading_agents`, `engineering_agents`, and similar) are for demonstrating complex orchestration only; they are not guarantees about upstream behavior. Using upstream names still means following those repositories’ licenses and terms.
 
 ---
 
-## How OpenRath maps onto PyTorch (by layer)
+## How OpenRath maps onto PyTorch
 
 | Layer | PyTorch | OpenRath | Brief parallel |
 | ----- | ------- | -------- | -------------- |

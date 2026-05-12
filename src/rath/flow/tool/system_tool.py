@@ -34,8 +34,6 @@ __all__ = [
     "global_system_tools",
 ]
 
-# --- Session helpers (construct BackendTool + dispatch on session sandbox) ---
-
 
 def flow_tool_command_run(
     session: Session,
@@ -89,9 +87,6 @@ def flow_tool_code_run(
 ) -> Any:
     call = BackendToolCodeRun(code=code, language=language, timeout=timeout)
     return session.require_sandbox().dispatch(call)
-
-
-# --- Built-in FlowToolCall wrappers for the session loop ---
 
 
 class RunShellCommandTool(FlowToolCall):

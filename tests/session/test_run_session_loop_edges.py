@@ -276,7 +276,7 @@ def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
 
 
 class _ExplodingExecutor(ScriptedSessionLoopExecutor):
-    """Fails tool dispatch to exercise loop scheme A wrapping."""
+    """Fails tool dispatch to exercise loop JSON error wrapping for tool results."""
 
     def dispatch_tool(self, session, tool, arguments):  # type: ignore[no-untyped-def]
         raise RuntimeError("simulated dispatch failure")

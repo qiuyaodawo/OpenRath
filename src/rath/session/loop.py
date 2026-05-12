@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 ChunkAppendHook: TypeAlias = Callable[[ChunkRow, int, Session], object]
 """Called after each **new** assistant or tool-result row is appended to the loop session."""
 
-# Back-compat name for documentation / external greps (same type as :class:`ChunkAppendHook`).
+# Legacy alias; prefer :class:`ChunkAppendHook`.
 ChunkPrintFn = ChunkAppendHook
 
 
@@ -126,7 +126,7 @@ class SessionLoopExecutor(Protocol):
 def _loop_tool_error_payload(
     kind: str, message: str, *, detail: str | None = None
 ) -> str:
-    """JSON string for a tool roundtrip failure (scheme A) visible to the model."""
+    """JSON string for a tool failure returned as the next ``role=tool`` body."""
 
     payload: dict[str, Any] = {
         "ok": False,

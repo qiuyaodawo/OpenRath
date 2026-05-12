@@ -27,13 +27,13 @@ def main() -> None:
     )
     print(user_session.sandbox_backend)
 
-    # No host bind: empty ``/workspace``.
+    # Ephemeral in-container workspace (no host volume bind).
     user_session = user_session.to(SANDBOX_BACKEND, spec=None)
-    out_session = agent(user_session)
+    agent(user_session)
 
-    # Bind ``.`` to the sandbox workspace.
+    # Host project directory bound into the sandbox workspace.
     user_session = user_session.to(SANDBOX_BACKEND, spec=".")
-    out_session = agent(user_session)
+    agent(user_session)
 
 
 if __name__ == "__main__":

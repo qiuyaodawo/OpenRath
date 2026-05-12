@@ -73,7 +73,7 @@ class FileWriteResult(ToolResult):
 
 @dataclass(frozen=True, slots=True)
 class ToolExecutionFailure(ToolResult):
-    """Structured failure from :meth:`~rath.backend.abc.Backend.dispatch` (scheme B).
+    """Structured failure from :meth:`~rath.backend.abc.Backend.dispatch`.
 
     Prefer returning this instead of raising when the tool invocation itself failed
     or is unsupported, so the session loop can surface text to the model.

@@ -24,7 +24,7 @@ def require_openai_provider() -> Provider:
 
 
 def require_alpha_vantage_key() -> str:
-    key = os.environ.get("ALPHA_VANTAGE_API_KEY", "PW2FBNP02JA924O9").strip()
+    key = os.environ.get("ALPHA_VANTAGE_API_KEY", "").strip()
     if not key:
         print(
             "ERROR: ALPHA_VANTAGE_API_KEY is empty. "

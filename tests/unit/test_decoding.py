@@ -28,4 +28,3 @@ def test_decode_falls_back_to_preferred_encoding(monkeypatch: pytest.MonkeyPatch
         "rath.utils.decoding.locale.getpreferredencoding", lambda _: "gbk"
     )
     assert decode_subprocess_output("卷".encode("gbk")) == "卷"
-

@@ -13,6 +13,8 @@ from rath.session.session import Session
 _EX = Path(__file__).resolve().parent.parent
 if str(_EX) not in sys.path:
     sys.path.insert(0, str(_EX))
+
+# Imports below require ``example/`` on ``sys.path`` (see above).
 from _chunk_print import optional_chunk_print  # noqa: E402
 from workflows import EngineeringProjectWorkflow  # noqa: E402
 
@@ -56,7 +58,7 @@ def main(argv: list[str] | None = None) -> None:
 
     workdir = str(Path(args.workdir).resolve())
     user = Session.from_user_message(args.goal.strip()).to("local", spec=workdir)
-    out = EngineeringProjectWorkflow(
+    EngineeringProjectWorkflow(
         provider=provider,
         chunk_print=optional_chunk_print(args.print_chunks),
     ).forward(user)

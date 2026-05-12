@@ -54,7 +54,7 @@ class AlphaVantageGlobalQuoteTool(FlowToolCall):
         data = dict(arguments or {})
         model = GlobalQuoteInput.model_validate(data)
         symbol = model.symbol.strip().upper()
-        api_key = os.environ.get("ALPHA_VANTAGE_API_KEY", "PW2FBNP02JA924O9").strip()
+        api_key = os.environ.get("ALPHA_VANTAGE_API_KEY", "").strip()
         if not api_key:
             return {
                 "ok": False,

@@ -45,7 +45,7 @@ from rath.backend import local as _local  # noqa: F401
 
 try:
     from rath.backend import opensandbox as _opensandbox  # noqa: F401
-except ImportError:  # pragma: no cover - exercised when extra is missing
+except ImportError:  # pragma: no cover -- optional ``opensandbox`` extra
     pass
 
 __all__ = [
