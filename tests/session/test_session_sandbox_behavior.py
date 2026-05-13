@@ -101,3 +101,4 @@ def test_to_accepts_str_spec_as_working_dir(tmp_path: Path) -> None:
         assert Path(sb.handle).resolve() == Path(root).resolve()
     finally:
         sb.backend.close(sb)
+    assert Path(root).is_dir()

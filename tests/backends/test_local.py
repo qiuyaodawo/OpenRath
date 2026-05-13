@@ -1,4 +1,4 @@
-"""Local-backend-only tests (always-on, temp working directories, close removes dir)."""
+"""Local-backend-only tests (always-on, temp and user-supplied working dirs)."""
 
 from __future__ import annotations
 
@@ -75,6 +75,7 @@ def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
         assert sb.handle == target
     finally:
         backend.close(sb)
+    assert os.path.isdir(target)
 
 
 def test_command_missing_executable_returns_failure() -> None:

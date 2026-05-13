@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 
 echo syncing dev dependency group...
-uv sync --dev
+uv sync --group dev
 if errorlevel 1 (
   set "EXITCODE=%ERRORLEVEL%"
   popd
@@ -21,7 +21,7 @@ if errorlevel 1 (
 )
 
 echo running flake8...
-uv run flake8 src tests
+uv run flake8 src tests example
 if errorlevel 1 (
   set "EXITCODE=%ERRORLEVEL%"
   popd
@@ -29,7 +29,7 @@ if errorlevel 1 (
 )
 
 echo running mypy...
-uv run mypy --no-incremental
+uv run mypy --no-incremental src
 if errorlevel 1 (
   set "EXITCODE=%ERRORLEVEL%"
   popd
