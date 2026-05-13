@@ -4,13 +4,14 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.DS_Store
 dist/
 build/
 htmlcov/
 .coverage
 .coverage.*
 
-# Local env file (optional); not read by OpenRath — export vars in your shell instead.
+# Local env (API keys); use .env.example as the template.
 .env
 .workspace/
 
@@ -19,3 +20,5 @@ htmlcov/
 
 # Sphinx
 docs/_build/
+site/
+site.zip
