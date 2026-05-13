@@ -71,6 +71,7 @@ class LocalBackend(Backend):
 
     def __init__(self) -> None:
         self._open_handles: set[str] = set()
+        self._owned_handles: set[str] = set()
 
     @classmethod
     def is_available(cls) -> bool:
@@ -90,22 +91,28 @@ class LocalBackend(Backend):
     def open(
         self, spec: BackendSandboxSpec | None = None
     ) -> BackendSandbox:
-        working_dir = (
-            spec.working_dir
-            if spec is not None and spec.working_dir is not None
-            else tempfile.mkdtemp(prefix="rath-local-")
-        )
+        if spec is None or spec.working_dir is None:
+            owns_working_dir = True
+            working_dir = tempfile.mkdtemp(prefix="rath-local-")
+        else:
+            owns_working_dir = False
+            working_dir = spec.working_dir
         Path(working_dir).mkdir(parents=True, exist_ok=True)
         sandbox = BackendSandbox(backend=self, handle=working_dir, spec=spec)
         self._open_handles.add(working_dir)
+        if owns_working_dir:
+            self._owned_handles.add(working_dir)
         return sandbox
 
     def close(self, sandbox: BackendSandbox) -> None:
         if sandbox.closed:
             return
         self._open_handles.discard(sandbox.handle)
+        owns_working_dir = sandbox.handle in self._owned_handles
+        self._owned_handles.discard(sandbox.handle)
         sandbox.closed = True
-        shutil.rmtree(sandbox.handle, ignore_errors=True)
+        if owns_working_dir:
+            shutil.rmtree(sandbox.handle, ignore_errors=True)
 
     def dispatch(
         self, sandbox: BackendSandbox, call: BackendTool

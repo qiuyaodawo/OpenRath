@@ -5,6 +5,9 @@ set "SCRIPT_DIR=%~dp0"
 set "ROOT_DIR=%SCRIPT_DIR%.."
 pushd "%ROOT_DIR%" || exit /b 1
 
+if "%DOCS_SOURCE%"=="" set "DOCS_SOURCE=docs/source"
+if "%DOCS_BUILD%"=="" set "DOCS_BUILD=docs/_build"
+
 where uv >nul 2>&1
 if errorlevel 1 (
   echo error: uv is not on PATH ^(install from https://docs.astral.sh/uv/^)
@@ -20,8 +23,8 @@ if errorlevel 1 (
   exit /b %EXITCODE%
 )
 
-echo building HTML under docs/_build/html ...
-uv run sphinx-build -M html docs/source docs/_build %*
+echo building HTML from %DOCS_SOURCE% under %DOCS_BUILD%\html ...
+uv run sphinx-build -M html "%DOCS_SOURCE%" "%DOCS_BUILD%" %*
 set "EXITCODE=%ERRORLEVEL%"
 popd
 exit /b %EXITCODE%

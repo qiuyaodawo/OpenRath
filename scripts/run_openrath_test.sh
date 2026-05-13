@@ -12,13 +12,13 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 echo "syncing dev dependency group..."
-uv sync --dev
+uv sync --group dev
 
 echo "running flake8..."
-uv run flake8 src tests
+uv run flake8 src tests example
 
 echo "running mypy..."
-uv run mypy --no-incremental
+uv run mypy --no-incremental src
 
 echo "running pytest..."
 uv run pytest "$@"
