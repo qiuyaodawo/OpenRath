@@ -4,6 +4,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
+.DS_Store
 dist/
 build/
 htmlcov/
@@ -19,3 +20,5 @@ htmlcov/
 
 # Sphinx
 docs/_build/
+site/
+site.zip
