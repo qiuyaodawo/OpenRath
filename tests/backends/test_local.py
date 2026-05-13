@@ -78,9 +78,68 @@ def test_user_supplied_working_dir_honoured(tmp_path: object) -> None:
     assert os.path.isdir(target)
 
 
+def test_close_does_not_remove_user_supplied_working_dir(tmp_path: object) -> None:
+    """``close()`` must NOT rmtree a directory the caller supplied."""
+    import pathlib
+
+    target = pathlib.Path(str(tmp_path)) / "keep"  # type: ignore[arg-type]
+    target.mkdir()
+    sentinel = target / "important.txt"
+    sentinel.write_text("do not delete me", encoding="utf-8")
+
+    backend = get("local")
+    sb = backend.open(BackendSandboxSpec(working_dir=str(target)))
+    backend.close(sb)
+
+    assert target.is_dir(), "user-supplied working_dir was removed by close()"
+    assert sentinel.read_text(encoding="utf-8") == "do not delete me"
+
+
 def test_command_missing_executable_returns_failure() -> None:
     backend = get("local")
     with backend.open() as sb:
         r = sb.dispatch(BackendToolCommandRun(cmd=["/nonexistent/rath_no_such_exe_xyz"]))
         assert isinstance(r, ToolExecutionFailure)
         assert r.kind in ("os_error", "unexpected")
+
+
+def test_files_write_returns_failure_when_parent_unwritable(tmp_path: object) -> None:
+    """OSError on write must surface as ToolExecutionFailure, not bubble up."""
+    import pathlib
+    import stat
+
+    root = pathlib.Path(str(tmp_path)) / "ro"  # type: ignore[arg-type]
+    root.mkdir()
+    backend = get("local")
+    sb = backend.open(BackendSandboxSpec(working_dir=str(root)))
+    try:
+        # Remove all write bits from the sandbox root so writing a new file
+        # under it raises PermissionError on POSIX.
+        root.chmod(stat.S_IRUSR | stat.S_IXUSR)
+        r = sb.dispatch(BackendToolFilesWrite(path="should_fail.txt", data="x"))
+        assert isinstance(r, ToolExecutionFailure)
+        assert r.kind == "os_error"
+    finally:
+        # Restore permissions so tmp_path cleanup doesn't fail.
+        root.chmod(stat.S_IRWXU)
+        backend.close(sb)
+
+
+def test_files_exists_returns_false_on_permission_denied(tmp_path: object) -> None:
+    """exists() against an unreadable parent must return False, not raise."""
+    import pathlib
+    import stat
+
+    root = pathlib.Path(str(tmp_path)) / "denied"  # type: ignore[arg-type]
+    root.mkdir()
+    backend = get("local")
+    sb = backend.open(BackendSandboxSpec(working_dir=str(root)))
+    try:
+        # No-permission directory: stat on a child should raise OSError;
+        # _files_exists must swallow it and return False.
+        root.chmod(0)
+        result = sb.dispatch(BackendToolFilesExists(path="anything"))
+        assert result is False
+    finally:
+        root.chmod(stat.S_IRWXU)
+        backend.close(sb)

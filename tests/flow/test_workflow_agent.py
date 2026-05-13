@@ -37,6 +37,44 @@ class _ScriptedEchoWorkflow(Workflow):
         )
 
 
+def test_agent_accepts_model_kwarg_without_provider() -> None:
+    """``flow.Agent(prompt, model=\"...\")`` is the minimal-form documented in
+    the install guide; it must build a Provider with the given model so the
+    one-liner example actually runs."""
+    from rath import flow
+
+    a = flow.Agent("You are concise.", model="gpt-5.5")
+    assert a.agent.provider.model == "gpt-5.5"
+    assert a.agent.provider.api_key is None  # api_key picked up from env at call time
+
+
+def test_agent_explicit_provider_still_works() -> None:
+    from rath import flow
+
+    p = Provider(model="gpt-5.5", api_key="sk-fake")
+    a = flow.Agent("You are concise.", p)
+    assert a.agent.provider is p
+
+
+def test_agent_model_kwarg_supplements_provider_without_model() -> None:
+    """When the caller passes a provider that has no model set, the ``model=``
+    kwarg should fill it in (last-mile convenience)."""
+    from rath import flow
+
+    p = Provider(api_key="sk-fake")
+    a = flow.Agent("x", p, model="gpt-5.5")
+    assert a.agent.provider.model == "gpt-5.5"
+    # api_key is preserved from the explicit provider
+    assert a.agent.provider.api_key == "sk-fake"
+
+
+def test_agent_requires_provider_or_model() -> None:
+    from rath import flow
+
+    with pytest.raises(ValueError, match="provider"):
+        flow.Agent("x")
+
+
 def test_workflow_registers_agent_and_runs_loop() -> None:
     scripted = RathLLMChatResponse(
         id="wf1",

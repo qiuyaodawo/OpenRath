@@ -338,7 +338,14 @@ def test_dispatch_exception_surfaces_in_tool_chunk() -> None:
     assert "RuntimeError" in payload.get("message", "")
 
 
-def test_default_executor_requires_provider_api_key() -> None:
+def test_default_executor_requires_api_key_somewhere(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no Provider.api_key and no env fallback, the default executor must
+    raise from the client (not from a redundant pre-check in the loop)."""
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
     backend = get("local")
     agent = AgentParam(
         Session.from_agent_prompt("sys"),
@@ -346,9 +353,40 @@ def test_default_executor_requires_provider_api_key() -> None:
     )
     with backend.open() as sb:
         user = Session.from_user_message("x").with_sandbox(sb)
-        with pytest.raises(ValueError, match="agent_provider.api_key"):
+        with pytest.raises(ValueError, match="No API key found"):
             run_session_loop(
                 user,
                 agent.agent_session,
                 agent_provider=agent.provider,
             )
+
+
+def test_max_tool_rounds_truncation_emits_warning_and_lineage(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A loop that keeps requesting tool calls past max_tool_rounds must log a
+    warning and stamp ('loop.truncated', True) in lineage_extras, so callers
+    can detect the dangling tool_result tail without diffing chunk rows."""
+    import logging
+
+    scripted = [_write_tool_response(f"tc{i}") for i in range(5)]
+    executor = ScriptedSessionLoopExecutor(scripted)
+    agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
+    backend = get("local")
+
+    with backend.open() as sb:
+        user = Session.from_user_message("trigger loop budget").with_sandbox(sb)
+        with caplog.at_level(logging.WARNING, logger="rath.session.loop"):
+            out = run_session_loop(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+                executor=executor,
+                max_tool_rounds=2,
+            )
+
+    assert ("loop.truncated", True) in out.lineage_extras
+    assert any("max_tool_rounds" in rec.message for rec in caplog.records)
+    # Last row should still be a tool_result (the symptom this warning
+    # exists to flag).
+    assert out.chunk_table.rows[-1].kind == ChunkKind.TOOL_RESULT

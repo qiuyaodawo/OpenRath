@@ -235,7 +235,9 @@ def run_session_loop(
     ``executor``.     When ``executor`` is omitted, builds a fresh
     :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`
     wrapping :class:`~rath.llm.client.RathOpenAIChatClient` built from
-    ``agent_provider`` (which must include a non-empty ``api_key``).
+    ``agent_provider``. Empty ``agent_provider.api_key`` falls back to
+    ``OPENAI_API_KEY`` / ``AZURE_OPENAI_API_KEY`` (see
+    :class:`~rath.llm.client.RathOpenAIChatClient` for the full lookup order).
 
     Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
     the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
@@ -252,11 +254,6 @@ def run_session_loop(
     table = merge_tools_for_loop(tools)
 
     if executor is None:
-        if not (agent_provider.api_key and str(agent_provider.api_key).strip()):
-            raise ValueError(
-                "agent_provider.api_key is required when executor is None "
-                "(build a Provider with api_key, or pass a SessionLoopExecutor).",
-            )
         executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
 
     prefs = agent_provider
@@ -366,6 +363,18 @@ def run_session_loop(
         _notify_chunk_append(chunk_print, rows_list, out)
         if choice.finish_reason in ("stop", "length", "content_filter"):
             break
+    else:
+        # Loop exhausted max_tool_rounds without a natural finish_reason.
+        # The last row may be a tool_result, which is easy to mistake for
+        # a mid-run failure. Warn and stamp lineage so callers can detect
+        # truncation programmatically.
+        logger.warning(
+            "run_session_loop hit max_tool_rounds=%d without "
+            "finish_reason in (stop, length, content_filter); "
+            "last row may be a tool_result",
+            max_tool_rounds,
+        )
+        out.lineage_extras = out.lineage_extras + (("loop.truncated", True),)
 
     out.chunk_table = ChunkTable(rows=tuple(rows_list))
     reg.set_active(out)

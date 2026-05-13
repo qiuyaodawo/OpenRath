@@ -103,3 +103,45 @@ def test_lineage_recorder_stamps_when_on() -> None:
     assert s.lineage_operator == "run_session_loop"
     assert s.lineage_kind == LineageKind.OP_SESSION_LOOP
     assert s.lineage_extras == (("k", 1),)
+
+
+def test_lineage_journal_yields_readable_after_exit() -> None:
+    """``lineage_journal_tracking`` must yield a journal whose ``visit_order``
+    contains every session created inside the block, and remain readable
+    after the context manager exits."""
+    from rath.session.graph.recording import lineage_journal_tracking
+
+    with lineage_journal_tracking() as journal:
+        a = Session.from_user_message("alpha")
+        LineageRecorder.stamp_new_session(
+            a,
+            parent_session_ids=(),
+            lineage_operator="test",
+            lineage_kind=LineageKind.LEAF_USER,
+        )
+        forked = a.fork()  # stamp via Session.fork
+        del forked
+
+    assert len(journal.visit_order) == 2
+    assert journal.visit_order[0] == a.id
+
+
+def test_lineage_journal_external_journal_is_mutated_in_place() -> None:
+    """Passing in a journal must reuse it: caller-owned reference sees updates."""
+    from rath.session.graph.recording import (
+        LineageJournal,
+        lineage_journal_tracking,
+    )
+
+    j = LineageJournal()
+    with lineage_journal_tracking(journal=j) as yielded:
+        assert yielded is j
+        s = Session.from_user_message("x")
+        LineageRecorder.stamp_new_session(
+            s,
+            parent_session_ids=(),
+            lineage_operator="t",
+            lineage_kind=LineageKind.LEAF_USER,
+        )
+
+    assert j.visit_order == [s.id]

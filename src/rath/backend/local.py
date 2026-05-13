@@ -233,13 +233,20 @@ class LocalBackend(Backend):
 
     def _files_write(
         self, sandbox: BackendSandbox, call: BackendToolFilesWrite
-    ) -> FileWriteResult:
+    ) -> FileWriteResult | ToolExecutionFailure:
         p = self._resolve(sandbox, call.path)
-        p.parent.mkdir(parents=True, exist_ok=True)
         payload_bytes = (
             call.data.encode("utf-8") if isinstance(call.data, str) else call.data
         )
-        p.write_bytes(payload_bytes)
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(payload_bytes)
+        except OSError as exc:
+            return ToolExecutionFailure(
+                kind="os_error",
+                message=str(exc),
+                detail=type(exc).__name__,
+            )
         with contextlib.suppress(OSError):
             p.chmod(call.mode)
         return FileWriteResult(bytes_written=len(payload_bytes))
@@ -269,7 +276,13 @@ class LocalBackend(Backend):
     def _files_exists(
         self, sandbox: BackendSandbox, call: BackendToolFilesExists
     ) -> bool:
-        return self._resolve(sandbox, call.path).exists()
+        try:
+            return self._resolve(sandbox, call.path).exists()
+        except OSError:
+            # Treat permission errors / unreadable parent dirs as "not present"
+            # rather than raising into the loop; matches POSIX stat() semantics
+            # from the caller's perspective.
+            return False
 
     def _code_run(
         self, sandbox: BackendSandbox, call: BackendToolCodeRun

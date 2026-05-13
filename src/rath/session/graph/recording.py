@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Generator
 from uuid import UUID
 
@@ -16,17 +16,33 @@ _SESSION_GRAPH_MODE: ContextVar[bool] = ContextVar(
 )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class LineageJournal:
-    """Append-only visitation log (immutable).
+    """Append-only visitation log mutated in place.
 
     Ordered session ids visited in this run; edges are not materialized.
+
+    Mutable on purpose so that callers can read ``visit_order`` after the
+    :func:`lineage_journal_tracking` context manager exits. Use
+    :meth:`record` from primitives that stamp lineage; do not mutate
+    ``visit_order`` directly.
     """
 
-    visit_order: tuple[UUID, ...] = ()
+    visit_order: list[UUID] = field(default_factory=list)
+
+    def record(self, session_id: UUID) -> None:
+        """Append ``session_id`` to ``visit_order`` in place."""
+        self.visit_order.append(session_id)
 
     def append(self, session_id: UUID) -> LineageJournal:
-        return LineageJournal(visit_order=self.visit_order + (session_id,))
+        """Deprecated: returns ``self`` after :meth:`record` for legacy callers.
+
+        Earlier versions returned a fresh instance, which silently dropped
+        updates when used through the ContextVar. New code should call
+        :meth:`record` directly.
+        """
+        self.visit_order.append(session_id)
+        return self
 
 
 _LINEAGE_JOURNAL: ContextVar[LineageJournal | None] = ContextVar(
@@ -65,12 +81,20 @@ def lineage_journal_optional() -> LineageJournal | None:
 def lineage_journal_tracking(
     *,
     journal: LineageJournal | None = None,
-) -> Generator[None, None, None]:
-    """Attach ``LineageJournal`` (fresh by default); reset afterwards."""
+) -> Generator[LineageJournal, None, None]:
+    """Attach a :class:`LineageJournal` for this block and yield it.
+
+    The yielded journal is mutated in place by :meth:`LineageRecorder.stamp_new_session`
+    as new sessions are created inside the block; ``visit_order`` is readable
+    after the context manager exits.
+
+    Existing callers that wrote ``with lineage_journal_tracking():`` still
+    work because the yielded value can be discarded.
+    """
     j = journal if journal is not None else LineageJournal()
     tok: Token[LineageJournal | None] = _LINEAGE_JOURNAL.set(j)
     try:
-        yield None
+        yield j
     finally:
         _LINEAGE_JOURNAL.reset(tok)
 
@@ -102,7 +126,7 @@ class LineageRecorder:
         session.lineage_extras = lineage_extras
         lj = lineage_journal_optional()
         if lj is not None:
-            _LINEAGE_JOURNAL.set(lj.append(session.id))
+            lj.record(session.id)
 
 
 __all__ = [
