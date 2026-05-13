@@ -25,7 +25,7 @@ English · [简体中文](README_zh.md)
 
 - 2026-05-12: Released `v1.0.0` and opened the codebase and docs to the community.
 
-> For more info on OpenRath, head over to our docs [https://openrath.terox.cn/index.html](https://openrath.terox.cn/index.html).
+> For more info on OpenRath, head over to our docs [https://docs.openrath.com](https://docs.openrath.com).
 
 ---
 

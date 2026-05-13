@@ -25,7 +25,7 @@
 
 - 2026-05-12：发布 `v1.0.0`，面向社区开放代码和文档。
 
-> 如需了解更多关于 OpenRath 的信息，请访问我们的文档 [https://openrath.terox.cn/index.html](https://openrath.terox.cn/index.html)。
+> 如需了解更多关于 OpenRath 的信息，请访问我们的文档 [https://docs.openrath.com/](https://docs.openrath.com/)。
 
 ---
 
