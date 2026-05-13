@@ -41,4 +41,3 @@ def test_fork_session_wraps_session_fork() -> None:
     f2 = fork_session(base)
     assert f1.chunk_table.rows == f2.chunk_table.rows
     assert f1.parent_session_ids == f2.parent_session_ids
-

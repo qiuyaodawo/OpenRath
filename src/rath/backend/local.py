@@ -15,7 +15,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from rath.backend.abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend.capabilities import Capabilities, IsolationLevel
@@ -40,6 +40,7 @@ from rath.backend.tool_types import (
     BackendToolFilesRead,
     BackendToolFilesWrite,
 )
+from rath.utils.decoding import decode_subprocess_output
 
 
 @register("local")
@@ -164,7 +165,7 @@ class LocalBackend(Backend):
             popen_args = list(call.cmd)
             use_shell = False
 
-        run_kw: dict = dict(
+        run_kw: dict[str, Any] = dict(
             args=popen_args,
             shell=use_shell,
             input=call.stdin,
@@ -175,7 +176,7 @@ class LocalBackend(Backend):
         if call.timeout is not None:
             run_kw["timeout"] = call.timeout
         try:
-            proc = subprocess.run(**run_kw)  # type: ignore[arg-type]
+            proc = subprocess.run(**run_kw)
         except subprocess.TimeoutExpired as exc:
             return ToolExecutionFailure(
                 kind="timeout",
@@ -278,14 +279,14 @@ class LocalBackend(Backend):
         tmp.write_text(call.code, encoding="utf-8")
         proc: subprocess.CompletedProcess[bytes] | None = None
         try:
-            run_kw: dict = dict(
+            run_kw: dict[str, Any] = dict(
                 args=[sys.executable, str(tmp)],
                 cwd=str(work),
                 capture_output=True,
             )
             if call.timeout is not None:
                 run_kw["timeout"] = call.timeout
-            proc = subprocess.run(**run_kw)  # type: ignore[arg-type]
+            proc = subprocess.run(**run_kw)
         except subprocess.TimeoutExpired as exc:
             return ToolExecutionFailure(
                 kind="timeout",
@@ -303,7 +304,7 @@ class LocalBackend(Backend):
                 tmp.unlink()
         assert proc is not None
         error = (
-            proc.stderr.decode("utf-8", errors="replace")
+            decode_subprocess_output(proc.stderr)
             if proc.returncode != 0
             else None
         )

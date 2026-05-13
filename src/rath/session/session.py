@@ -26,7 +26,7 @@ def _coerce_sandbox_open_spec(
     return spec
 
 
-# Tensor-style ellipsis for :meth:`Session.__str__` / ``__repr__``.
+# Defaults for chunk previews in :meth:`Session.__str__` and ``__repr__``.
 _SESSION_REPR_CHUNK_EDGE = 4
 _SESSION_REPR_TEXT_MAX = 256
 _SESSION_REPR_TOOL_ARGS_MAX = 160

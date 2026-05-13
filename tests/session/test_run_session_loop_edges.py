@@ -276,7 +276,7 @@ def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
 
 
 class _ExplodingExecutor(ScriptedSessionLoopExecutor):
-    """Fails tool dispatch to exercise loop scheme A wrapping."""
+    """Fails tool dispatch to exercise loop JSON error wrapping for tool results."""
 
     def dispatch_tool(self, session, tool, arguments):  # type: ignore[no-untyped-def]
         raise RuntimeError("simulated dispatch failure")
@@ -336,3 +336,19 @@ def test_dispatch_exception_surfaces_in_tool_chunk() -> None:
     assert payload.get("ok") is False
     assert payload.get("error_kind") == "tool_execution_exception"
     assert "RuntimeError" in payload.get("message", "")
+
+
+def test_default_executor_requires_provider_api_key() -> None:
+    backend = get("local")
+    agent = AgentParam(
+        Session.from_agent_prompt("sys"),
+        Provider(model="phony-model-id"),
+    )
+    with backend.open() as sb:
+        user = Session.from_user_message("x").with_sandbox(sb)
+        with pytest.raises(ValueError, match="agent_provider.api_key"):
+            run_session_loop(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+            )

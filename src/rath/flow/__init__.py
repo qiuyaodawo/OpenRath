@@ -1,16 +1,16 @@
-"""Composable flows: import ``rath.flow.agent_param``, ``rath.flow.workflow``, or ``rath.flow.tool``."""
+"""Composable flows: import ``rath.flow`` submodules or use ``import rath.flow as flow``."""
 
 from __future__ import annotations
 
 from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow
 from rath.flow.agent import Agent
-from rath.flow.session_compressor import SessionCompressor
+from rath.flow.compressor import Compressor
 
 __all__: list[str] = [
     "AgentParam",
     "Provider",
     "Workflow",
     "Agent",
-    "SessionCompressor",
+    "Compressor",
 ]

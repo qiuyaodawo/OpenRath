@@ -13,6 +13,7 @@ from rath.backend import preferred
 from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow
 from rath.llm import RathOpenAIChatClient
+from tests.openai_env_provider import live_openai_provider
 from rath.session import (
     ChunkKind,
     DefaultSessionLoopExecutor,
@@ -30,7 +31,7 @@ def _openai_key_plausible() -> bool:
 
 _needs_live_llm = pytest.mark.skipif(
     not _openai_key_plausible(),
-    reason="OPENAI_API_KEY missing or too short (load .env via tests/conftest)",
+    reason="OPENAI_API_KEY missing or too short (export in environment)",
 )
 
 pytestmark = [
@@ -55,9 +56,9 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
     """Model issues ``run_shell_command``; stdout is recorded in tool chunks."""
 
     backend = preferred(["opensandbox"])
-    client = RathOpenAIChatClient()
+    prov = live_openai_provider()
+    client = RathOpenAIChatClient(prov)
     executor = DefaultSessionLoopExecutor(client)
-    model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
     marker = "RATH_SESSION_E2E_ECHO_92653"
     agent = AgentParam(
         Session.from_agent_prompt(
@@ -65,7 +66,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
             "When the user asks you to run a shell command via a tool, call "
             "run_shell_command once with the cmd string they specify—no extra steps."
         ),
-        Provider(model=model),
+        prov,
     )
     with backend.open() as sandbox:
         user = Session.from_user_message(
@@ -100,12 +101,10 @@ class _ShellEchoWorkflow(Workflow):
         self,
         system_prompt: str,
         executor: DefaultSessionLoopExecutor,
-        model: str | None,
+        provider: Provider,
     ) -> None:
         super().__init__()
-        self.actor = AgentParam(
-            Session.from_agent_prompt(system_prompt), Provider(model=model)
-        )
+        self.actor = AgentParam(Session.from_agent_prompt(system_prompt), provider)
         self._loop_executor = executor
 
     def forward(self, session: Session) -> Session:
@@ -121,9 +120,9 @@ def test_workflow_opensandbox_shell_echo() -> None:
     """Same stack through :class:`Workflow.forward`."""
 
     backend = preferred(["opensandbox"])
-    client = RathOpenAIChatClient()
+    prov = live_openai_provider()
+    client = RathOpenAIChatClient(prov)
     executor = DefaultSessionLoopExecutor(client)
-    model = os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None
     marker = "RATH_SINGLE_AGENT_E2E_17402"
     system_prompt = (
         "You are a test harness. Use run_shell_command when the user asks "
@@ -134,7 +133,7 @@ def test_workflow_opensandbox_shell_echo() -> None:
             f"Call run_shell_command once with cmd: echo {marker}"
         ).with_sandbox(sandbox)
 
-        wf = _ShellEchoWorkflow(system_prompt, executor, model)
+        wf = _ShellEchoWorkflow(system_prompt, executor, prov)
         assert len(wf.named_agents()) == 1
         assert wf.named_agents()[0][0] == "actor"
 

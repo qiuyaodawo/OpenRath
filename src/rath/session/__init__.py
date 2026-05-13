@@ -6,6 +6,7 @@ from rath.session.chunk import (
     ChunkTable,
     assistant_turn_chunk,
     chunk_table_to_messages,
+    format_chunk_row_brief,
     system_text_chunk,
     tool_feedback_chunk,
     user_text_chunk,
@@ -28,7 +29,14 @@ from rath.session.graph import (
 )
 from rath.session.manager import SessionRegistry, session_registry
 from rath.session.compress import run_session_compress
-from rath.session.loop import SessionLoopExecutor, run_session_loop
+from rath.session.loop import (
+    ChunkAppendHook,
+    ChunkPrintFn,
+    SessionLoopExecutor,
+    ensure_stdio_utf8,
+    run_session_loop,
+    sink_chunk_print,
+)
 from rath.session.primitives import (
     create_leaf_system,
     create_leaf_user,
@@ -43,9 +51,11 @@ __all__ = [
     "ancestors_bfs",
     "assistant_turn_chunk",
     "chunk_table_to_messages",
+    "ChunkAppendHook",
     "ChunkKind",
     "ChunkRow",
     "ChunkTable",
+    "ChunkPrintFn",
     "create_leaf_system",
     "create_leaf_user",
     "DefaultSessionLoopExecutor",
@@ -53,6 +63,7 @@ __all__ = [
     "detach_session",
     "edge_pairs",
     "fork_session",
+    "format_chunk_row_brief",
     "LineageConsistencyError",
     "LineageJournal",
     "lineage_journal_optional",
@@ -66,9 +77,11 @@ __all__ = [
     "SessionLineage",
     "SessionLoopExecutor",
     "SessionRegistry",
+    "ensure_stdio_utf8",
     "run_session_compress",
     "run_session_loop",
     "session_registry",
+    "sink_chunk_print",
     "system_text_chunk",
     "tool_feedback_chunk",
     "user_text_chunk",

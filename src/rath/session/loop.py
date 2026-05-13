@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Mapping, Protocol, runtime_checkable
+import sys
+from collections.abc import Callable
+from typing import Any, Mapping, Protocol, TypeAlias, runtime_checkable
 
 from pydantic import BaseModel
 
@@ -27,15 +29,17 @@ from rath.llm import (
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
-    RathLLMMessage,
     RathOpenAIChatClient,
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
+from rath.utils.decoding import decode_subprocess_output
 from rath.session.chunk import (
+    ChunkRow,
     ChunkTable,
     assistant_turn_chunk,
     chunk_table_to_messages,
+    format_chunk_row_brief,
     tool_feedback_chunk,
 )
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
@@ -43,6 +47,61 @@ from rath.session.manager import session_registry
 from rath.session.session import Session
 
 logger = logging.getLogger(__name__)
+
+ChunkAppendHook: TypeAlias = Callable[[ChunkRow, int, Session], object]
+"""Called after each **new** assistant or tool-result row is appended to the loop session."""
+
+# Legacy alias; prefer :class:`ChunkAppendHook`.
+ChunkPrintFn = ChunkAppendHook
+
+
+def ensure_stdio_utf8() -> None:
+    """Best-effort UTF-8 on ``stdout`` / ``stderr`` (e.g. Windows console)."""
+
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, TypeError, IsADirectoryError):
+            continue
+
+
+def sink_chunk_print(write: Callable[[object], object] | None = None) -> ChunkAppendHook:
+    """Build a hook that prints one line per appended row via ``write`` (default: :func:`print`).
+
+    On first use, calls :func:`ensure_stdio_utf8` so Unicode (CJK, box-drawing, emoji)
+    is not replaced or mangled when the process default encoding is legacy (cp1252, etc.).
+    """
+
+    sink = print if write is None else write
+    configured = False
+
+    def _hook(row: ChunkRow, index: int, session: Session) -> object:
+        nonlocal configured
+        if not configured:
+            ensure_stdio_utf8()
+            configured = True
+        del session
+        return sink(format_chunk_row_brief(index, row))
+
+    return _hook
+
+
+def _notify_chunk_append(
+    hook: ChunkAppendHook | None,
+    rows_list: list[Any],
+    out: Session,
+) -> None:
+    if hook is None:
+        return
+    idx = len(rows_list) - 1
+    hook(rows_list[idx], idx, out)
+
+
+def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
+    out.chunk_table = ChunkTable(rows=tuple(rows_list))
 
 
 @runtime_checkable
@@ -67,7 +126,7 @@ class SessionLoopExecutor(Protocol):
 def _loop_tool_error_payload(
     kind: str, message: str, *, detail: str | None = None
 ) -> str:
-    """JSON string for a tool roundtrip failure (scheme A) visible to the model."""
+    """JSON string for a tool failure returned as the next ``role=tool`` body."""
 
     payload: dict[str, Any] = {
         "ok": False,
@@ -113,15 +172,15 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
         return json.dumps(
             {
                 "exit_code": raw.exit_code,
-                "stdout": raw.stdout.decode("utf-8", errors="replace"),
-                "stderr": raw.stderr.decode("utf-8", errors="replace"),
+                "stdout": decode_subprocess_output(raw.stdout),
+                "stderr": decode_subprocess_output(raw.stderr),
                 "elapsed_ms": raw.elapsed_ms,
             }
         )
     if isinstance(raw, FileContent):
         data = raw.data
         if isinstance(data, bytes):
-            data = data.decode("utf-8", errors="replace")
+            data = decode_subprocess_output(data)
         text = str(data)
         if len(text) > 12_000:
             text = text[:12_000] + "...(truncated)"
@@ -135,8 +194,8 @@ def _summarize_tool_result(_call: FlowToolCall, raw: ToolResult | bool) -> str:
     if isinstance(raw, FileWriteResult):
         return json.dumps({"bytes_written": raw.bytes_written})
     if isinstance(raw, CodeResult):
-        stdout = raw.stdout.decode("utf-8", errors="replace")
-        stderr = raw.stderr.decode("utf-8", errors="replace")
+        stdout = decode_subprocess_output(raw.stdout)
+        stderr = decode_subprocess_output(raw.stderr)
         return json.dumps(
             {
                 "text": raw.text,
@@ -162,6 +221,7 @@ def run_session_loop(
     tools: list[FlowToolCall] | None = None,
     executor: SessionLoopExecutor | None = None,
     max_tool_rounds: int = 16,
+    chunk_print: ChunkAppendHook | None = None,
 ) -> Session:
     """Run one multi-turn assistant pass with optional tool rounds.
 
@@ -172,22 +232,32 @@ def run_session_loop(
     Rebases ``BackendSandbox`` from ``user_session`` onto the returned session.
     LLM routing/sampling kwargs come from ``agent_provider``
     (:class:`~rath.llm.Provider`); completions and tool dispatch go through
-    ``executor``. When ``executor`` is omitted, builds a fresh
+    ``executor``.     When ``executor`` is omitted, builds a fresh
     :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`
-    wrapping :class:`~rath.llm.client.RathOpenAIChatClient()` (``.env`` / env-based
-    API settings).
+    wrapping :class:`~rath.llm.client.RathOpenAIChatClient` built from
+    ``agent_provider`` (which must include a non-empty ``api_key``).
 
     Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
     the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
 
     When ``session_graph_mode()`` is true, stamps flat lineage on ``out`` and attaches
     legacy :class:`~rath.session.graph.SessionLineage`.
+
+    If ``chunk_print`` is set, it is invoked as ``hook(row, index, out)`` after **each**
+    new assistant or tool-result row is appended (indices follow ``out.chunk_table.rows``).
+    Use :func:`sink_chunk_print` to print a one-line summary per row; bare :func:`print`
+    is not suitable (wrong arity).
     """
 
     table = merge_tools_for_loop(tools)
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient())
+        if not (agent_provider.api_key and str(agent_provider.api_key).strip()):
+            raise ValueError(
+                "agent_provider.api_key is required when executor is None "
+                "(build a Provider with api_key, or pass a SessionLoopExecutor).",
+            )
+        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
 
     prefs = agent_provider
 
@@ -239,6 +309,8 @@ def run_session_loop(
             rows_list.append(
                 assistant_turn_chunk(tool_calls=tcalls, content=msg.content)
             )
+            _sync_loop_out_rows(out, rows_list)
+            _notify_chunk_append(chunk_print, rows_list, out)
             for tc in tcalls:
                 tool_name = tc.function.name
                 if (
@@ -283,11 +355,15 @@ def run_session_loop(
                 rows_list.append(
                     tool_feedback_chunk(tc.id, tool_name, body)
                 )
+                _sync_loop_out_rows(out, rows_list)
+                _notify_chunk_append(chunk_print, rows_list, out)
             continue
 
         rows_list.append(
             assistant_turn_chunk(tool_calls=None, content=msg.content)
         )
+        _sync_loop_out_rows(out, rows_list)
+        _notify_chunk_append(chunk_print, rows_list, out)
         if choice.finish_reason in ("stop", "length", "content_filter"):
             break
 
@@ -297,6 +373,10 @@ def run_session_loop(
 
 
 __all__ = [
+    "ChunkAppendHook",
+    "ChunkPrintFn",
     "SessionLoopExecutor",
+    "ensure_stdio_utf8",
+    "sink_chunk_print",
     "run_session_loop",
 ]

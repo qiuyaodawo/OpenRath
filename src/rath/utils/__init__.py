@@ -1,15 +1,28 @@
-"""Small shared helpers (env files, paths)."""
+"""Small shared helpers (paths + test env accessors)."""
 
-from rath.utils.env import (
-    default_env_file_path,
-    load_dotenv_if_present,
-    project_root_with_pyproject,
-    read_dotenv_value,
-)
+from __future__ import annotations
+
+from typing import Any
+
+from rath.utils.env import project_root_with_pyproject
+from rath.utils.decoding import decode_subprocess_output
 
 __all__ = [
-    "default_env_file_path",
-    "load_dotenv_if_present",
+    "decode_subprocess_output",
     "project_root_with_pyproject",
-    "read_dotenv_value",
+    "TEST_BASE_URL",
+    "TEST_API_KEY",
+    "TEST_MODEL",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name in ("TEST_BASE_URL", "TEST_API_KEY", "TEST_MODEL"):
+        import rath.utils.env as _env
+
+        return getattr(_env, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)

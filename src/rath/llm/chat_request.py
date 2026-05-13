@@ -43,7 +43,9 @@ class RathLLMFunctionTool:
 class RathLLMChatRequest:
     """Maps to keyword arguments passed to ``client.chat.completions.create``.
 
-    ``model=None`` defaults in :class:`~rath.llm.client.RathOpenAIChatClient`.
+    ``model=None`` falls back to :attr:`~rath.llm.provider.Provider.model` on the
+    client :class:`~rath.llm.provider.Provider` passed to
+    :class:`~rath.llm.client.RathOpenAIChatClient`.
     """
 
     messages: tuple[RathLLMMessage, ...]

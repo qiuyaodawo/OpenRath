@@ -3,7 +3,7 @@ from __future__ import annotations
 from rath.flow.workflow import Workflow
 from rath.flow.agent_param import AgentParam
 from rath.flow.tool import FlowToolCall
-from rath.session import Session, run_session_loop
+from rath.session import ChunkAppendHook, Session, run_session_loop
 from rath.llm.provider import Provider
 
 
@@ -11,14 +11,17 @@ class Agent(Workflow):
     def __init__(
         self,
         system_prompt: str,
-        model: str,
+        provider: Provider,
         tools: list[FlowToolCall] | None = None,
+        *,
+        chunk_print: ChunkAppendHook | None = None,
     ):
         super().__init__()
         self.tools = list(tools or [])
+        self._chunk_print = chunk_print
         self.agent = AgentParam(
             agent_session=Session.from_agent_prompt(system_prompt),
-            provider=Provider(model=model),
+            provider=provider,
         )
 
     def forward(self, session: Session) -> Session:
@@ -27,6 +30,7 @@ class Agent(Workflow):
             agent_session=self.agent.agent_session,
             agent_provider=self.agent.provider,
             tools=self.tools,
+            chunk_print=self._chunk_print,
         )
 
     def register_tool(self, tool: FlowToolCall) -> None:

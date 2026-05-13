@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import os
 
-import pytest
-
 from rath.backend import (
     BackendSandboxSpec,
     BackendToolCodeRun,
@@ -85,5 +83,3 @@ def test_command_missing_executable_returns_failure() -> None:
         r = sb.dispatch(BackendToolCommandRun(cmd=["/nonexistent/rath_no_such_exe_xyz"]))
         assert isinstance(r, ToolExecutionFailure)
         assert r.kind in ("os_error", "unexpected")
-
-

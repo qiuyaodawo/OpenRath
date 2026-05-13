@@ -14,11 +14,6 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ -z "${DOCKER_HOST:-}" && -S "${HOME}/.colima/default/docker.sock" ]]; then
-  export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
-  echo "using Colima Docker socket: ${DOCKER_HOST}"
-fi
-
 if ! docker info >/dev/null 2>&1; then
   echo "error: Docker daemon is not running (or permission denied)." >&2
   exit 1
@@ -45,26 +40,6 @@ else
   echo "creating ${CONFIG_PATH} from packaged example: ${INIT_EXAMPLE}"
   uv run opensandbox-server init-config --example "${INIT_EXAMPLE}" "${CONFIG_PATH}"
 fi
-
-python3 - "${CONFIG_PATH}" "${ROOT_DIR}" <<'PY'
-from __future__ import annotations
-
-import json
-import sys
-from pathlib import Path
-
-config_path = Path(sys.argv[1])
-root_dir = str(Path(sys.argv[2]).resolve())
-text = config_path.read_text()
-needle = "allowed_host_paths = []"
-if needle in text:
-    config_path.write_text(
-        text.replace(needle, f"allowed_host_paths = [{json.dumps(root_dir)}]", 1)
-    )
-    print(f"allowlisted OpenRath workspace for host bind: {root_dir}")
-else:
-    print("keeping existing storage.allowed_host_paths")
-PY
 
 # Non-interactive dev start when api_key is not set (see .sandbox.toml header).
 export OPENSANDBOX_INSECURE_SERVER="${OPENSANDBOX_INSECURE_SERVER:-YES}"

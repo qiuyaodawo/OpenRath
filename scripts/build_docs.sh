@@ -14,8 +14,5 @@ fi
 echo "syncing dev + docs dependency groups..."
 uv sync --group dev --group docs
 
-DOCS_SOURCE="${DOCS_SOURCE:-docs/source}"
-DOCS_BUILD="${DOCS_BUILD:-docs/_build}"
-
-echo "building HTML from ${DOCS_SOURCE} under ${DOCS_BUILD}/html ..."
-uv run sphinx-build -M html "${DOCS_SOURCE}" "${DOCS_BUILD}" "$@"
+echo "building HTML under docs/_build/html ..."
+uv run sphinx-build -M html docs/source docs/_build "$@"

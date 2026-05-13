@@ -17,10 +17,22 @@ def test_namespace_flow_submodules() -> None:
     from rath.flow.workflow import Workflow
     from rath.llm import Provider
 
+    from rath.flow.agent import Agent
+    from rath.flow.compressor import Compressor
+
     assert flow.AgentParam is AgentParam
+    assert flow.Agent is Agent
+    assert flow.Compressor is Compressor
     assert AgentParam.__name__ == "AgentParam"
     assert Provider.__name__ == "Provider"
     assert Workflow.__name__ == "Workflow"
+
+
+def test_agent_constructor_accepts_provider() -> None:
+    from rath.flow.agent import Agent
+
+    params = inspect.signature(Agent.__init__).parameters
+    assert set(params) >= {"self", "system_prompt", "provider", "tools", "chunk_print"}
 
 
 def test_provider_lives_in_llm_reexported_from_flow_agent_param() -> None:
@@ -37,6 +49,8 @@ def test_import_session_and_flow_modules() -> None:
     from rath.flow.workflow import Workflow
     from rath.llm import Provider
     from rath.session import (
+        ChunkAppendHook,
+        ChunkPrintFn,
         DefaultSessionLoopExecutor,
         Session,
         SessionLoopExecutor,
@@ -52,6 +66,10 @@ def test_import_session_and_flow_modules() -> None:
     assert Session.__name__ == "Session"
     assert run_session_loop.__name__ == "run_session_loop"
     assert DefaultSessionLoopExecutor.__name__ == "DefaultSessionLoopExecutor"
+    from rath.session.loop import ChunkAppendHook as ChunkAppendHookLoop
+
+    assert ChunkAppendHook is ChunkAppendHookLoop
+    assert ChunkPrintFn is ChunkAppendHook
     assert SessionLoopExecutor.__name__ == "SessionLoopExecutor"
 
 

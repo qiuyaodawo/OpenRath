@@ -12,41 +12,31 @@ from rath.llm import (
     RathLLMMessage,
     RathOpenAIChatClient,
 )
-from rath.utils.env import default_env_file_path, read_dotenv_value
+from tests.openai_env_provider import live_openai_provider
 
-pytestmark = pytest.mark.live_llm
-
-
-def _parse_dotenv_api_key() -> str:
-    env_path = default_env_file_path()
-    val = read_dotenv_value(env_path, "OPENAI_API_KEY")
-    assert val, f"OPENAI_API_KEY not found in {env_path}"
-    return val.strip()
+pytestmark = [
+    pytest.mark.live_llm,
+    pytest.mark.skipif(
+        len(os.environ.get("OPENAI_API_KEY", "").strip()) < 8,
+        reason="OPENAI_API_KEY not set or too short (live API tests)",
+    ),
+]
 
 
 @pytest.fixture
 def client() -> RathOpenAIChatClient:
-    return RathOpenAIChatClient()
+    return RathOpenAIChatClient(live_openai_provider())
 
 
-def test_openai_api_key_in_process_matches_project_dotenv() -> None:
-    """Ensure pytest loaded the same key as on disk (real credential path)."""
-    env_path = default_env_file_path()
-    assert env_path.is_file(), "project .env must exist for live LLM tests"
-    from_disk = _parse_dotenv_api_key()
-    assert from_disk, ".env OPENAI_API_KEY must be non-empty"
-    in_process = os.environ.get("OPENAI_API_KEY", "").strip()
-    assert in_process == from_disk, (
-        "process OPENAI_API_KEY must match .env after conftest load_dotenv"
-    )
-    assert len(in_process) >= 8, "API key from .env must have plausible length"
+def test_openai_api_key_set_for_live_tests() -> None:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    assert len(key) >= 8, "OPENAI_API_KEY must be exported for live LLM tests"
 
 
-def test_rath_openai_chat_client_uses_dotenv_credentials(
+def test_rath_openai_chat_client_uses_explicit_provider(
     client: RathOpenAIChatClient,
 ) -> None:
-    assert client.settings.api_key == os.environ["OPENAI_API_KEY"].strip()
-    assert client.settings.api_key == _parse_dotenv_api_key()
+    assert client.provider.api_key == os.environ["OPENAI_API_KEY"].strip()
 
 
 def test_complete_ping_hits_remote_model(client: RathOpenAIChatClient) -> None:
@@ -57,7 +47,7 @@ def test_complete_ping_hits_remote_model(client: RathOpenAIChatClient) -> None:
                 content="Reply with exactly the single word: pong",
             ),
         ),
-        model=client.settings.default_model,
+        model=client.provider.model,
     )
     resp = client.complete(req)
     assert resp.id, "remote completions must return an id"
@@ -71,18 +61,18 @@ def test_complete_ping_hits_remote_model(client: RathOpenAIChatClient) -> None:
     assert resp.raw.get("object") == "chat.completion"
 
 
-def test_complete_uses_env_default_model_when_omitted(
+def test_complete_uses_provider_default_model_when_omitted(
     client: RathOpenAIChatClient,
 ) -> None:
-    assert client.settings.default_model, (
-        "OPENAI_DEFAULT_MODEL should be set for this test"
+    assert client.provider.model, (
+        "OPENAI_DEFAULT_MODEL should be set for this test (or Provider.model)"
     )
     req = RathLLMChatRequest(
         messages=(RathLLMMessage(role="user", content="Say ok."),),
         model=None,
     )
     resp = client.complete(req)
-    assert resp.model == client.settings.default_model
+    assert resp.model == client.provider.model
 
 
 def test_function_tool_call_returns_add_arguments(client: RathOpenAIChatClient) -> None:
@@ -110,7 +100,7 @@ def test_function_tool_call_returns_add_arguments(client: RathOpenAIChatClient) 
                 ),
             ),
         ),
-        model=client.settings.default_model,
+        model=client.provider.model,
         tools=tools,
         tool_choice="auto",
     )

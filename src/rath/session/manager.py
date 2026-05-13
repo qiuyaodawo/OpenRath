@@ -1,4 +1,4 @@
-"""In-process registry for :class:`~rath.session.Session` debugging hooks."""
+"""Process-wide registry of live :class:`~rath.session.Session` instances."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from rath.session.session import Session
 
 @dataclass
 class SessionRegistry:
-    """Tracks known sessions and the active session id for debugging."""
+    """Maps session ids to instances and records which session is active."""
 
     _by_id: dict[UUID, Session] = field(default_factory=dict)
     _active_id: UUID | None = None

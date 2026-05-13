@@ -1,4 +1,4 @@
-"""Tool registration, :class:`~rath.flow.tool.base.FlowToolCall`, and BackendTool factories."""
+"""Tool registration, :class:`~rath.flow.tool.base.FlowToolCall`, and session-scoped helpers."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from rath.flow.tool.tool_table import (
     tools_dict_to_schemas,
 )
 
-# Eagerly initialise built-in tool dict (preserves side-effect of importing flow.tool)
+# Register built-in :class:`FlowToolCall` handlers for the session loop.
 global_system_tools()
 
 __all__ = [

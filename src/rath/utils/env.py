@@ -1,8 +1,23 @@
-"""Project ``.env`` discovery and minimal parsing (shared utilities)."""
+"""Repository path helpers and test-only environment accessors.
+
+The attributes ``TEST_BASE_URL``, ``TEST_API_KEY``, and ``TEST_MODEL`` are
+resolved lazily from environment variables of the same names (empty or
+whitespace-only values become ``None``). Intended for pytest and harnesses —
+production code should use :class:`~rath.llm.provider.Provider` explicitly.
+"""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+__all__ = [
+    "project_root_with_pyproject",
+    "TEST_BASE_URL",
+    "TEST_API_KEY",
+    "TEST_MODEL",
+]
 
 
 def project_root_with_pyproject() -> Path:
@@ -10,46 +25,28 @@ def project_root_with_pyproject() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-def default_env_file_path() -> Path:
-    """Default path: ``<project_root>/.env``."""
-    return project_root_with_pyproject() / ".env"
+def _test_env_value(key: str) -> str | None:
+    raw = os.environ.get(key, "").strip()
+    return raw if raw else None
 
 
-def load_dotenv_if_present(
-    path: Path | None = None,
-    *,
-    override: bool = False,
-) -> bool:
-    """Load a dotenv file when it exists.
-
-    Returns ``True`` if the file was found and loaded.
-    """
-    from dotenv import load_dotenv
-
-    p = path if path is not None else default_env_file_path()
-    if p.is_file():
-        load_dotenv(p, override=override)
-        return True
-    return False
+def __getattr__(name: str) -> Any:
+    if name == "TEST_BASE_URL":
+        return _test_env_value("TEST_BASE_URL")
+    if name == "TEST_API_KEY":
+        return _test_env_value("TEST_API_KEY")
+    if name == "TEST_MODEL":
+        return _test_env_value("TEST_MODEL")
+    raise AttributeError(
+        f"module {__name__!r} has no attribute {name!r}",
+    )
 
 
-def read_dotenv_value(env_path: Path, key: str) -> str | None:
-    """Read a single ``KEY=value`` from a dotenv file (tests and diagnostics).
+def __dir__() -> list[str]:
+    return sorted(__all__)
 
-    Does not expand variable substitution. Skips comments and blank lines.
-    """
-    try:
-        text = env_path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    prefix = f"{key}="
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.startswith(prefix):
-            raw = stripped[len(prefix) :].strip()
-            if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
-                return raw[1:-1]
-            return raw
-    return None
+
+if TYPE_CHECKING:
+    TEST_BASE_URL: str | None
+    TEST_API_KEY: str | None
+    TEST_MODEL: str | None

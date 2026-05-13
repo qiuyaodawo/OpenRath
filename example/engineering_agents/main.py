@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
-from rath.llm import load_rath_llm_settings
+from rath.llm import Provider
 from rath.session.session import Session
 
-from workflows import EngineeringProjectWorkflow
+_EX = Path(__file__).resolve().parent.parent
+if str(_EX) not in sys.path:
+    sys.path.insert(0, str(_EX))
+
+# Imports below require ``example/`` on ``sys.path`` (see above).
+from _chunk_print import optional_chunk_print  # noqa: E402
+from workflows import EngineeringProjectWorkflow  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -29,19 +36,32 @@ def main(argv: list[str] | None = None) -> None:
         default=".workspace/",
         help="Local sandbox root.",
     )
+    parser.add_argument(
+        "--print-chunks",
+        action="store_true",
+        help="Print one brief line per newly appended chunk (verbose)",
+    )
     args = parser.parse_args(argv)
 
-    try:
-        settings = load_rath_llm_settings()
-    except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        print(
+            "ERROR: OPENAI_API_KEY is not set in the process environment.",
+            file=sys.stderr,
+        )
         sys.exit(2)
-    model = settings.default_model or "glm-5.1"
+    provider = Provider(
+        api_key=api_key,
+        base_url=os.environ.get("OPENAI_BASE_URL", "").strip() or None,
+        model=os.environ.get("OPENAI_DEFAULT_MODEL", "").strip() or None,
+    )
 
     workdir = str(Path(args.workdir).resolve())
     user = Session.from_user_message(args.goal.strip()).to("local", spec=workdir)
-    out = EngineeringProjectWorkflow(model=model).forward(user)
-    print(out, file=sys.stdout)
+    EngineeringProjectWorkflow(
+        provider=provider,
+        chunk_print=optional_chunk_print(args.print_chunks),
+    ).forward(user)
 
 
 if __name__ == "__main__":

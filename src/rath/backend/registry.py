@@ -69,7 +69,7 @@ def preferred(names: list[str]) -> Backend:
 
 def set_default(name: str) -> None:
     """Set the default backend used by :func:`current`."""
-    _get_class(name)  # validate name
+    _get_class(name)  # Raises if ``name`` is unknown.
     _DEFAULT["name"] = name
 
 

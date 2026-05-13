@@ -7,7 +7,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from types import TracebackType
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from rath.backend.stream import Stream
 
 from rath.backend.capabilities import Capabilities
 from rath.backend.errors import BackendSandboxClosed
@@ -63,9 +66,9 @@ class BackendSandbox:
         ``buffer=0`` (the default) means an unbounded queue; set a positive integer
         to apply backpressure on :meth:`Stream.submit`.
         """
-        from rath.backend.stream import Stream
+        from rath.backend.stream import Stream as _Stream
 
-        return Stream(self, buffer=buffer)
+        return _Stream(self, buffer=buffer)
 
 
 class Backend(ABC):
