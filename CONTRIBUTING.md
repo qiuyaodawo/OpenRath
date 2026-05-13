@@ -67,7 +67,13 @@ uv sync --group dev --group docs
 uv run sphinx-build -M html docs/source docs/_build
 ```
 
-Open `docs/_build/html/index.html` in a browser.
+Start a local HTTP server for the built docs:
+
+```bash
+uv run python -m http.server 8000 --directory docs/_build/html
+```
+
+Then preview them at `http://127.0.0.1:8000/`.
 
 ## Repository layout
 
