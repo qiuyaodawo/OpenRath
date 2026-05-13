@@ -112,18 +112,28 @@ def _accumulate_usage_and_check_budget(
 ) -> None:
     """Fold ``resp.usage`` into ``out.cumulative_usage`` and trip the budget guard.
 
-    If ``provider.budget_total_tokens`` is set and the running total crosses it,
-    call ``provider.on_budget_exceeded(out, out.cumulative_usage)``; if no
-    callback is set, log a warning. The callback may raise
-    :class:`~rath.llm.BudgetExceededError` to abort the loop.
+    The guard fires **only on the completion that first pushes the running
+    total past ``provider.budget_total_tokens``**, never again for the same
+    ``out`` session. That keeps a multi-round tool-calling loop from
+    re-invoking the callback (or re-logging the warning) every round once the
+    cap has already been crossed; callers that want to abort the loop are
+    expected to raise :class:`~rath.llm.BudgetExceededError` from the
+    callback on that first call.
+
+    The latch is implicit in the prev/new transition (``prev <= cap`` and
+    ``new > cap``); no new session state is introduced.
     """
     if resp.usage is None:
         return
+    prev_total = (
+        out.cumulative_usage.total_tokens if out.cumulative_usage is not None else 0
+    )
     out.cumulative_usage = add_usage(out.cumulative_usage, resp.usage)
     cap = provider.budget_total_tokens
     if cap is None or out.cumulative_usage is None:
         return
-    if out.cumulative_usage.total_tokens <= cap:
+    new_total = out.cumulative_usage.total_tokens
+    if new_total <= cap or prev_total > cap:
         return
     callback = provider.on_budget_exceeded
     if callback is None:
@@ -132,7 +142,7 @@ def _accumulate_usage_and_check_budget(
             "(cumulative=%d); no callback configured",
             out.id,
             cap,
-            out.cumulative_usage.total_tokens,
+            new_total,
         )
         return
     callback(out, out.cumulative_usage)

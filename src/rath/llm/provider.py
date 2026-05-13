@@ -51,10 +51,14 @@ class Provider:
     # the built-in defaults in :mod:`rath.llm._retry`.
     retry_max_attempts: int | None = None
     retry_base_seconds: float | None = None
-    # Token budget guardrail. When non-None and ``Session.cumulative_usage``
-    # exceeds ``budget_total_tokens`` after a completion, ``on_budget_exceeded``
-    # is invoked (or a default ``logger.warning`` is emitted). The callback
-    # may raise :class:`BudgetExceededError` to abort the loop.
+    # Token budget guardrail. When non-None, the **first** completion in a
+    # ``run_session_loop`` that pushes ``Session.cumulative_usage`` past the
+    # cap invokes ``on_budget_exceeded`` (or emits a single
+    # ``logger.warning`` if no callback is set). The guard is latched per
+    # session: subsequent completions in the same loop do not re-fire it
+    # even if the running total stays above the cap. Callers that want to
+    # abort the loop are expected to raise
+    # :class:`BudgetExceededError` from the callback on that first call.
     budget_total_tokens: int | None = None
     on_budget_exceeded: Callable[..., None] | None = None
 
