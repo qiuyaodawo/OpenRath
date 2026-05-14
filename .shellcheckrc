@@ -1,0 +1,9 @@
+# Shellcheck configuration
+# https://github.com/koalaman/shellcheck/wiki/Directive
+
+# Enable all checks by default
+enable=all
+
+# Disable specific checks
+# SC1091: Not following sourced files (external scripts)
+disable=SC1091

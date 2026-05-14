@@ -1,0 +1,50 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'example/**'
+      - 'pyproject.toml'
+      - 'mypy.ini'
+      - 'uv.lock'
+      - '.python-version'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'example/**'
+      - 'pyproject.toml'
+      - 'mypy.ini'
+      - 'uv.lock'
+      - '.python-version'
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+      - run: uv sync --dev --frozen
+      - run: uv run ruff check src tests example
+      - run: uv run ruff format --check src tests example
+
+  mypy:
+    name: MyPy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+      - run: uv sync --dev --frozen
+      - run: uv run mypy --no-incremental

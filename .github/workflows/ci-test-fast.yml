@@ -1,0 +1,42 @@
+name: Test Fast
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'example/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'uv.lock'
+      - '.python-version'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'example/**'
+      - 'pyproject.toml'
+      - 'pytest.ini'
+      - 'uv.lock'
+      - '.python-version'
+
+permissions:
+  contents: read
+
+jobs:
+  test-fast:
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --dev --frozen
+      - run: uv run pytest -m 'not opensandbox and not live_llm'
