@@ -7,20 +7,26 @@ from typing import Any
 
 from rath.flow.tool import FlowToolCall
 from rath.llm import (
+    ChatClient,
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
-    RathOpenAIChatClient,
 )
 from rath.session.session import Session
 
 
 class DefaultSessionLoopExecutor:
-    """Default :class:`SessionLoopExecutor`: sync ``OpenAI`` client + sandbox ``dispatch``."""
+    """Default :class:`SessionLoopExecutor`: sync chat client + sandbox ``dispatch``.
+
+    Accepts any :class:`~rath.llm.ChatClient` (Protocol). The session loop
+    builds a default :class:`~rath.llm.RathOpenAIChatClient` when no
+    ``executor`` is passed, but custom clients (e.g. Anthropic) plug in here
+    without subclassing.
+    """
 
     __slots__ = ("_client",)
 
-    def __init__(self, client: RathOpenAIChatClient) -> None:
+    def __init__(self, client: ChatClient) -> None:
         self._client = client
 
     def tool_schemas(self) -> tuple[RathLLMFunctionTool, ...]:

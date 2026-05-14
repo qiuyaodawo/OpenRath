@@ -10,7 +10,7 @@ from rath.llm.chat_request import (
     RathLLMMessage,
 )
 
-__all__ = ["to_create_kwargs"]
+__all__ = ["to_create_kwargs", "to_create_kwargs_stream"]
 
 
 def _message_as_openai_dict(message: RathLLMMessage) -> dict[str, Any]:
@@ -122,9 +122,27 @@ def to_create_kwargs(
     extra = dict(req.extra_create_args)
     if extra.pop("stream", None) is True:
         raise ValueError(
-            "stream=True is not supported (only non-streaming completions "
-            "are implemented)",
+            "stream=True is not supported here; use to_create_kwargs_stream",
         )
     out.update(extra)
     out["stream"] = False
+    return out
+
+
+def to_create_kwargs_stream(
+    req: RathLLMChatRequest,
+    *,
+    default_model: str | None,
+) -> dict[str, Any]:
+    """Same as :func:`to_create_kwargs` but builds a streaming-mode payload.
+
+    ``stream`` is forced to ``True`` and ``stream_options={"include_usage": True}``
+    is set when not already supplied via ``extra_create_args``, so the terminal
+    chunk carries token usage.
+    """
+    out = to_create_kwargs(req, default_model=default_model)
+    out["stream"] = True
+    extra = dict(req.extra_create_args)
+    if "stream_options" not in extra:
+        out["stream_options"] = {"include_usage": True}
     return out

@@ -111,3 +111,36 @@ def test_backoff_grows_exponentially() -> None:
     )
     # No jitter: 0.1, 0.2, 0.4
     assert sleeps == [pytest.approx(0.1), pytest.approx(0.2), pytest.approx(0.4)]
+
+
+class _CustomTransient(Exception):
+    """Stand-in for a non-OpenAI transient exception (e.g. anthropic.*)."""
+
+
+def test_extra_retryable_widens_the_set() -> None:
+    sleeps: list[float] = []
+    call = _scripted([_CustomTransient("flaky"), "ok"])
+    out = retry_with_backoff(
+        call,
+        max_attempts=3,
+        base_seconds=0.01,
+        jitter=False,
+        sleep=sleeps.append,
+        extra_retryable=(_CustomTransient,),
+    )
+    assert out == "ok"
+    assert len(sleeps) == 1
+
+
+def test_extra_retryable_default_empty_does_not_catch_custom() -> None:
+    sleeps: list[float] = []
+    call = _scripted([_CustomTransient("flaky"), "ok"])
+    with pytest.raises(_CustomTransient):
+        retry_with_backoff(
+            call,
+            max_attempts=3,
+            base_seconds=0.01,
+            jitter=False,
+            sleep=sleeps.append,
+        )
+    assert sleeps == []

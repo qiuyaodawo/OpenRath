@@ -1,9 +1,14 @@
 """OpenAI-compatible LLM access (synchronous chat completions)."""
 
+from rath.llm._chat_client_proto import ChatClient
 from rath.llm.provider import Provider
 from rath.llm.client import RathOpenAIChatClient
 from rath.llm.openai_create_kwargs import to_create_kwargs
 from rath.llm.openai_normalize import normalize_chat_completion
+from rath.llm.anthropic_normalize import (
+    build_anthropic_kwargs,
+    normalize_anthropic_response,
+)
 from rath.llm.chat_request import (
     RathLLMChatRequest,
     RathLLMFunctionTool,
@@ -15,6 +20,7 @@ from rath.llm.chat_response import (
     RathLLMChatChoice,
     RathLLMChatResponse,
     RathLLMFinishReason,
+    RathLLMStreamDelta,
     RathLLMTokenUsage,
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
@@ -33,11 +39,14 @@ class BudgetExceededError(RuntimeError):
 
 
 __all__ = [
+    "ChatClient",
     "Provider",
     "RathOpenAIChatClient",
     "BudgetExceededError",
     "to_create_kwargs",
     "normalize_chat_completion",
+    "build_anthropic_kwargs",
+    "normalize_anthropic_response",
     "add_usage",
     "RathLLMChatRequest",
     "RathLLMMessage",
@@ -47,6 +56,7 @@ __all__ = [
     "RathLLMChatChoice",
     "RathLLMAssistantMessage",
     "RathLLMFinishReason",
+    "RathLLMStreamDelta",
     "RathLLMTokenUsage",
     "RathLLMToolCallPart",
     "RathLLMToolCallFunction",

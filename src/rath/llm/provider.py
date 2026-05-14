@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -61,6 +61,11 @@ class Provider:
     # :class:`BudgetExceededError` from the callback on that first call.
     budget_total_tokens: int | None = None
     on_budget_exceeded: Callable[..., None] | None = None
+    # Which adapter the default loop should construct when no executor is
+    # passed. ``None`` (default) means OpenAI-compatible. Setting to
+    # ``"anthropic"`` selects
+    # :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`.
+    provider_kind: Literal["openai", "anthropic"] | None = None
 
     def __str__(self) -> str:
         return self.model if self.model is not None else "(no model)"

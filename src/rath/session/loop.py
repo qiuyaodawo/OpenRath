@@ -105,6 +105,23 @@ def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
     out.chunk_table = ChunkTable(rows=tuple(rows_list))
 
 
+def _build_default_client(provider: Provider) -> Any:
+    """Construct the default :class:`ChatClient` for ``provider``.
+
+    Honors ``provider.provider_kind``: ``"anthropic"`` selects
+    :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`; anything
+    else (None / ``"openai"``) selects
+    :class:`~rath.llm.RathOpenAIChatClient`. Provider.api_key may still be
+    empty - the underlying client falls back to the relevant
+    environment variable.
+    """
+    if provider.provider_kind == "anthropic":
+        from rath.llm.anthropic_client import RathAnthropicChatClient
+
+        return RathAnthropicChatClient(provider)
+    return RathOpenAIChatClient(provider)
+
+
 def _accumulate_usage_and_check_budget(
     out: Session,
     resp: RathLLMChatResponse,
@@ -279,9 +296,7 @@ def run_session_loop(
     ``executor``.     When ``executor`` is omitted, builds a fresh
     :class:`~rath.session.provider_builtin.DefaultSessionLoopExecutor`
     wrapping :class:`~rath.llm.client.RathOpenAIChatClient` built from
-    ``agent_provider``. Empty ``agent_provider.api_key`` falls back to
-    ``OPENAI_API_KEY`` / ``AZURE_OPENAI_API_KEY`` (see
-    :class:`~rath.llm.client.RathOpenAIChatClient` for the full lookup order).
+    ``agent_provider`` (which must include a non-empty ``api_key``).
 
     Message assembly concatenates ``agent_session.chunk_table`` ahead of user rows for
     the LLM; head rows stay out of ``out.chunk_table`` (assistant + tool-result only).
@@ -298,7 +313,7 @@ def run_session_loop(
     table = merge_tools_for_loop(tools)
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(RathOpenAIChatClient(agent_provider))
+        executor = DefaultSessionLoopExecutor(_build_default_client(agent_provider))
 
     prefs = agent_provider
 
