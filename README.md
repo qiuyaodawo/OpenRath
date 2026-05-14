@@ -77,6 +77,8 @@ pip install "openrath[opensandbox]"
 
 ### Install from source
 
+Installing from a Git clone is for **developers**; it does **not** guarantee the same stability as installing a **release** from PyPI.
+
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
 cd OpenRath

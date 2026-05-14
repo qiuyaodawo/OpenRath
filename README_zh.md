@@ -77,6 +77,8 @@ pip install "openrath[opensandbox]"
 
 ### 从源码安装
 
+通过克隆仓库并本地安装的方式主要面向 **开发者**，**不保证**与从 PyPI 安装的 **发行版本**具有同等稳定性。
+
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
 cd OpenRath
