@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import sys
+
+import pytest
 
 from rath.backend import (
     BackendSandboxSpec,
@@ -103,6 +106,15 @@ def test_command_missing_executable_returns_failure() -> None:
         assert r.kind in ("os_error", "unexpected")
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "Path.chmod on Windows does not reliably strip write bits "
+        "(POSIX-style mode bits don't map onto NTFS ACLs); the test's "
+        "premise of an unwritable parent cannot be set up portably here. "
+        "Reported on PR #3 by an upstream Windows run."
+    ),
+)
 def test_files_write_returns_failure_when_parent_unwritable(tmp_path: object) -> None:
     """OSError on write must surface as ToolExecutionFailure, not bubble up."""
     import pathlib
@@ -125,6 +137,14 @@ def test_files_write_returns_failure_when_parent_unwritable(tmp_path: object) ->
         backend.close(sb)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "Path.chmod on Windows cannot make a directory truly unreadable "
+        "(NTFS ACLs aren't reachable from POSIX mode bits); same root cause "
+        "as test_files_write_returns_failure_when_parent_unwritable."
+    ),
+)
 def test_files_exists_returns_false_on_permission_denied(tmp_path: object) -> None:
     """exists() against an unreadable parent must return False, not raise."""
     import pathlib
