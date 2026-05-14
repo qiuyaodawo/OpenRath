@@ -2,13 +2,12 @@
 
 from dataclasses import replace
 
-import rath.flow as flow
-import rath.backend as backend
-from rath.session import Session
-
-from _openai_provider import provider_from_env
 from _chunk_print import example_chunk_print
+from _openai_provider import provider_from_env
 
+import rath.backend as backend
+import rath.flow as flow
+from rath.session import Session
 
 SANDBOX_BACKEND = "local"
 

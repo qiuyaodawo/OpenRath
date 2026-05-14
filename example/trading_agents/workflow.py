@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from rath.flow.agent_param import AgentParam, Provider
-from rath.flow.workflow import Workflow
-from rath.session import run_session_loop
-from rath.session.loop import ChunkAppendHook
-from rath.session.session import Session
-
 from agents import (
     ANALYST_SYSTEM,
     RESEARCHER_BEAR_SYSTEM,
@@ -17,11 +11,19 @@ from agents import (
 )
 from tools import AlphaVantageGlobalQuoteTool
 
+from rath.flow.agent_param import AgentParam, Provider
+from rath.flow.workflow import Workflow
+from rath.session import run_session_loop
+from rath.session.loop import ChunkAppendHook
+from rath.session.session import Session
+
 
 class TradingAgentsWorkflow(Workflow):
     """Sequential analyst → bear → bull → trader → risk/PM."""
 
-    def __init__(self, provider: Provider, *, chunk_print: ChunkAppendHook | None = None) -> None:
+    def __init__(
+        self, provider: Provider, *, chunk_print: ChunkAppendHook | None = None
+    ) -> None:
         super().__init__()
         prov = provider
         self._chunk_print = chunk_print

@@ -6,10 +6,10 @@ import threading
 
 from rath.backend import (
     Backend,
-    CommandResult,
     BackendToolCommandRun,
     BackendToolFilesExists,
     BackendToolFilesWrite,
+    CommandResult,
 )
 
 

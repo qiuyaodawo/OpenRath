@@ -13,7 +13,6 @@ from rath.backend import preferred
 from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow
 from rath.llm import RathOpenAIChatClient
-from tests.openai_env_provider import live_openai_provider
 from rath.session import (
     ChunkKind,
     DefaultSessionLoopExecutor,
@@ -23,6 +22,7 @@ from rath.session import (
 )
 from rath.session.graph import LineageKind
 from tests.conftest import opensandbox_real
+from tests.openai_env_provider import live_openai_provider
 
 
 def _openai_key_plausible() -> bool:

@@ -25,9 +25,9 @@ from rath.llm import (
     RathLLMChatResponse,
     RathLLMFinishReason,
     RathLLMStreamDelta,
+    RathLLMTokenUsage,
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
-    RathLLMTokenUsage,
 )
 from rath.session.loop import (
     ChunkAppendHook,
@@ -37,7 +37,6 @@ from rath.session.loop import (
 )
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
-
 
 __all__ = [
     "accumulate_stream_to_response",
@@ -57,8 +56,7 @@ class StreamingChatClient(Protocol):
 
     def complete_stream(
         self, req: RathLLMChatRequest
-    ) -> Iterator[RathLLMStreamDelta]:
-        ...
+    ) -> Iterator[RathLLMStreamDelta]: ...
 
 
 def accumulate_stream_to_response(
@@ -95,7 +93,9 @@ def accumulate_stream_to_response(
             if d.tool_call_name_delta:
                 bucket["name"] = (bucket["name"] or "") + d.tool_call_name_delta
             if d.tool_call_args_delta:
-                bucket["arguments"] = (bucket["arguments"] or "") + d.tool_call_args_delta
+                bucket["arguments"] = (
+                    bucket["arguments"] or ""
+                ) + d.tool_call_args_delta
         if d.finish_reason is not None:
             finish = d.finish_reason
         if d.usage is not None:
@@ -192,7 +192,9 @@ class _StreamingExecutorAdapter:
             model=getattr(self._client.provider, "model", "") or "",
         )
 
-    def dispatch_tool(self, session: Session, tool: FlowToolCall, arguments: Any) -> Any:
+    def dispatch_tool(
+        self, session: Session, tool: FlowToolCall, arguments: Any
+    ) -> Any:
         return self._inner_executor.dispatch_tool(session, tool, arguments)
 
     def tool_schemas(self) -> Any:

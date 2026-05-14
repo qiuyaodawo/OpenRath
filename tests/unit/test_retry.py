@@ -6,7 +6,6 @@ from typing import Callable, Iterator
 
 import httpx
 import pytest
-
 from openai import APIConnectionError, RateLimitError
 
 from rath.llm._retry import retry_with_backoff

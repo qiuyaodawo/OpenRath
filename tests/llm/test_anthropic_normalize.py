@@ -23,9 +23,7 @@ from rath.llm import (
 
 def _request(**overrides: object) -> RathLLMChatRequest:
     defaults: dict[str, object] = {
-        "messages": (
-            RathLLMMessage(role="user", content="hi"),
-        ),
+        "messages": (RathLLMMessage(role="user", content="hi"),),
         "tools": None,
     }
     defaults.update(overrides)

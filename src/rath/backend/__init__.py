@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from rath.backend import local as _local  # noqa: F401
 from rath.backend.abc import Backend, BackendSandbox, BackendSandboxSpec
 from rath.backend.capabilities import Capabilities, IsolationLevel
 from rath.backend.errors import (
@@ -40,8 +41,6 @@ from rath.backend.tool_types import (
     BackendToolFilesRead,
     BackendToolFilesWrite,
 )
-
-from rath.backend import local as _local  # noqa: F401
 
 try:
     from rath.backend import opensandbox as _opensandbox  # noqa: F401

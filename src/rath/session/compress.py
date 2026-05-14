@@ -10,8 +10,8 @@ from rath.llm import (
     RathLLMMessage,
     add_usage,
 )
-from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
 from rath.session.chat_request_build import provider_into_chat_request
+from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
 from rath.session.loop import ChunkAppendHook, SessionLoopExecutor
 from rath.session.manager import session_registry
@@ -67,8 +67,8 @@ def run_session_compress(
 
     head = chunk_table_to_messages(agent_session.chunk_table)
     tail = chunk_table_to_messages(user_session.chunk_table)
-    messages: tuple[RathLLMMessage, ...] = head + tail + (
-        RathLLMMessage(role="user", content=instruction),
+    messages: tuple[RathLLMMessage, ...] = (
+        head + tail + (RathLLMMessage(role="user", content=instruction),)
     )
 
     prefs = replace(agent_provider, tool_choice=None)
@@ -84,10 +84,7 @@ def run_session_compress(
     # take_sandbox() entirely when the caller has not attached one, so
     # Session.from_user_message("...") works without a prior .to("local").
     sb = None
-    if (
-        user_session.sandbox is not None
-        or user_session.sandbox_backend is not None
-    ):
+    if user_session.sandbox is not None or user_session.sandbox_backend is not None:
         sb = user_session.take_sandbox()
     resp = executor.complete(req)
     body = _completion_body(resp)
@@ -143,9 +140,7 @@ def _completion_body(resp: RathLLMChatResponse) -> str | None:
         )
     fr = choice.finish_reason
     if fr not in ("stop", "length", "content_filter"):
-        raise RuntimeError(
-            f"run_session_compress: unexpected finish_reason={fr!r}"
-        )
+        raise RuntimeError(f"run_session_compress: unexpected finish_reason={fr!r}")
     content = msg.content
     return None if content is None else str(content)
 

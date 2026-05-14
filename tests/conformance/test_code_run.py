@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from rath.backend import Backend, CodeResult, BackendToolCodeRun, ToolExecutionFailure
+from rath.backend import Backend, BackendToolCodeRun, CodeResult, ToolExecutionFailure
 
 
 def test_python_basic_print(backend: Backend) -> None:

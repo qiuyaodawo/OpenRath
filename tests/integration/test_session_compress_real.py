@@ -13,7 +13,6 @@ import pytest
 from rath.backend import FileContent, get
 from rath.flow.tool import flow_tool_files_read, flow_tool_files_write
 from rath.llm import RathOpenAIChatClient
-from tests.openai_env_provider import live_openai_provider
 from rath.session import (
     ChunkKind,
     ChunkTable,
@@ -24,6 +23,7 @@ from rath.session import (
     user_text_chunk,
 )
 from rath.session.graph import LineageKind
+from tests.openai_env_provider import live_openai_provider
 
 
 def _openai_key_plausible() -> bool:
@@ -96,7 +96,7 @@ def test_run_session_compress_structure_and_lineage_real() -> None:
     compress_instruction = (
         "Compress the transcript above. Respond with a compact JSON object ONLY "
         '(no markdown fences), keys: "summary" (string) and "guards" (array of '
-        'strings). The guards array MUST contain exactly these two strings in order: '
+        "strings). The guards array MUST contain exactly these two strings in order: "
         '"RATH_COMPRESS_GUARD_ALPHA", "RATH_COMPRESS_GUARD_BETA". '
         "The summary must be shorter than the raw transcript."
     )
@@ -153,7 +153,7 @@ def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
     agent = Session.from_agent_prompt("Compressor.")
 
     instruction = (
-        "Compress to JSON only: {\"summary\":\"one short line\"}. "
+        'Compress to JSON only: {"summary":"one short line"}. '
         "Do not mention filesystem."
     )
 

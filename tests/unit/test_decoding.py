@@ -16,14 +16,18 @@ def test_decode_plain_utf8() -> None:
     assert decode_subprocess_output("测试".encode("utf-8")) == "测试"
 
 
-def test_decode_prefers_valid_utf8_over_preferred(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_decode_prefers_valid_utf8_over_preferred(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "rath.utils.decoding.locale.getpreferredencoding", lambda _: "ascii"
     )
     assert decode_subprocess_output("café".encode("utf-8")) == "café"
 
 
-def test_decode_falls_back_to_preferred_encoding(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_decode_falls_back_to_preferred_encoding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         "rath.utils.decoding.locale.getpreferredencoding", lambda _: "gbk"
     )

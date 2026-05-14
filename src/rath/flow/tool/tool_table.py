@@ -32,7 +32,9 @@ def merge_tools_for_loop(
     return table
 
 
-def tools_dict_to_schemas(table: Mapping[str, FlowToolCall]) -> tuple[RathLLMFunctionTool, ...]:
+def tools_dict_to_schemas(
+    table: Mapping[str, FlowToolCall],
+) -> tuple[RathLLMFunctionTool, ...]:
     return tuple(
         RathLLMFunctionTool(
             name=tool.name,

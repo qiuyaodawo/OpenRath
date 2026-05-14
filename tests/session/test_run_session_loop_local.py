@@ -15,8 +15,8 @@ from rath.llm import (
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
 )
-from rath.session.chunk import ChunkKind
 from rath.session import Session, run_session_loop, session_registry
+from rath.session.chunk import ChunkKind
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
 
 
@@ -154,9 +154,7 @@ def test_run_session_compress_chunk_print_hook_called() -> None:
         )
 
     assert marks == [(0, "user")]
-    assert "compressed narrative" in out.chunk_table.rows[0].payload.get(
-        "content", ""
-    )
+    assert "compressed narrative" in out.chunk_table.rows[0].payload.get("content", "")
 
 
 def test_run_session_compress_without_sandbox() -> None:

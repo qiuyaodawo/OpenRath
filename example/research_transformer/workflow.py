@@ -10,7 +10,6 @@ from rath.session import run_session_loop
 from rath.session.chunk import user_text_chunk
 from rath.session.loop import ChunkAppendHook
 from rath.session.session import Session
-
 from research_transformer.prompts import (
     COMPRESSOR_SYSTEM,
     DEAI_SYSTEM,
@@ -39,12 +38,16 @@ class LiteratureBranchWorkflow(Workflow):
             raise ValueError("layers must be >= 1")
         self.layers = layers
         self._chunk_print = chunk_print
-        self.packager = AgentParam(Session.from_agent_prompt(PACKAGER_SYSTEM), prov.packager)
+        self.packager = AgentParam(
+            Session.from_agent_prompt(PACKAGER_SYSTEM), prov.packager
+        )
         self.literature = AgentParam(
             Session.from_agent_prompt(LITERATURE_SYSTEM),
             prov.literature,
         )
-        self.rewrite = AgentParam(Session.from_agent_prompt(REWRITE_SYSTEM), prov.rewrite)
+        self.rewrite = AgentParam(
+            Session.from_agent_prompt(REWRITE_SYSTEM), prov.rewrite
+        )
 
     def forward(self, session: Session) -> Session:
         cp = self._chunk_print
@@ -92,7 +95,9 @@ class ReproductionBranchWorkflow(Workflow):
         self._image_tools = image_tools
         self._chunk_print = chunk_print
         self.qa = AgentParam(Session.from_agent_prompt(QA_SYSTEM), prov.qa)
-        self.verifier = AgentParam(Session.from_agent_prompt(VERIFIER_SYSTEM), prov.verifier)
+        self.verifier = AgentParam(
+            Session.from_agent_prompt(VERIFIER_SYSTEM), prov.verifier
+        )
 
     def forward(self, session: Session) -> Session:
         preamble = (
@@ -171,9 +176,7 @@ class ResearchTransformerWorkflow(Workflow):
     ) -> None:
         super().__init__()
         cp = chunk_print
-        self._literature = LiteratureBranchWorkflow(
-            providers, layers, chunk_print=cp
-        )
+        self._literature = LiteratureBranchWorkflow(providers, layers, chunk_print=cp)
         self._repro = ReproductionBranchWorkflow(
             providers,
             layers,

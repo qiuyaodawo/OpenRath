@@ -11,9 +11,9 @@ if str(_EXAMPLE_DIR) not in sys.path:
     sys.path.insert(0, str(_EXAMPLE_DIR))
 
 # Imports below require ``example/`` on ``sys.path`` (see above).
-from rath.session.session import Session  # noqa: E402
-
 from _chunk_print import optional_chunk_print  # noqa: E402
+
+from rath.session.session import Session  # noqa: E402
 from research_transformer.providers import providers_from_env  # noqa: E402
 from research_transformer.tools import optional_image_tools  # noqa: E402
 from research_transformer.workflow import ResearchTransformerWorkflow  # noqa: E402

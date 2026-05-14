@@ -136,7 +136,9 @@ def format_chunk_row_brief(index: int, row: ChunkRow, *, max_payload: int = 400)
         return f"[{index}] {kind}: {summary}"
     if row.kind == ChunkKind.TOOL_RESULT:
         name = str(p.get("name", ""))
-        body = _tool_result_body_preview(str(p.get("content", "")), max_chars=max_payload)
+        body = _tool_result_body_preview(
+            str(p.get("content", "")), max_chars=max_payload
+        )
         return f"[{index}] {kind}: name={name!r} body={body}"
     return f"[{index}] {kind}: {p!r}"
 

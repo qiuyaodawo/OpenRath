@@ -16,7 +16,7 @@ Requirements: **Python 3.10–3.13** (see `requires-python` in `pyproject.toml`)
 We use **[uv](https://github.com/astral-sh/uv)** for environments.
 
 ```bash
-# Runtime + dev tools (flake8, mypy, pytest)
+# Runtime + dev tools (ruff, mypy, pytest)
 uv sync --group dev
 ```
 
@@ -37,7 +37,8 @@ Run Python tools through `uv run …` so they use the synced environment.
 These commands are what maintainers expect to pass on a typical PR (library code, tests, and **examples**):
 
 ```bash
-uv run flake8 src tests example
+uv run ruff check src tests example
+uv run ruff format --check src tests example
 uv run mypy src
 uv run pytest
 ```
@@ -45,7 +46,8 @@ uv run pytest
 Notes:
 
 - **`mypy`** is run on `src/` only (package API surface). If you change typing at boundaries, keep `src` clean.
-- **`flake8`** includes **`example/`**: scripts under `example/` are part of the reviewed surface.
+- **`ruff check`** includes **`example/`**: scripts under `example/` are part of the reviewed surface.
+- **`ruff format --check`** verifies formatting without modifying files; run `uv run ruff format src tests example` to apply fixes.
 - **`pytest`** runs the full tree. Many tests run **offline**; some are **conditional** (see below).
 
 ### Optional / live test tiers
@@ -80,7 +82,7 @@ Then preview them at `http://127.0.0.1:8000/`.
 ```text
 src/rath/          Installable package (wheel maps here via hatch)
 tests/             pytest tree (unit, integration, conformance, examples checks)
-example/           Runnable demos and CLI entry points (also flake8-clean)
+example/           Runnable demos and CLI entry points (also ruff-clean)
 docs/source/       Sphinx + MyST sources
 pyproject.toml     Metadata, dependencies, dependency groups
 ```

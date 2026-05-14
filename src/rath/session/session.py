@@ -11,8 +11,8 @@ from rath.backend import BackendSandbox, BackendSandboxSpec, get
 from rath.llm.chat_response import RathLLMTokenUsage
 from rath.session.chunk import ChunkKind, ChunkRow, ChunkTable
 from rath.session.graph.kind import LineageKind
-from rath.session.graph.recording import LineageRecorder
 from rath.session.graph.legacy import SessionLineage
+from rath.session.graph.recording import LineageRecorder
 
 
 def _coerce_sandbox_open_spec(
@@ -62,7 +62,9 @@ def _format_chunk_row(index: int, row: ChunkRow) -> str:
             for d in tc_raw:
                 fn = d.get("function") or {}
                 nm = str(fn.get("name", "?"))
-                args = _preview_text(str(fn.get("arguments", "")), max_chars=_SESSION_REPR_TOOL_ARGS_MAX)
+                args = _preview_text(
+                    str(fn.get("arguments", "")), max_chars=_SESSION_REPR_TOOL_ARGS_MAX
+                )
                 names.append(f"{nm}({args!r})")
             parts.append(f"tools=[{', '.join(names)}]")
         summary = ", ".join(parts) if parts else "(empty)"
@@ -71,10 +73,7 @@ def _format_chunk_row(index: int, row: ChunkRow) -> str:
         name = str(p.get("name", ""))
         tid = str(p.get("tool_call_id", ""))
         body = _preview_text(str(p.get("content", "")))
-        return (
-            f"[{index}] {kind.value}: "
-            f"name={name!r}, id={tid!r}, body={body!r}"
-        )
+        return f"[{index}] {kind.value}: name={name!r}, id={tid!r}, body={body!r}"
     return f"[{index}] {kind.value}: {p!r}"
 
 
@@ -117,6 +116,7 @@ class Session:
     :attr:`sandbox_backend` / reopen spec from the fork source.
 
     """
+
     chunk_table: ChunkTable
     id: UUID = field(default_factory=uuid4)
     sandbox: BackendSandbox | None = None
@@ -182,7 +182,7 @@ class Session:
             self.sandbox = None
         if self.sandbox_backend is None:
             raise RuntimeError(
-                "session has no sandbox backend; call session.to(\"local\") "
+                'session has no sandbox backend; call session.to("local") '
                 "or session.bind_sandbox(...)"
             )
         open_spec = _coerce_sandbox_open_spec(self._sandbox_open_spec)
@@ -217,7 +217,7 @@ class Session:
             return self.sandbox
         if self.sandbox_backend is None:
             raise RuntimeError(
-                "session has no sandbox backend; call session.to(\"local\") "
+                'session has no sandbox backend; call session.to("local") '
                 "or session.bind_sandbox(...)"
             )
         self._ensure_sandbox()
@@ -291,10 +291,7 @@ class Session:
             self.chunk_table.rows, edge=_SESSION_REPR_CHUNK_EDGE
         )
         return (
-            f"{cls_name}(\n"
-            f"  chunks={block},\n"
-            f"  operator={self.lineage_operator!r},\n"
-            f")"
+            f"{cls_name}(\n  chunks={block},\n  operator={self.lineage_operator!r},\n)"
         )
 
     def __repr__(self) -> str:

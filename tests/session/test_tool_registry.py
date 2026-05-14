@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from rath.backend import CommandResult
-from rath.backend import get
+from rath.backend import CommandResult, get
 from rath.flow.tool import (
     FlowToolCall,
     ToolNameConflictError,
@@ -80,7 +79,7 @@ def test_run_shell_command_tool_dispatch_local_exit_code_and_stdout() -> None:
         if __import__("sys").platform == "win32":
             cmd = "cmd /c echo 42"
         else:
-            cmd = "python -c \"print(42)\""
+            cmd = 'python -c "print(42)"'
         raw = tool(user, {"cmd": cmd})
     assert isinstance(raw, CommandResult)
     assert raw.exit_code == 0

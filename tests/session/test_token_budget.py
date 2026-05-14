@@ -172,7 +172,9 @@ class _NoopTool(FlowToolCall):
     def parameters(self) -> Mapping[str, Any]:
         return {"type": "object", "properties": {"x": {"type": "string"}}}
 
-    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> dict[str, bool]:
+    def __call__(
+        self, session: Session, arguments: Mapping[str, Any]
+    ) -> dict[str, bool]:
         del session, arguments
         return {"ok": True}
 
@@ -321,6 +323,4 @@ def test_budget_without_callback_emits_warning(
             )
 
     assert out.cumulative_usage is not None
-    assert any(
-        "budget_total_tokens" in rec.message for rec in caplog.records
-    )
+    assert any("budget_total_tokens" in rec.message for rec in caplog.records)

@@ -10,11 +10,11 @@ from rath.backend import (
     Backend,
     BackendSandbox,
     BackendSandboxSpec,
+    BackendTool,
+    BackendToolCommandRun,
     Capabilities,
     CommandResult,
     Event,
-    BackendTool,
-    BackendToolCommandRun,
     IsolationLevel,
     ToolResult,
 )
@@ -48,9 +48,7 @@ class _RecordingBackend(Backend):
     def sandbox_count(self) -> int:
         return len(self._open_handles)
 
-    def open(
-        self, spec: BackendSandboxSpec | None = None
-    ) -> BackendSandbox:
+    def open(self, spec: BackendSandboxSpec | None = None) -> BackendSandbox:
         handle = f"fake-{len(self._open_handles)}"
         self._open_handles.add(handle)
         return BackendSandbox(backend=self, handle=handle, spec=spec)

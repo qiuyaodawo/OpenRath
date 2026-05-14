@@ -16,8 +16,7 @@ class FlowToolCall(ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        ...
+    def name(self) -> str: ...
 
     @property
     def description(self) -> str | None:

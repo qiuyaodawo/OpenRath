@@ -13,12 +13,11 @@ def test_namespace_flow_submodules() -> None:
 
     assert rath.flow is flow
 
+    from rath.flow.agent import Agent
     from rath.flow.agent_param import AgentParam
+    from rath.flow.compressor import Compressor
     from rath.flow.workflow import Workflow
     from rath.llm import Provider
-
-    from rath.flow.agent import Agent
-    from rath.flow.compressor import Compressor
 
     assert flow.AgentParam is AgentParam
     assert flow.Agent is Agent

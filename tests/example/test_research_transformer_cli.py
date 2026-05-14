@@ -21,7 +21,9 @@ def _prepend_example_path() -> None:
 
 def _import_providers():
     _prepend_example_path()
-    from research_transformer.providers import providers_from_env  # type: ignore[import-not-found]
+    from research_transformer.providers import (
+        providers_from_env,  # type: ignore[import-not-found]
+    )
 
     return providers_from_env
 
@@ -62,8 +64,13 @@ def test_workflow_run_session_loop_call_count() -> None:
     """layers=2 → 1 packager + 4 lit + 2×2 repro + 2 head = 11."""
 
     _prepend_example_path()
-    from research_transformer.providers import ResearchTransformerProviders  # type: ignore[import-not-found]
-    from research_transformer.workflow import ResearchTransformerWorkflow  # type: ignore[import-not-found]
+    from research_transformer.providers import (
+        ResearchTransformerProviders,  # type: ignore[import-not-found]
+    )
+    from research_transformer.workflow import (
+        ResearchTransformerWorkflow,  # type: ignore[import-not-found]
+    )
+
     from rath.llm import Provider
     from rath.session.session import Session
 
@@ -79,13 +86,16 @@ def test_workflow_run_session_loop_call_count() -> None:
         compressor=stub,
     )
     user = Session.from_user_message("hello").to("local", spec=None)
-    with mock.patch(
-        "research_transformer.workflow.run_session_loop",
-        side_effect=lambda u, *_a, **_k: u,
-    ) as m_loop, mock.patch(
-        "rath.flow.compressor.run_session_compress",
-        side_effect=lambda user_session, *_a, **_k: user_session,
-    ) as m_comp:
+    with (
+        mock.patch(
+            "research_transformer.workflow.run_session_loop",
+            side_effect=lambda u, *_a, **_k: u,
+        ) as m_loop,
+        mock.patch(
+            "rath.flow.compressor.run_session_compress",
+            side_effect=lambda user_session, *_a, **_k: user_session,
+        ) as m_comp,
+    ):
         wf = ResearchTransformerWorkflow(
             prov,
             layers=2,
@@ -100,8 +110,13 @@ def test_workflow_run_session_loop_call_count() -> None:
 
 def test_workflow_no_compress_skips_run_session_compress() -> None:
     _prepend_example_path()
-    from research_transformer.providers import ResearchTransformerProviders  # type: ignore[import-not-found]
-    from research_transformer.workflow import ResearchTransformerWorkflow  # type: ignore[import-not-found]
+    from research_transformer.providers import (
+        ResearchTransformerProviders,  # type: ignore[import-not-found]
+    )
+    from research_transformer.workflow import (
+        ResearchTransformerWorkflow,  # type: ignore[import-not-found]
+    )
+
     from rath.llm import Provider
     from rath.session.session import Session
 
@@ -117,12 +132,15 @@ def test_workflow_no_compress_skips_run_session_compress() -> None:
         compressor=stub,
     )
     user = Session.from_user_message("hello").to("local", spec=None)
-    with mock.patch(
-        "research_transformer.workflow.run_session_loop",
-        side_effect=lambda u, *_a, **_k: u,
-    ), mock.patch(
-        "rath.flow.compressor.run_session_compress",
-    ) as m_comp:
+    with (
+        mock.patch(
+            "research_transformer.workflow.run_session_loop",
+            side_effect=lambda u, *_a, **_k: u,
+        ),
+        mock.patch(
+            "rath.flow.compressor.run_session_compress",
+        ) as m_comp,
+    ):
         wf = ResearchTransformerWorkflow(
             prov,
             layers=1,

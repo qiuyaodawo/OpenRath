@@ -111,9 +111,7 @@ class Backend(ABC):
         """Return the number of open sandboxes managed by this instance."""
 
     @abstractmethod
-    def open(
-        self, spec: BackendSandboxSpec | None = None
-    ) -> BackendSandbox:
+    def open(self, spec: BackendSandboxSpec | None = None) -> BackendSandbox:
         """Open a fresh sandbox and return its handle."""
 
     @abstractmethod
@@ -124,9 +122,7 @@ class Backend(ABC):
         """
 
     @abstractmethod
-    def dispatch(
-        self, sandbox: BackendSandbox, call: BackendTool
-    ) -> ToolResult | bool:
+    def dispatch(self, sandbox: BackendSandbox, call: BackendTool) -> ToolResult | bool:
         """Execute ``call`` against ``sandbox`` and return its result.
 
         Implementations should raise

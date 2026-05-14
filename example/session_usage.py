@@ -1,10 +1,9 @@
 from dataclasses import replace
 
-from rath.session import Session, run_session_loop, run_session_compress
-
 from _chunk_print import example_chunk_print
-
 from _openai_provider import provider_from_env
+
+from rath.session import Session, run_session_compress, run_session_loop
 
 
 def session_usage() -> None:

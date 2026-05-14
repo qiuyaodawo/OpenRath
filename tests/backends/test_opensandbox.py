@@ -7,18 +7,18 @@ from __future__ import annotations
 import pytest
 
 from rath.backend import (
-    CodeResult,
-    CommandResult,
-    FileContent,
-    FileEntries,
-    ToolExecutionFailure,
     BackendToolCodeRun,
     BackendToolCommandRun,
     BackendToolFilesExists,
     BackendToolFilesList,
     BackendToolFilesRead,
     BackendToolFilesWrite,
+    CodeResult,
+    CommandResult,
+    FileContent,
+    FileEntries,
     IsolationLevel,
+    ToolExecutionFailure,
     get,
 )
 from rath.backend.opensandbox import OpenSandboxBackend
@@ -91,13 +91,9 @@ def test_files_exists_true_and_false() -> None:
     backend = get("opensandbox")
     with backend.open() as sb:
         sb.dispatch(BackendToolFilesWrite(path="/tmp/rath_present.txt", data="x"))
+        assert sb.dispatch(BackendToolFilesExists(path="/tmp/rath_present.txt")) is True
         assert (
-            sb.dispatch(BackendToolFilesExists(path="/tmp/rath_present.txt")) is True
-        )
-        assert (
-            sb.dispatch(
-                BackendToolFilesExists(path="/tmp/rath_definitely_missing.txt")
-            )
+            sb.dispatch(BackendToolFilesExists(path="/tmp/rath_definitely_missing.txt"))
             is False
         )
 
@@ -127,9 +123,7 @@ def test_files_read_text_and_bytes() -> None:
         text = sb.dispatch(BackendToolFilesRead(path="/tmp/rath_rw.txt"))
         assert isinstance(text, FileContent)
         assert text.data == "hello"
-        raw = sb.dispatch(
-            BackendToolFilesRead(path="/tmp/rath_rw.txt", encoding=None)
-        )
+        raw = sb.dispatch(BackendToolFilesRead(path="/tmp/rath_rw.txt", encoding=None))
         assert isinstance(raw, FileContent)
         assert raw.data == b"hello"
 

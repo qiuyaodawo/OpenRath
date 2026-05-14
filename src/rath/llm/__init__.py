@@ -1,10 +1,6 @@
 """OpenAI-compatible LLM access (synchronous chat completions)."""
 
 from rath.llm._chat_client_proto import ChatClient
-from rath.llm.provider import Provider
-from rath.llm.client import RathOpenAIChatClient
-from rath.llm.openai_create_kwargs import to_create_kwargs
-from rath.llm.openai_normalize import normalize_chat_completion
 from rath.llm.anthropic_normalize import (
     build_anthropic_kwargs,
     normalize_anthropic_response,
@@ -26,6 +22,10 @@ from rath.llm.chat_response import (
     RathLLMToolCallPart,
     add_usage,
 )
+from rath.llm.client import RathOpenAIChatClient
+from rath.llm.openai_create_kwargs import to_create_kwargs
+from rath.llm.openai_normalize import normalize_chat_completion
+from rath.llm.provider import Provider
 
 
 class BudgetExceededError(RuntimeError):

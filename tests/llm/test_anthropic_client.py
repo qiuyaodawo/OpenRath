@@ -54,9 +54,7 @@ def _fake_rate_limit() -> "anthropic.RateLimitError":
 
 
 def _fake_connection_error() -> "anthropic.APIConnectionError":
-    return anthropic.APIConnectionError(
-        request=httpx.Request("POST", "https://x")
-    )
+    return anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
 
 
 def test_constructor_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -150,9 +148,7 @@ def test_non_retryable_anthropic_error_propagates(
 
     def _bad_request(**_kwargs: Any) -> Any:
         resp = httpx.Response(400, request=httpx.Request("POST", "https://x"))
-        raise anthropic.BadRequestError(
-            message="bad request", response=resp, body=None
-        )
+        raise anthropic.BadRequestError(message="bad request", response=resp, body=None)
 
     monkeypatch.setattr(client._client.messages, "create", _bad_request)
 

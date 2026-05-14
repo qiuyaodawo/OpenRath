@@ -172,7 +172,9 @@ def build_anthropic_kwargs(
     kwargs: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": req.max_tokens or req.max_completion_tokens or _DEFAULT_MAX_TOKENS,
+        "max_tokens": req.max_tokens
+        or req.max_completion_tokens
+        or _DEFAULT_MAX_TOKENS,
     }
     if system_parts:
         kwargs["system"] = "\n\n".join(p for p in system_parts if p)

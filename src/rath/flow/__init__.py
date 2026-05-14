@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from rath.flow.agent_param import AgentParam, Provider
-from rath.flow.workflow import Workflow
 from rath.flow.agent import Agent
+from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.compressor import Compressor
+from rath.flow.workflow import Workflow
 
 __all__: list[str] = [
     "AgentParam",

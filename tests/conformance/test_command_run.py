@@ -6,10 +6,10 @@ import pytest
 
 from rath.backend import (
     Backend,
-    CommandResult,
-    ToolExecutionFailure,
     BackendToolCommandRun,
     BackendToolFilesWrite,
+    CommandResult,
+    ToolExecutionFailure,
 )
 
 
@@ -27,9 +27,7 @@ def test_basic_stdout(backend: Backend, python_cmd: list[str]) -> None:
 def test_nonzero_exit_code(backend: Backend, python_cmd: list[str]) -> None:
     with backend.open() as sb:
         result = sb.dispatch(
-            BackendToolCommandRun(
-                cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"]
-            )
+            BackendToolCommandRun(cmd=[*python_cmd, "-c", "import sys; sys.exit(7)"])
         )
         assert isinstance(result, CommandResult)
         assert result.exit_code == 7

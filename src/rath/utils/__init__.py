@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from rath.utils.env import project_root_with_pyproject
 from rath.utils.decoding import decode_subprocess_output
+from rath.utils.env import project_root_with_pyproject
 
 __all__ = [
     "decode_subprocess_output",

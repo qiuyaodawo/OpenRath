@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from rath.flow.workflow import Workflow
 from rath.flow.agent_param import AgentParam
 from rath.flow.tool import FlowToolCall
-from rath.session import ChunkAppendHook, Session, run_session_loop
+from rath.flow.workflow import Workflow
 from rath.llm.provider import Provider
+from rath.session import ChunkAppendHook, Session, run_session_loop
 
 
 class Agent(Workflow):
@@ -38,8 +38,7 @@ class Agent(Workflow):
         super().__init__()
         if provider is None and model is None:
             raise ValueError(
-                "flow.Agent requires either provider=Provider(...) "
-                "or model=\"...\"",
+                'flow.Agent requires either provider=Provider(...) or model="..."',
             )
         if provider is None:
             provider = Provider(model=model)

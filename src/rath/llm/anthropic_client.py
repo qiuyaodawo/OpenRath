@@ -14,6 +14,22 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from anthropic import (
+    Anthropic,
+)
+from anthropic import (
+    APIConnectionError as _AnthropicAPIConnectionError,
+)
+from anthropic import (
+    APITimeoutError as _AnthropicAPITimeoutError,
+)
+from anthropic import (
+    InternalServerError as _AnthropicInternalServerError,
+)
+from anthropic import (
+    RateLimitError as _AnthropicRateLimitError,
+)
+
 from rath.llm._retry import retry_with_backoff
 from rath.llm.anthropic_normalize import (
     build_anthropic_kwargs,
@@ -22,14 +38,6 @@ from rath.llm.anthropic_normalize import (
 from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.chat_response import RathLLMChatResponse
 from rath.llm.provider import Provider
-
-from anthropic import (
-    Anthropic,
-    APIConnectionError as _AnthropicAPIConnectionError,
-    APITimeoutError as _AnthropicAPITimeoutError,
-    InternalServerError as _AnthropicInternalServerError,
-    RateLimitError as _AnthropicRateLimitError,
-)
 
 _ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
     _AnthropicRateLimitError,
@@ -55,11 +63,7 @@ class RathAnthropicChatClient:
             )
         self._provider = provider
         init_kw: dict[str, Any] = {"api_key": key}
-        bu = (
-            provider.base_url
-            or os.environ.get("ANTHROPIC_BASE_URL")
-            or ""
-        ).strip()
+        bu = (provider.base_url or os.environ.get("ANTHROPIC_BASE_URL") or "").strip()
         if bu:
             init_kw["base_url"] = bu
         self._client = Anthropic(**init_kw)
@@ -78,8 +82,8 @@ class RathAnthropicChatClient:
         ``anthropic.*`` siblings (``RateLimitError``, ``APIConnectionError``,
         ``APITimeoutError``, ``InternalServerError``).
         """
-        default_model = (
-            self._provider.model or os.environ.get("ANTHROPIC_DEFAULT_MODEL")
+        default_model = self._provider.model or os.environ.get(
+            "ANTHROPIC_DEFAULT_MODEL"
         )
         kwargs = build_anthropic_kwargs(req, default_model=default_model)
 

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from rath.backend import (
     Backend,
-    FileContent,
-    FileEntries,
-    FileWriteResult,
-    ToolExecutionFailure,
     BackendToolFilesExists,
     BackendToolFilesList,
     BackendToolFilesRead,
     BackendToolFilesWrite,
+    FileContent,
+    FileEntries,
+    FileWriteResult,
+    ToolExecutionFailure,
 )
 
 
@@ -29,9 +29,7 @@ def test_write_then_read_bytes(backend: Backend) -> None:
     payload = b"\x00\x01\x02binary\xffdata"
     with backend.open() as sb:
         sb.dispatch(BackendToolFilesWrite(path="blob.bin", data=payload))
-        result = sb.dispatch(
-            BackendToolFilesRead(path="blob.bin", encoding=None)
-        )
+        result = sb.dispatch(BackendToolFilesRead(path="blob.bin", encoding=None))
         assert isinstance(result, FileContent)
         assert result.data == payload
 

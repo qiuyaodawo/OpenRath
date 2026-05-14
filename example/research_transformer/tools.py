@@ -18,7 +18,9 @@ _BIGMODEL_IMAGES_URL = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 
 
 class BackgroundImageInput(BaseModel):
-    prompt: str = Field(description="Short visual description for a research-style background.")
+    prompt: str = Field(
+        description="Short visual description for a research-style background."
+    )
     size: str = Field(
         default="1280x720",
         description="Output size, e.g. 1280x720.",
@@ -44,7 +46,9 @@ class BackgroundImageTool(FlowToolCall):
     def parameters(self) -> Mapping[str, Any]:
         return dict(BackgroundImageInput.model_json_schema())
 
-    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, session: Session, arguments: Mapping[str, Any]
+    ) -> dict[str, Any]:
         del session
         data = dict(arguments or {})
         model = BackgroundImageInput.model_validate(data)

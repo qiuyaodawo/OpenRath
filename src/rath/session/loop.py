@@ -33,8 +33,6 @@ from rath.llm import (
     add_usage,
 )
 from rath.session.chat_request_build import provider_into_chat_request
-from rath.session.provider_builtin import DefaultSessionLoopExecutor
-from rath.utils.decoding import decode_subprocess_output
 from rath.session.chunk import (
     ChunkRow,
     ChunkTable,
@@ -45,7 +43,9 @@ from rath.session.chunk import (
 )
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
 from rath.session.manager import session_registry
+from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
+from rath.utils.decoding import decode_subprocess_output
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,9 @@ def ensure_stdio_utf8() -> None:
             continue
 
 
-def sink_chunk_print(write: Callable[[object], object] | None = None) -> ChunkAppendHook:
+def sink_chunk_print(
+    write: Callable[[object], object] | None = None,
+) -> ChunkAppendHook:
     """Build a hook that prints one line per appended row via ``write`` (default: :func:`print`).
 
     On first use, calls :func:`ensure_stdio_utf8` so Unicode (CJK, box-drawing, emoji)
@@ -409,16 +411,12 @@ def run_session_loop(
                                 f"{type(exc).__name__}: {exc}",
                                 detail=type(exc).__name__,
                             )
-                rows_list.append(
-                    tool_feedback_chunk(tc.id, tool_name, body)
-                )
+                rows_list.append(tool_feedback_chunk(tc.id, tool_name, body))
                 _sync_loop_out_rows(out, rows_list)
                 _notify_chunk_append(chunk_print, rows_list, out)
             continue
 
-        rows_list.append(
-            assistant_turn_chunk(tool_calls=None, content=msg.content)
-        )
+        rows_list.append(assistant_turn_chunk(tool_calls=None, content=msg.content))
         _sync_loop_out_rows(out, rows_list)
         _notify_chunk_append(chunk_print, rows_list, out)
         if choice.finish_reason in ("stop", "length", "content_filter"):

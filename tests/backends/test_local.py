@@ -101,7 +101,9 @@ def test_close_does_not_remove_user_supplied_working_dir(tmp_path: object) -> No
 def test_command_missing_executable_returns_failure() -> None:
     backend = get("local")
     with backend.open() as sb:
-        r = sb.dispatch(BackendToolCommandRun(cmd=["/nonexistent/rath_no_such_exe_xyz"]))
+        r = sb.dispatch(
+            BackendToolCommandRun(cmd=["/nonexistent/rath_no_such_exe_xyz"])
+        )
         assert isinstance(r, ToolExecutionFailure)
         assert r.kind in ("os_error", "unexpected")
 

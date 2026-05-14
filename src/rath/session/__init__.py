@@ -11,6 +11,7 @@ from rath.session.chunk import (
     tool_feedback_chunk,
     user_text_chunk,
 )
+from rath.session.compress import run_session_compress
 from rath.session.graph import (
     LineageConsistencyError,
     LineageJournal,
@@ -27,8 +28,6 @@ from rath.session.graph import (
     session_graph_mode_override,
     validate_acyclic,
 )
-from rath.session.manager import SessionRegistry, session_registry
-from rath.session.compress import run_session_compress
 from rath.session.loop import (
     ChunkAppendHook,
     ChunkPrintFn,
@@ -37,6 +36,7 @@ from rath.session.loop import (
     run_session_loop,
     sink_chunk_print,
 )
+from rath.session.manager import SessionRegistry, session_registry
 from rath.session.primitives import (
     create_leaf_system,
     create_leaf_user,
@@ -45,7 +45,6 @@ from rath.session.primitives import (
 )
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
-
 
 __all__ = [
     "ancestors_bfs",

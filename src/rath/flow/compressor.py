@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from rath.flow.workflow import Workflow
 from rath.flow.agent_param import AgentParam
-from rath.session import ChunkAppendHook, Session, run_session_compress
+from rath.flow.workflow import Workflow
 from rath.llm.provider import Provider
+from rath.session import ChunkAppendHook, Session, run_session_compress
 
 
 class Compressor(Workflow):

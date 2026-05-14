@@ -54,7 +54,7 @@ def test_accumulate_text_stream() -> None:
 
 
 def test_accumulate_tool_call_stream() -> None:
-    args_chunks = [json.dumps({"path": "/etc"})[i:i + 4] for i in range(0, 14, 4)]
+    args_chunks = [json.dumps({"path": "/etc"})[i : i + 4] for i in range(0, 14, 4)]
     deltas: list[RathLLMStreamDelta] = [
         RathLLMStreamDelta(
             tool_call_index=0,
@@ -87,9 +87,7 @@ class _ScriptedStreamingClient:
         # Provider attribute so DefaultSessionLoopExecutor wrapping works.
         self.provider = Provider(model="scripted")
 
-    def complete_stream(
-        self, req: RathLLMChatRequest
-    ) -> Iterator[RathLLMStreamDelta]:
+    def complete_stream(self, req: RathLLMChatRequest) -> Iterator[RathLLMStreamDelta]:
         if not self._scripts:
             raise RuntimeError("scripted stream queue empty")
         for d in self._scripts.pop(0):

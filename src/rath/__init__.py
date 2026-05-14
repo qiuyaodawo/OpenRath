@@ -41,8 +41,10 @@ def _load_project_dotenv() -> None:
 _load_project_dotenv()
 
 
-from rath import backend  # noqa: E402  (load after dotenv so backends see env)
-from rath import flow  # noqa: E402
+from rath import (  # noqa: E402
+    backend,  # load after dotenv so backends see env
+    flow,
+)
 
 __all__ = ["backend", "flow", "session"]
 

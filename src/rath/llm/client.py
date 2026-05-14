@@ -8,8 +8,6 @@ from typing import Any, Iterator
 from openai import AzureOpenAI, OpenAI
 
 from rath.llm._retry import retry_with_backoff
-from rath.llm.openai_create_kwargs import to_create_kwargs, to_create_kwargs_stream
-from rath.llm.openai_normalize import normalize_chat_completion
 from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.chat_response import (
     RathLLMChatResponse,
@@ -17,6 +15,8 @@ from rath.llm.chat_response import (
     RathLLMStreamDelta,
     RathLLMTokenUsage,
 )
+from rath.llm.openai_create_kwargs import to_create_kwargs, to_create_kwargs_stream
+from rath.llm.openai_normalize import normalize_chat_completion
 from rath.llm.provider import Provider
 
 __all__ = ["RathOpenAIChatClient"]
@@ -103,10 +103,9 @@ class RathOpenAIChatClient:
                 "(e.g. via a project .env file).",
             )
         self._provider = provider
+        self._client: OpenAI | AzureOpenAI
 
-        use_azure_legacy = (
-            _is_azure_endpoint(base_url) and "/openai/v1" not in base_url
-        )
+        use_azure_legacy = _is_azure_endpoint(base_url) and "/openai/v1" not in base_url
         if use_azure_legacy:
             api_version = (
                 os.environ.get("OPENAI_API_VERSION")
@@ -135,9 +134,7 @@ class RathOpenAIChatClient:
         retried with exponential backoff per :attr:`Provider.retry_max_attempts`
         and :attr:`Provider.retry_base_seconds`.
         """
-        default_model = (
-            self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
-        )
+        default_model = self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
         kwargs = to_create_kwargs(req, default_model=default_model)
 
         def _call() -> RathLLMChatResponse:
@@ -150,18 +147,14 @@ class RathOpenAIChatClient:
             base_seconds=self._provider.retry_base_seconds,
         )
 
-    def complete_stream(
-        self, req: RathLLMChatRequest
-    ) -> Iterator[RathLLMStreamDelta]:
+    def complete_stream(self, req: RathLLMChatRequest) -> Iterator[RathLLMStreamDelta]:
         """Yield ``RathLLMStreamDelta`` for each chunk of a streaming completion.
 
         Transient errors during the initial ``create`` call are retried; once
         the iterator starts producing chunks, retries are no longer possible
         (the stream is committed).
         """
-        default_model = (
-            self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
-        )
+        default_model = self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
         kwargs = to_create_kwargs_stream(req, default_model=default_model)
 
         def _open_stream() -> Any:
@@ -183,12 +176,16 @@ def _chunk_to_deltas(chunk: Any) -> Iterator[RathLLMStreamDelta]:
     only carries a single choice downstream), so only ``choices[0]`` is
     inspected here; additional choices in the chunk are silently dropped.
     """
-    payload = chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else dict(chunk)
+    payload = (
+        chunk.model_dump(mode="json") if hasattr(chunk, "model_dump") else dict(chunk)
+    )
     choices = payload.get("choices") or []
     if not choices:
         # Final usage-only chunk (when stream_options['include_usage'] is set).
         usage = payload.get("usage") or {}
-        if isinstance(usage, dict) and (usage.get("prompt_tokens") or usage.get("completion_tokens")):
+        if isinstance(usage, dict) and (
+            usage.get("prompt_tokens") or usage.get("completion_tokens")
+        ):
             yield RathLLMStreamDelta(
                 usage=RathLLMTokenUsage(
                     prompt_tokens=int(usage.get("prompt_tokens", 0) or 0),

@@ -261,9 +261,7 @@ class OpenSandboxBackend(Backend):
     def sandbox_count(self) -> int:
         return len(self._natives)
 
-    def open(
-        self, spec: BackendSandboxSpec | None = None
-    ) -> BackendSandbox:
+    def open(self, spec: BackendSandboxSpec | None = None) -> BackendSandbox:
         if not _SDK_AVAILABLE:  # pragma: no cover -- ``is_available()`` gate
             raise RuntimeError(
                 "opensandbox SDK is not installed; "
@@ -281,9 +279,7 @@ class OpenSandboxBackend(Backend):
             if spec is not None and spec.entrypoint is not None
             else list(self._DEFAULT_ENTRYPOINT)
         )
-        return self._runner.run(
-            self._open_coro(image, timeout, env, entrypoint, spec)
-        )
+        return self._runner.run(self._open_coro(image, timeout, env, entrypoint, spec))
 
     async def _open_coro(
         self,
@@ -318,9 +314,7 @@ class OpenSandboxBackend(Backend):
         await native.kill()
         await native.close()
 
-    def dispatch(
-        self, sandbox: BackendSandbox, call: BackendTool
-    ) -> ToolResult | bool:
+    def dispatch(self, sandbox: BackendSandbox, call: BackendTool) -> ToolResult | bool:
         if sandbox.closed:
             return ToolExecutionFailure(
                 kind="sandbox_closed",
@@ -347,9 +341,7 @@ class OpenSandboxBackend(Backend):
                 detail=type(exc).__name__,
             )
 
-    async def _dispatch_coro(
-        self, native: Any, call: BackendTool
-    ) -> ToolResult | bool:
+    async def _dispatch_coro(self, native: Any, call: BackendTool) -> ToolResult | bool:
         match call:
             case BackendToolCommandRun():
                 return await self._command_run(native, call)
@@ -393,11 +385,7 @@ class OpenSandboxBackend(Backend):
                 message=f"backend {self.name!r} does not support stdin on commands.run",
                 detail="BackendToolCommandRun",
             )
-        cmd_str = (
-            call.cmd
-            if isinstance(call.cmd, str)
-            else _join_cmd(call.cmd)
-        )
+        cmd_str = call.cmd if isinstance(call.cmd, str) else _join_cmd(call.cmd)
         opts = RunCommandOpts(
             working_directory=(
                 self._resolve(call.cwd) if call.cwd is not None else self._SANDBOX_ROOT
@@ -425,9 +413,7 @@ class OpenSandboxBackend(Backend):
             elapsed_ms=elapsed_ms,
         )
 
-    async def _files_read(
-        self, native: Any, call: BackendToolFilesRead
-    ) -> FileContent:
+    async def _files_read(self, native: Any, call: BackendToolFilesRead) -> FileContent:
         path = self._resolve(call.path)
         try:
             if call.encoding is None:
@@ -454,14 +440,10 @@ class OpenSandboxBackend(Backend):
     ) -> FileWriteResult:
         path = self._resolve(call.path)
         await native.files.write_file(path, call.data, mode=call.mode)
-        payload = (
-            call.data.encode("utf-8") if isinstance(call.data, str) else call.data
-        )
+        payload = call.data.encode("utf-8") if isinstance(call.data, str) else call.data
         return FileWriteResult(bytes_written=len(payload))
 
-    async def _files_list(
-        self, native: Any, call: BackendToolFilesList
-    ) -> FileEntries:
+    async def _files_list(self, native: Any, call: BackendToolFilesList) -> FileEntries:
         path = self._resolve(call.path)
         infos = await native.files.search(SearchEntry(path=path, pattern="*"))
         entries = [
@@ -475,9 +457,7 @@ class OpenSandboxBackend(Backend):
         entries.sort(key=lambda e: e.name)
         return FileEntries(entries=tuple(entries))
 
-    async def _files_exists(
-        self, native: Any, call: BackendToolFilesExists
-    ) -> bool:
+    async def _files_exists(self, native: Any, call: BackendToolFilesExists) -> bool:
         path = self._resolve(call.path)
         try:
             infos = await native.files.get_file_info([path])
@@ -485,9 +465,7 @@ class OpenSandboxBackend(Backend):
             return False
         return path in infos
 
-    async def _code_run(
-        self, native: Any, call: BackendToolCodeRun
-    ) -> CodeResult:
+    async def _code_run(self, native: Any, call: BackendToolCodeRun) -> CodeResult:
         if not _CI_AVAILABLE:  # pragma: no cover -- ``is_available()`` gate
             return ToolExecutionFailure(
                 kind="sdk_missing",

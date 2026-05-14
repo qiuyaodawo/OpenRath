@@ -24,7 +24,6 @@ from rath.flow.tool.mcp_adapter import (
     mcp_tools_from_server,
 )
 
-
 _DEMO_SERVER = Path(__file__).parent / "_demo_echo_server.py"
 
 

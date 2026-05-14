@@ -17,7 +17,6 @@ from rath.session.graph.recording import LineageJournal
 from rath.session.manager import session_registry
 from rath.session.session import Session
 
-
 __all__ = [
     "session_to_jsonl_row",
     "export_jsonl_string",

@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from rath.backend import get
-
 from rath.session import Session
 
 

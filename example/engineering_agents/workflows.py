@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from rath.flow.agent_param import AgentParam, Provider
-from rath.flow.workflow import Workflow
-from rath.session import run_session_loop
-from rath.session.loop import ChunkAppendHook
-from rath.session.session import Session
-
 from agents import (
     ARCHITECT_SYSTEM,
     BACKEND_AUTH_SYSTEM,
@@ -16,6 +10,12 @@ from agents import (
     LEAD_ENGINEER_SYSTEM,
     QA_SYSTEM,
 )
+
+from rath.flow.agent_param import AgentParam, Provider
+from rath.flow.workflow import Workflow
+from rath.session import run_session_loop
+from rath.session.loop import ChunkAppendHook
+from rath.session.session import Session
 
 
 class BackendPairWorkflow(Workflow):
@@ -112,7 +112,9 @@ class EngineeringProjectWorkflow(Workflow):
     ) -> None:
         super().__init__()
         self._chunk_print = chunk_print
-        self.lead = AgentParam(Session.from_agent_prompt(LEAD_ENGINEER_SYSTEM), provider)
+        self.lead = AgentParam(
+            Session.from_agent_prompt(LEAD_ENGINEER_SYSTEM), provider
+        )
         self._squad = FeatureSquadWorkflow(provider, chunk_print=chunk_print)
         self._qa = QualityAssuranceWorkflow(provider, chunk_print=chunk_print)
 

@@ -68,7 +68,7 @@ def test_tool_call_delta_chunk() -> None:
                                 "id": "tc-1",
                                 "function": {
                                     "name": "search",
-                                    "arguments": "{\"q",
+                                    "arguments": '{"q',
                                 },
                             }
                         ],
@@ -84,7 +84,7 @@ def test_tool_call_delta_chunk() -> None:
     assert d.tool_call_index == 0
     assert d.tool_call_id == "tc-1"
     assert d.tool_call_name_delta == "search"
-    assert d.tool_call_args_delta == "{\"q"
+    assert d.tool_call_args_delta == '{"q'
 
 
 def test_finish_chunk_yields_finish_delta() -> None:

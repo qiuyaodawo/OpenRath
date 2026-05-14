@@ -16,8 +16,8 @@ from rath.llm import (
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
 )
-from rath.session.chunk import ChunkKind
 from rath.session import Session, run_session_loop, session_registry
+from rath.session.chunk import ChunkKind
 from tests.session.scripted_loop_executor import ScriptedSessionLoopExecutor
 
 

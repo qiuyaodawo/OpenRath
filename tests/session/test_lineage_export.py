@@ -76,11 +76,7 @@ def test_export_journal_jsonl_via_registry(tmp_path: Path) -> None:
 
     out = tmp_path / "graph.jsonl"
     export_journal_jsonl(journal, out)
-    rows = [
-        json.loads(ln)
-        for ln in out.read_text(encoding="utf-8").splitlines()
-        if ln
-    ]
+    rows = [json.loads(ln) for ln in out.read_text(encoding="utf-8").splitlines() if ln]
     # journal.visit_order order should be preserved
     assert [r["id"] for r in rows] == [str(uid) for uid in journal.visit_order]
 

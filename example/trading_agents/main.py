@@ -14,7 +14,6 @@ if str(_EX) not in sys.path:
 
 # Imports below require ``example/`` on ``sys.path`` (see above).
 from _chunk_print import optional_chunk_print  # noqa: E402
-
 from _env import require_alpha_vantage_key, require_openai_provider  # noqa: E402
 from workflow import TradingAgentsWorkflow  # noqa: E402
 

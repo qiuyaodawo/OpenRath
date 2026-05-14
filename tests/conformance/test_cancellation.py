@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from rath.backend import Backend, CommandResult, BackendToolCommandRun, ToolExecutionFailure
+from rath.backend import (
+    Backend,
+    BackendToolCommandRun,
+    CommandResult,
+    ToolExecutionFailure,
+)
 
 
 def test_timeout_leaves_sandbox_usable(backend: Backend, python_cmd: list[str]) -> None:

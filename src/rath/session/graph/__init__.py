@@ -6,6 +6,12 @@ No ``SessionGraph`` / ``SessionNode`` / ``SessionEdge`` types: edges are derived
 
 from __future__ import annotations
 
+from rath.session.graph.export import (
+    export_journal_jsonl,
+    export_jsonl,
+    export_jsonl_string,
+    session_to_jsonl_row,
+)
 from rath.session.graph.kind import LineageConsistencyError, LineageKind
 from rath.session.graph.legacy import SessionLineage
 from rath.session.graph.recording import (
@@ -23,12 +29,6 @@ from rath.session.graph.traverse import (
     edge_pairs,
     lineage_view_dataclass,
     validate_acyclic,
-)
-from rath.session.graph.export import (
-    export_journal_jsonl,
-    export_jsonl,
-    export_jsonl_string,
-    session_to_jsonl_row,
 )
 
 __all__ = [

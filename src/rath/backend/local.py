@@ -88,9 +88,7 @@ class LocalBackend(Backend):
     def sandbox_count(self) -> int:
         return len(self._open_handles)
 
-    def open(
-        self, spec: BackendSandboxSpec | None = None
-    ) -> BackendSandbox:
+    def open(self, spec: BackendSandboxSpec | None = None) -> BackendSandbox:
         if spec is None or spec.working_dir is None:
             owns_working_dir = True
             working_dir = tempfile.mkdtemp(prefix="rath-local-")
@@ -114,9 +112,7 @@ class LocalBackend(Backend):
         if owns_working_dir:
             shutil.rmtree(sandbox.handle, ignore_errors=True)
 
-    def dispatch(
-        self, sandbox: BackendSandbox, call: BackendTool
-    ) -> ToolResult | bool:
+    def dispatch(self, sandbox: BackendSandbox, call: BackendTool) -> ToolResult | bool:
         if sandbox.closed:
             return ToolExecutionFailure(
                 kind="sandbox_closed",
@@ -152,11 +148,7 @@ class LocalBackend(Backend):
     def _command_run(
         self, sandbox: BackendSandbox, call: BackendToolCommandRun
     ) -> CommandResult | ToolExecutionFailure:
-        cwd = (
-            self._resolve(sandbox, call.cwd)
-            if call.cwd
-            else Path(sandbox.handle)
-        )
+        cwd = self._resolve(sandbox, call.cwd) if call.cwd else Path(sandbox.handle)
         env_arg: dict[str, str] | None = None
         if call.env is not None:
             env_arg = {**os.environ, **call.env}
@@ -323,11 +315,7 @@ class LocalBackend(Backend):
             with contextlib.suppress(FileNotFoundError, OSError):
                 tmp.unlink()
         assert proc is not None
-        error = (
-            decode_subprocess_output(proc.stderr)
-            if proc.returncode != 0
-            else None
-        )
+        error = decode_subprocess_output(proc.stderr) if proc.returncode != 0 else None
         return CodeResult(
             text=None,
             stdout=proc.stdout if proc.stdout is not None else b"",

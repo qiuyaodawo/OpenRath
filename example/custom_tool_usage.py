@@ -6,19 +6,21 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
-import rath.flow as flow
-from rath.flow.tool import FlowToolCall
+from _chunk_print import example_chunk_print
+from _openai_provider import provider_from_env
 from pydantic import BaseModel, Field
 
-from _openai_provider import provider_from_env
-from _chunk_print import example_chunk_print
+import rath.flow as flow
+from rath.flow.tool import FlowToolCall
 from rath.session.session import Session
 
 BIGMODEL_IMAGES_URL = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 
 
 class ImageGenInput(BaseModel):
-    prompt: str = Field(description="Text prompt (see GLM-Image limits, max ~1000 chars).")
+    prompt: str = Field(
+        description="Text prompt (see GLM-Image limits, max ~1000 chars)."
+    )
     size: str = Field(
         default="1280x1280",
         description="Output size, e.g. 1280x1280, 1568x1056.",
@@ -41,7 +43,9 @@ class ImageGenTool(FlowToolCall):
     def parameters(self) -> Mapping[str, Any]:
         return dict(ImageGenInput.model_json_schema())
 
-    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    def __call__(
+        self, session: Session, arguments: Mapping[str, Any]
+    ) -> dict[str, Any]:
         data = dict(arguments or {})
         model = ImageGenInput.model_validate(data)
         prompt, size = model.prompt, model.size

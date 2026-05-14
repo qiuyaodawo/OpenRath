@@ -34,8 +34,13 @@ from rath.flow.tool.base import FlowToolCall
 from rath.session.session import Session
 
 try:
-    from mcp import ClientSession, StdioServerParameters  # type: ignore[import-not-found, unused-ignore]
-    from mcp.client.stdio import stdio_client  # type: ignore[import-not-found, unused-ignore]
+    from mcp import (  # type: ignore[import-not-found, unused-ignore]
+        ClientSession,
+        StdioServerParameters,
+    )
+    from mcp.client.stdio import (  # type: ignore[import-not-found, unused-ignore]
+        stdio_client,
+    )
 
     _MCP_AVAILABLE = True
 except ImportError:  # pragma: no cover -- optional extra
@@ -200,9 +205,7 @@ class MCPToolCall(FlowToolCall):
     def parameters(self) -> Mapping[str, Any]:
         return self._parameters
 
-    def __call__(
-        self, session: Session, arguments: Mapping[str, Any]
-    ) -> Any:
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
         del session  # MCP tools don't get the OpenRath session
         result = self._client.call_tool(self._name, arguments)
         return _flatten_call_result(result)
