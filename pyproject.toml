@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "openai>=1.0.0",
+    "anthropic>=0.40.0",
     "pydantic>=2.0.0,<3",
     "python-dotenv>=1.0.0",
 ]
@@ -36,9 +37,6 @@ opensandbox = [
 ]
 mcp = [
     "mcp>=1.0.0",
-]
-anthropic = [
-    "anthropic>=0.40.0",
 ]
 
 [tool.hatch.build.targets.wheel]

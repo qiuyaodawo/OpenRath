@@ -63,8 +63,8 @@ class Provider:
     on_budget_exceeded: Callable[..., None] | None = None
     # Which adapter the default loop should construct when no executor is
     # passed. ``None`` (default) means OpenAI-compatible. Setting to
-    # ``"anthropic"`` selects :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`
-    # which requires the ``[anthropic]`` extra.
+    # ``"anthropic"`` selects
+    # :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`.
     provider_kind: Literal["openai", "anthropic"] | None = None
 
     def __str__(self) -> str:

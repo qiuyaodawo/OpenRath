@@ -109,8 +109,8 @@ def _build_default_client(provider: Provider) -> Any:
     """Construct the default :class:`ChatClient` for ``provider``.
 
     Honors ``provider.provider_kind``: ``"anthropic"`` selects
-    :class:`~rath.llm.anthropic_client.RathAnthropicChatClient` (requires the
-    ``[anthropic]`` extra); anything else (None / ``"openai"``) selects
+    :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`; anything
+    else (None / ``"openai"``) selects
     :class:`~rath.llm.RathOpenAIChatClient`. Provider.api_key may still be
     empty - the underlying client falls back to the relevant
     environment variable.

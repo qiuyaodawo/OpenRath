@@ -23,42 +23,29 @@ from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.chat_response import RathLLMChatResponse
 from rath.llm.provider import Provider
 
-try:
-    from anthropic import (  # type: ignore[import-not-found, unused-ignore]
-        Anthropic,
-        APIConnectionError as _AnthropicAPIConnectionError,
-        APITimeoutError as _AnthropicAPITimeoutError,
-        InternalServerError as _AnthropicInternalServerError,
-        RateLimitError as _AnthropicRateLimitError,
-    )
+from anthropic import (
+    Anthropic,
+    APIConnectionError as _AnthropicAPIConnectionError,
+    APITimeoutError as _AnthropicAPITimeoutError,
+    InternalServerError as _AnthropicInternalServerError,
+    RateLimitError as _AnthropicRateLimitError,
+)
 
-    _ANTHROPIC_AVAILABLE = True
-    _ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
-        _AnthropicRateLimitError,
-        _AnthropicAPIConnectionError,
-        _AnthropicAPITimeoutError,
-        _AnthropicInternalServerError,
-    )
-except ImportError:  # pragma: no cover -- optional extra
-    _ANTHROPIC_AVAILABLE = False
-    _ANTHROPIC_RETRYABLE = ()
+_ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
+    _AnthropicRateLimitError,
+    _AnthropicAPIConnectionError,
+    _AnthropicAPITimeoutError,
+    _AnthropicInternalServerError,
+)
 
 
-__all__ = ["RathAnthropicChatClient", "is_anthropic_available"]
-
-
-def is_anthropic_available() -> bool:
-    return _ANTHROPIC_AVAILABLE
+__all__ = ["RathAnthropicChatClient"]
 
 
 class RathAnthropicChatClient:
     """Thin client around ``anthropic.Anthropic().messages.create`` (non-streaming)."""
 
     def __init__(self, provider: Provider) -> None:
-        if not _ANTHROPIC_AVAILABLE:  # pragma: no cover -- gated above
-            raise RuntimeError(
-                "anthropic is not installed; install with `pip install openrath[anthropic]`",
-            )
         key = (provider.api_key or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
         if not key:
             raise ValueError(

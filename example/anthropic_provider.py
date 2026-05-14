@@ -1,9 +1,5 @@
 """Drive a session loop through the Anthropic adapter.
 
-Install the extra::
-
-    pip install "openrath[anthropic]"
-
 Set ``ANTHROPIC_API_KEY`` in the environment (or in a project ``.env``).
 
 Run::
