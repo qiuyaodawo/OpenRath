@@ -20,8 +20,9 @@ if errorlevel 1 (
   exit /b %EXITCODE%
 )
 
-echo running flake8...
-uv run flake8 src tests example
+echo running ruff...
+uv run ruff check src tests example
+uv run ruff format --check src tests example
 if errorlevel 1 (
   set "EXITCODE=%ERRORLEVEL%"
   popd

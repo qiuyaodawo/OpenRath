@@ -14,8 +14,9 @@ fi
 echo "syncing dev dependency group..."
 uv sync --group dev
 
-echo "running flake8..."
-uv run flake8 src tests example
+echo "running ruff..."
+uv run ruff check src tests example
+uv run ruff format --check src tests example
 
 echo "running mypy..."
 uv run mypy --no-incremental src
