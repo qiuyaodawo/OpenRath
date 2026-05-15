@@ -5,9 +5,15 @@ from __future__ import annotations
 import os
 from typing import Any, Iterator
 
-from openai import AzureOpenAI, OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AzureOpenAI,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
 
-from rath.llm._retry import retry_with_backoff
 from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.chat_response import (
     RathLLMChatResponse,
@@ -15,11 +21,23 @@ from rath.llm.chat_response import (
     RathLLMStreamDelta,
     RathLLMTokenUsage,
 )
-from rath.llm.openai_create_kwargs import to_create_kwargs, to_create_kwargs_stream
-from rath.llm.openai_normalize import normalize_chat_completion
+from rath.llm.credentials import resolve_credential
+from rath.llm.openai.create_kwargs import to_create_kwargs, to_create_kwargs_stream
+from rath.llm.openai.normalize import normalize_chat_completion
 from rath.llm.provider import Provider
+from rath.llm.retry import retry_with_backoff
 
-__all__ = ["RathOpenAIChatClient"]
+__all__ = ["RathOpenAIChatClient", "OPENAI_RETRYABLE"]
+
+#: OpenAI's transient exception classes — the default ``retryable=`` tuple
+#: passed by :class:`RathOpenAIChatClient`. Exported so callers wrapping the
+#: client (custom executors, third-party adapters) can reuse the same set.
+OPENAI_RETRYABLE: tuple[type[BaseException], ...] = (
+    RateLimitError,
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+)
 
 
 def _is_azure_endpoint(url: str) -> bool:
@@ -28,14 +46,11 @@ def _is_azure_endpoint(url: str) -> bool:
 
 def _resolve_base_url(provider: Provider) -> str:
     """Pick the first non-empty source: provider, OPENAI_BASE_URL, AZURE_OPENAI_ENDPOINT."""
-    for candidate in (
+    return resolve_credential(
         provider.base_url,
         os.environ.get("OPENAI_BASE_URL"),
         os.environ.get("AZURE_OPENAI_ENDPOINT"),
-    ):
-        if candidate and candidate.strip():
-            return candidate.strip()
-    return ""
+    )
 
 
 def _resolve_api_key(provider: Provider, base_url: str) -> str:
@@ -44,22 +59,18 @@ def _resolve_api_key(provider: Provider, base_url: str) -> str:
     For Azure endpoints, Azure-specific env vars are tried first; otherwise
     ``OPENAI_API_KEY`` wins. ``Provider.api_key`` always takes precedence.
     """
-    sources: list[str | None] = [provider.api_key]
     if _is_azure_endpoint(base_url):
-        sources += [
+        return resolve_credential(
+            provider.api_key,
             os.environ.get("AZURE_OPENAI_API_KEY"),
             os.environ.get("AZURE_API_KEY"),
             os.environ.get("OPENAI_API_KEY"),
-        ]
-    else:
-        sources += [
-            os.environ.get("OPENAI_API_KEY"),
-            os.environ.get("AZURE_OPENAI_API_KEY"),
-        ]
-    for candidate in sources:
-        if candidate and candidate.strip():
-            return candidate.strip()
-    return ""
+        )
+    return resolve_credential(
+        provider.api_key,
+        os.environ.get("OPENAI_API_KEY"),
+        os.environ.get("AZURE_OPENAI_API_KEY"),
+    )
 
 
 _STREAM_FINISH_REASONS = frozenset(
@@ -74,7 +85,7 @@ def _coerce_stream_finish(value: Any) -> RathLLMFinishReason | None:
 
 
 class RathOpenAIChatClient:
-    """Thin client around ``openai.OpenAI`` chat completions (non-streaming).
+    """Thin client around ``openai.OpenAI`` chat completions (sync + streaming).
 
     Empty ``Provider.api_key`` / ``Provider.base_url`` fall back to environment
     variables, typically loaded from the project ``.env`` (see
@@ -143,6 +154,7 @@ class RathOpenAIChatClient:
 
         return retry_with_backoff(
             _call,
+            retryable=OPENAI_RETRYABLE,
             max_attempts=self._provider.retry_max_attempts,
             base_seconds=self._provider.retry_base_seconds,
         )
@@ -162,6 +174,7 @@ class RathOpenAIChatClient:
 
         stream = retry_with_backoff(
             _open_stream,
+            retryable=OPENAI_RETRYABLE,
             max_attempts=self._provider.retry_max_attempts,
             base_seconds=self._provider.retry_base_seconds,
         )

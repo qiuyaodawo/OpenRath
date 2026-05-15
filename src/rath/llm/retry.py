@@ -1,8 +1,9 @@
-"""Internal: exponential-backoff retry for transient OpenAI-compatible errors.
+"""Provider-agnostic exponential-backoff retry helper.
 
-Lives under ``_retry`` (single leading underscore) because it is an
-implementation detail of :class:`~rath.llm.client.RathOpenAIChatClient`. Not
-exported from :mod:`rath.llm`.
+This module knows nothing about OpenAI or Anthropic exception classes — each
+:class:`ChatClient` adapter passes its own ``retryable`` tuple. The legacy
+:mod:`rath.llm._retry` module remains as a shim that injects OpenAI's
+transient errors as the default for callers that pre-date this split.
 """
 
 from __future__ import annotations
@@ -12,13 +13,6 @@ import random
 import time
 from typing import Callable, TypeVar
 
-from openai import (
-    APIConnectionError,
-    APITimeoutError,
-    InternalServerError,
-    RateLimitError,
-)
-
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
@@ -27,35 +21,30 @@ DEFAULT_MAX_ATTEMPTS = 4
 DEFAULT_BASE_SECONDS = 0.5
 DEFAULT_CAP_SECONDS = 30.0
 
-_RETRYABLE: tuple[type[BaseException], ...] = (
-    RateLimitError,
-    APIConnectionError,
-    APITimeoutError,
-    InternalServerError,
-)
+__all__ = [
+    "retry_with_backoff",
+    "DEFAULT_MAX_ATTEMPTS",
+    "DEFAULT_BASE_SECONDS",
+    "DEFAULT_CAP_SECONDS",
+]
 
 
 def retry_with_backoff(
     fn: Callable[[], T],
     *,
+    retryable: tuple[type[BaseException], ...],
     max_attempts: int | None = None,
     base_seconds: float | None = None,
     cap_seconds: float = DEFAULT_CAP_SECONDS,
     jitter: bool = True,
     sleep: Callable[[float], None] = time.sleep,
-    extra_retryable: tuple[type[BaseException], ...] = (),
 ) -> T:
-    """Call ``fn`` with exponential backoff on transient API errors.
+    """Call ``fn`` with exponential backoff on exceptions matching ``retryable``.
 
-    Retries on :class:`openai.RateLimitError`, :class:`openai.APIConnectionError`,
-    :class:`openai.APITimeoutError`, and :class:`openai.InternalServerError`. All
-    other exceptions propagate immediately. Pass ``extra_retryable`` (a tuple of
-    exception classes) to widen the retryable set for non-OpenAI clients - the
-    Anthropic adapter, for example, supplies ``anthropic.*`` siblings of the
-    same transient categories.
-
-    Backoff: ``base * 2**(attempt-1)`` capped at ``cap_seconds``, plus optional
-    uniform jitter in ``[0, base)``.
+    ``retryable`` is required and provider-specific — adapters pass e.g.
+    ``(openai.RateLimitError, openai.APIConnectionError, ...)``. Empty tuple
+    disables retry. Backoff is ``base * 2**(attempt-1)`` capped at
+    ``cap_seconds``, plus optional uniform jitter in ``[0, base)``.
 
     ``sleep`` is parameterized so tests can run without real wall-clock waits.
     """
@@ -63,7 +52,6 @@ def retry_with_backoff(
     base = base_seconds if base_seconds is not None else DEFAULT_BASE_SECONDS
     if attempts < 1:
         attempts = 1
-    retryable: tuple[type[BaseException], ...] = _RETRYABLE + tuple(extra_retryable)
 
     last_exc: BaseException | None = None
     for attempt in range(1, attempts + 1):

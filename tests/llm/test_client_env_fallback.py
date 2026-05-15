@@ -12,8 +12,7 @@ from typing import Iterator
 import pytest
 from openai import AzureOpenAI, OpenAI
 
-from rath.llm.client import RathOpenAIChatClient
-from rath.llm.provider import Provider
+from rath.llm import Provider, RathOpenAIChatClient
 
 
 @pytest.fixture(autouse=True)

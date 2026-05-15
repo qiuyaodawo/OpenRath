@@ -1,9 +1,10 @@
 """Synchronous Anthropic chat client (thin SDK wrapper).
 
-Mirrors :class:`~rath.llm.RathOpenAIChatClient`: same Protocol, same retry
-behavior, same Provider fields. Translation between OpenRath's request /
-response dataclasses and the Anthropic messages API happens in
-:mod:`rath.llm.anthropic_normalize` (pure functions, fixture-testable).
+Mirrors :class:`~rath.llm.openai.client.RathOpenAIChatClient`: same Protocol,
+same retry behavior, same Provider fields. Translation between OpenRath's
+request / response dataclasses and the Anthropic messages API happens in
+:mod:`rath.llm.anthropic.create_kwargs` and :mod:`rath.llm.anthropic.normalize`
+(pure functions, fixture-testable).
 
 Empty :attr:`Provider.api_key` falls back to ``ANTHROPIC_API_KEY``; empty
 ``base_url`` falls back to ``ANTHROPIC_BASE_URL``.
@@ -30,16 +31,18 @@ from anthropic import (
     RateLimitError as _AnthropicRateLimitError,
 )
 
-from rath.llm._retry import retry_with_backoff
-from rath.llm.anthropic_normalize import (
-    build_anthropic_kwargs,
-    normalize_anthropic_response,
-)
+from rath.llm.anthropic.create_kwargs import build_anthropic_kwargs
+from rath.llm.anthropic.normalize import normalize_anthropic_response
 from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.chat_response import RathLLMChatResponse
+from rath.llm.credentials import resolve_credential
 from rath.llm.provider import Provider
+from rath.llm.retry import retry_with_backoff
 
-_ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
+#: Anthropic's transient exception classes — the default ``retryable=`` tuple
+#: passed by :class:`RathAnthropicChatClient`. Exported for symmetry with
+#: :data:`rath.llm.openai.OPENAI_RETRYABLE`.
+ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
     _AnthropicRateLimitError,
     _AnthropicAPIConnectionError,
     _AnthropicAPITimeoutError,
@@ -47,14 +50,14 @@ _ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
 )
 
 
-__all__ = ["RathAnthropicChatClient"]
+__all__ = ["RathAnthropicChatClient", "ANTHROPIC_RETRYABLE"]
 
 
 class RathAnthropicChatClient:
     """Thin client around ``anthropic.Anthropic().messages.create`` (non-streaming)."""
 
     def __init__(self, provider: Provider) -> None:
-        key = (provider.api_key or os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+        key = resolve_credential(provider.api_key, os.environ.get("ANTHROPIC_API_KEY"))
         if not key:
             raise ValueError(
                 "ANTHROPIC_API_KEY is not set and Provider.api_key is empty; "
@@ -63,7 +66,9 @@ class RathAnthropicChatClient:
             )
         self._provider = provider
         init_kw: dict[str, Any] = {"api_key": key}
-        bu = (provider.base_url or os.environ.get("ANTHROPIC_BASE_URL") or "").strip()
+        bu = resolve_credential(
+            provider.base_url, os.environ.get("ANTHROPIC_BASE_URL")
+        )
         if bu:
             init_kw["base_url"] = bu
         self._client = Anthropic(**init_kw)
@@ -76,10 +81,8 @@ class RathAnthropicChatClient:
         """Run ``messages.create`` and normalize the response.
 
         Transient errors are retried per :attr:`Provider.retry_max_attempts` /
-        :attr:`Provider.retry_base_seconds`. The retry helper recognises
-        OpenAI's exception classes by default; this client widens the
-        retryable set via ``extra_retryable=`` to include the matching
-        ``anthropic.*`` siblings (``RateLimitError``, ``APIConnectionError``,
+        :attr:`Provider.retry_base_seconds`. The retryable set is the
+        Anthropic-flavored quadruple (``RateLimitError``, ``APIConnectionError``,
         ``APITimeoutError``, ``InternalServerError``).
         """
         default_model = self._provider.model or os.environ.get(
@@ -94,7 +97,7 @@ class RathAnthropicChatClient:
 
         return retry_with_backoff(
             _call,
+            retryable=ANTHROPIC_RETRYABLE,
             max_attempts=self._provider.retry_max_attempts,
             base_seconds=self._provider.retry_base_seconds,
-            extra_retryable=_ANTHROPIC_RETRYABLE,
         )

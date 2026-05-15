@@ -9,6 +9,7 @@ from rath.llm import (
     RathLLMChatResponse,
     RathLLMMessage,
     add_usage,
+    chat_client_for,
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
@@ -55,9 +56,7 @@ def run_session_compress(
     """
 
     if executor is None:
-        from rath.session.loop import _build_default_client
-
-        executor = DefaultSessionLoopExecutor(_build_default_client(agent_provider))
+        executor = DefaultSessionLoopExecutor(chat_client_for(agent_provider))
 
     instruction = (
         compress_instruction.strip()

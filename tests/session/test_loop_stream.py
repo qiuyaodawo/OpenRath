@@ -100,8 +100,20 @@ class _ScriptedStreamingClient:
         raise NotImplementedError("scripted client is stream-only")
 
 
-def test_run_session_loop_stream_refuses_anthropic_provider_kind() -> None:
-    """Streaming + Anthropic must fail upfront, not after sessions are stamped."""
+def test_run_session_loop_stream_refuses_anthropic_provider_kind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Streaming + Anthropic must fail upfront, not after sessions are stamped.
+
+    After the registry/capability refactor, dispatch goes through
+    :func:`rath.llm.chat_client_for` (which builds the Anthropic client) and
+    then trips the :class:`~rath.llm.StreamingChatClient` ``isinstance`` check
+    — surfacing a clear :class:`TypeError` instead of the previous string-
+    branch ``NotImplementedError``. A dummy ``ANTHROPIC_API_KEY`` lets the
+    client construct so we exercise the capability gate, not the credential
+    check.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
     agent = AgentParam(
         Session.from_agent_prompt("sys"),
         Provider(provider_kind="anthropic", model="claude-opus-4-7"),
@@ -109,7 +121,7 @@ def test_run_session_loop_stream_refuses_anthropic_provider_kind() -> None:
     backend = get("local")
     with backend.open() as sb:
         user = Session.from_user_message("hi").with_sandbox(sb)
-        with pytest.raises(NotImplementedError, match="streaming.*anthropic"):
+        with pytest.raises(TypeError, match="StreamingChatClient"):
             run_session_loop_stream(
                 user,
                 agent.agent_session,

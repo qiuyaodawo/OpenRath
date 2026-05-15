@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from typing import Any, Iterator, Protocol, runtime_checkable
+from typing import Any
 
 from rath.flow.tool import FlowToolCall
 from rath.llm import (
@@ -28,11 +28,12 @@ from rath.llm import (
     RathLLMTokenUsage,
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
+    StreamingChatClient,
+    chat_client_for,
 )
 from rath.session.loop import (
     ChunkAppendHook,
     SessionLoopExecutor,
-    _build_default_client,
     run_session_loop,
 )
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
@@ -43,20 +44,6 @@ __all__ = [
     "run_session_loop_stream",
     "StreamingChatClient",
 ]
-
-
-@runtime_checkable
-class StreamingChatClient(Protocol):
-    """Minimal Protocol for clients with ``complete_stream``.
-
-    The :class:`~rath.llm.RathOpenAIChatClient` already exposes
-    ``complete_stream``; callers passing custom clients only need the same
-    method signature.
-    """
-
-    def complete_stream(
-        self, req: RathLLMChatRequest
-    ) -> Iterator[RathLLMStreamDelta]: ...
 
 
 def accumulate_stream_to_response(
@@ -221,23 +208,27 @@ def run_session_loop_stream(
 
     ``client`` is any object with a ``complete_stream(req)`` method (typically
     :class:`~rath.llm.RathOpenAIChatClient`). When omitted it is built from
-    ``agent_provider`` using the same dispatch as the non-streaming loop.
+    ``agent_provider`` via :func:`~rath.llm.chat_client_for`, the same
+    dispatch the non-streaming loop uses.
 
-    Streaming for ``provider_kind="anthropic"`` is **not** implemented in this
-    PR: rather than build an Anthropic client that lacks ``complete_stream``
-    and only fail mid-loop (after sessions are stamped and lineage written),
-    this entrypoint refuses the combination upfront with a clear error. Pass
-    an explicit ``client=`` to override - e.g. a custom Anthropic streaming
-    adapter once one exists.
+    Streaming requires the resolved client to satisfy
+    :class:`~rath.llm.StreamingChatClient`. The Anthropic adapter currently
+    does not, so callers passing a ``Provider(provider_kind='anthropic')``
+    will see a clear :class:`TypeError` upfront — before any session is
+    stamped or lineage is written — rather than a mid-loop failure. Provide
+    an explicit ``client=`` (e.g. a custom Anthropic streaming adapter) to
+    override.
     """
     if client is None:
-        if agent_provider.provider_kind == "anthropic":
-            raise NotImplementedError(
-                "streaming + provider_kind='anthropic' is not implemented; "
-                "use the OpenAI provider for streaming today, or pass an "
-                "explicit client= with a complete_stream(req) method.",
-            )
-        client = _build_default_client(agent_provider)
+        client = chat_client_for(agent_provider)
+    if not isinstance(client, StreamingChatClient):
+        raise TypeError(
+            f"streaming requires a StreamingChatClient; "
+            f"{type(client).__name__} (provider_kind="
+            f"{agent_provider.provider_kind!r}) does not implement "
+            f"complete_stream(req). Pass an explicit client= or switch to "
+            f"run_session_loop for non-streaming.",
+        )
     adapter = _StreamingExecutorAdapter(client, on_event)
     return run_session_loop(
         user_session,

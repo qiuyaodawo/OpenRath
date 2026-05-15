@@ -1,4 +1,11 @@
-"""Unit tests for :mod:`rath.llm._retry`."""
+"""Unit tests for :mod:`rath.llm.retry` against OpenAI's transient errors.
+
+The provider-agnostic core lives in :mod:`tests.unit.test_retry_provider_agnostic`.
+This module additionally validates that the published
+:data:`rath.llm.openai.OPENAI_RETRYABLE` tuple works against real
+``openai.*Error`` instances — exercising the same retry behavior the
+production :class:`RathOpenAIChatClient` relies on.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +15,8 @@ import httpx
 import pytest
 from openai import APIConnectionError, RateLimitError
 
-from rath.llm._retry import retry_with_backoff
+from rath.llm.openai import OPENAI_RETRYABLE
+from rath.llm.retry import retry_with_backoff
 
 
 def _fake_rate_limit() -> RateLimitError:
@@ -44,6 +52,7 @@ def test_retries_on_rate_limit_and_eventually_succeeds() -> None:
     call = _scripted([_fake_rate_limit(), _fake_rate_limit(), "ok"])
     result = retry_with_backoff(
         call,
+        retryable=OPENAI_RETRYABLE,
         max_attempts=5,
         base_seconds=0.01,
         jitter=False,
@@ -58,6 +67,7 @@ def test_retries_on_api_connection_error() -> None:
     sleeps: list[float] = []
     out = retry_with_backoff(
         call,
+        retryable=OPENAI_RETRYABLE,
         max_attempts=3,
         base_seconds=0.01,
         jitter=False,
@@ -72,6 +82,7 @@ def test_gives_up_after_max_attempts() -> None:
     with pytest.raises(RateLimitError):
         retry_with_backoff(
             call,
+            retryable=OPENAI_RETRYABLE,
             max_attempts=3,
             base_seconds=0.01,
             jitter=False,
@@ -90,6 +101,7 @@ def test_non_retryable_propagates_immediately() -> None:
     with pytest.raises(ValueError, match="not retryable"):
         retry_with_backoff(
             call,
+            retryable=OPENAI_RETRYABLE,
             max_attempts=4,
             base_seconds=0.01,
             jitter=False,
@@ -103,6 +115,7 @@ def test_backoff_grows_exponentially() -> None:
     call = _scripted([_fake_rate_limit(), _fake_rate_limit(), _fake_rate_limit(), "ok"])
     retry_with_backoff(
         call,
+        retryable=OPENAI_RETRYABLE,
         max_attempts=4,
         base_seconds=0.1,
         jitter=False,
@@ -116,27 +129,29 @@ class _CustomTransient(Exception):
     """Stand-in for a non-OpenAI transient exception (e.g. anthropic.*)."""
 
 
-def test_extra_retryable_widens_the_set() -> None:
+def test_widening_retryable_includes_custom_class() -> None:
+    """Same coverage as the v1.0 ``extra_retryable=`` shim, via the new API."""
     sleeps: list[float] = []
     call = _scripted([_CustomTransient("flaky"), "ok"])
     out = retry_with_backoff(
         call,
+        retryable=OPENAI_RETRYABLE + (_CustomTransient,),
         max_attempts=3,
         base_seconds=0.01,
         jitter=False,
         sleep=sleeps.append,
-        extra_retryable=(_CustomTransient,),
     )
     assert out == "ok"
     assert len(sleeps) == 1
 
 
-def test_extra_retryable_default_empty_does_not_catch_custom() -> None:
+def test_openai_retryable_alone_does_not_catch_custom() -> None:
     sleeps: list[float] = []
     call = _scripted([_CustomTransient("flaky"), "ok"])
     with pytest.raises(_CustomTransient):
         retry_with_backoff(
             call,
+            retryable=OPENAI_RETRYABLE,
             max_attempts=3,
             base_seconds=0.01,
             jitter=False,

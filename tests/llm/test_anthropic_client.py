@@ -18,7 +18,7 @@ import pytest
 from rath.llm import Provider, RathLLMChatRequest, RathLLMMessage
 
 anthropic = pytest.importorskip("anthropic")
-from rath.llm.anthropic_client import (  # noqa: E402  -- importorskip gated
+from rath.llm.anthropic.client import (  # noqa: E402  -- importorskip gated
     RathAnthropicChatClient,
 )
 

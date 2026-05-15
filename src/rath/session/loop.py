@@ -29,8 +29,8 @@ from rath.llm import (
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMFunctionTool,
-    RathOpenAIChatClient,
     add_usage,
+    chat_client_for,
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.chunk import (
@@ -105,23 +105,6 @@ def _notify_chunk_append(
 
 def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
     out.chunk_table = ChunkTable(rows=tuple(rows_list))
-
-
-def _build_default_client(provider: Provider) -> Any:
-    """Construct the default :class:`ChatClient` for ``provider``.
-
-    Honors ``provider.provider_kind``: ``"anthropic"`` selects
-    :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`; anything
-    else (None / ``"openai"``) selects
-    :class:`~rath.llm.RathOpenAIChatClient`. Provider.api_key may still be
-    empty - the underlying client falls back to the relevant
-    environment variable.
-    """
-    if provider.provider_kind == "anthropic":
-        from rath.llm.anthropic_client import RathAnthropicChatClient
-
-        return RathAnthropicChatClient(provider)
-    return RathOpenAIChatClient(provider)
 
 
 def _accumulate_usage_and_check_budget(
@@ -315,7 +298,7 @@ def run_session_loop(
     table = merge_tools_for_loop(tools)
 
     if executor is None:
-        executor = DefaultSessionLoopExecutor(_build_default_client(agent_provider))
+        executor = DefaultSessionLoopExecutor(chat_client_for(agent_provider))
 
     prefs = agent_provider
 

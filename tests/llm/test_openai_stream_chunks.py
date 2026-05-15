@@ -1,4 +1,4 @@
-"""Direct tests for :func:`rath.llm.client._chunk_to_deltas`.
+"""Direct tests for :func:`rath.llm.openai.client._chunk_to_deltas`.
 
 The streaming loop tests already exercise this function indirectly through
 a scripted client, but exercising it on real-shape OpenAI chunk dicts gives
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from rath.llm.client import _chunk_to_deltas
+from rath.llm.openai.client import _chunk_to_deltas
 
 
 def _chunk(payload: dict[str, Any]) -> Any:
