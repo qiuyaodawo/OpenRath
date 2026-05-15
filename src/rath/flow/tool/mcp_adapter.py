@@ -5,10 +5,6 @@ it were a built-in :class:`~rath.flow.tool.FlowToolCall`. Only the **stdio**
 transport is supported in this module; SSE / HTTP transports can be added
 later without changing the public surface.
 
-Install the optional extra::
-
-    pip install "openrath[mcp]"
-
 Minimal use::
 
     from rath.flow.tool.mcp_adapter import mcp_tools_from_server
@@ -29,36 +25,20 @@ import threading
 from collections.abc import Mapping
 from typing import Any, cast
 
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
 from rath.backend.dedicated_loop import DedicatedEventLoopThread
 from rath.flow.tool.base import FlowToolCall
 from rath.session.session import Session
-
-try:
-    from mcp import (  # type: ignore[import-not-found, unused-ignore]
-        ClientSession,
-        StdioServerParameters,
-    )
-    from mcp.client.stdio import (  # type: ignore[import-not-found, unused-ignore]
-        stdio_client,
-    )
-
-    _MCP_AVAILABLE = True
-except ImportError:  # pragma: no cover -- optional extra
-    _MCP_AVAILABLE = False
-
 
 __all__ = [
     "MCPClient",
     "MCPToolCall",
     "mcp_tools_from_server",
+    "mcp_tools_from_config",
     "shared_mcp_loop",
-    "is_mcp_available",
 ]
-
-
-def is_mcp_available() -> bool:
-    """Return whether the ``mcp`` package is importable."""
-    return _MCP_AVAILABLE
 
 
 _MCP_LOOP: DedicatedEventLoopThread | None = None
@@ -95,10 +75,6 @@ class MCPClient:
         args: list[str] | None = None,
         env: Mapping[str, str] | None = None,
     ) -> None:
-        if not _MCP_AVAILABLE:  # pragma: no cover -- gated by is_mcp_available()
-            raise RuntimeError(
-                "mcp is not installed; install with `pip install openrath[mcp]`",
-            )
         if isinstance(command, list):
             cmd_exe = command[0]
             cmd_args = list(command[1:])
@@ -237,3 +213,40 @@ def mcp_tools_from_server(
         )
         for t in raw_tools
     )
+
+
+def mcp_tools_from_config(
+    name: str | None = None,
+    *,
+    store: Any = None,
+) -> tuple["MCPToolCall", ...]:
+    """Discover MCP tools from a named server in ``~/.openrath/config.json``.
+
+    When ``name`` is ``None`` and the config defines a non-empty
+    ``mcp.default_enabled`` list of length 1, that single entry is used.
+    Larger ``default_enabled`` lists are ambiguous — pass ``name`` explicitly
+    or call this function once per server.
+
+    The :class:`rath.config.ConfigStore` is loaded lazily so a plain
+    ``import rath.flow.tool.mcp_adapter`` does not touch the filesystem.
+    """
+    from rath.config.store import ConfigStore
+
+    s = store or ConfigStore.load()
+    if name is None:
+        enabled = s.config.mcp.default_enabled
+        if len(enabled) == 1:
+            name = enabled[0]
+        elif len(enabled) == 0:
+            raise KeyError(
+                "mcp_tools_from_config() requires a server name when "
+                "mcp.default_enabled is empty in the config",
+            )
+        else:
+            raise KeyError(
+                "mcp_tools_from_config() is ambiguous when "
+                f"mcp.default_enabled has {len(enabled)} entries "
+                f"({enabled}); pass an explicit name=",
+            )
+    entry = s.get_mcp_server(name)
+    return mcp_tools_from_server(list(entry.command), env=dict(entry.env) or None)

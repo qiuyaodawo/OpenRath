@@ -1,10 +1,6 @@
 """Wire an MCP stdio server's tools into a session loop.
 
-Install the extra::
-
-    pip install "openrath[mcp]"
-
-Then run::
+Run::
 
     python example/mcp_tool_usage.py
 
@@ -19,22 +15,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from rath.flow.tool.mcp_adapter import (
-    is_mcp_available,
-    mcp_tools_from_server,
-)
+from rath.flow.tool.mcp_adapter import mcp_tools_from_server
 
 _DEMO_SERVER = Path(__file__).parent / "_demo_echo_server.py"
 
 
 def main() -> None:
-    if not is_mcp_available():
-        print(
-            "mcp is not installed. Run: pip install 'openrath[mcp]'",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     tools = mcp_tools_from_server([sys.executable, str(_DEMO_SERVER)])
     print(f"Discovered {len(tools)} MCP tool(s):")
     for t in tools:

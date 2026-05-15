@@ -57,9 +57,14 @@ def _fake_connection_error() -> "anthropic.APIConnectionError":
     return anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
 
 
-def test_constructor_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_constructor_requires_api_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+    # Point OPENRATH_HOME at an empty dir so the config-file fallback tier
+    # also yields nothing — verifies the "no credentials anywhere" path.
+    monkeypatch.setenv("OPENRATH_HOME", str(tmp_path))
+    with pytest.raises(ValueError, match="No Anthropic api_key"):
         RathAnthropicChatClient(Provider())
 
 

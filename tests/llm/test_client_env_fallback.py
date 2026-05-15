@@ -16,7 +16,9 @@ from rath.llm import Provider, RathOpenAIChatClient
 
 
 @pytest.fixture(autouse=True)
-def _clear_llm_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def _clear_llm_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[None]:
     for name in (
         "OPENAI_API_KEY",
         "OPENAI_BASE_URL",
@@ -27,6 +29,11 @@ def _clear_llm_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "AZURE_OPENAI_API_VERSION",
     ):
         monkeypatch.delenv(name, raising=False)
+    # Pin OPENRATH_HOME to an empty tmp dir so the config-file fallback tier
+    # is inert for every test in this module; tests that want to exercise
+    # config-driven behavior can write into that dir explicitly.
+    isolated = tmp_path_factory.mktemp("openrath_home")
+    monkeypatch.setenv("OPENRATH_HOME", str(isolated))
     yield
 
 
@@ -49,6 +56,8 @@ def test_openai_api_key_env_fallback_when_provider_empty(
 
 
 def test_missing_everywhere_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    # All env vars cleared and OPENRATH_HOME pinned to an empty dir by the
+    # autouse fixture — no source supplies an api_key.
     with pytest.raises(ValueError, match="No API key found"):
         RathOpenAIChatClient(Provider())
 

@@ -44,32 +44,56 @@ def _is_azure_endpoint(url: str) -> bool:
     return ".azure.com" in url or ".cognitiveservices.azure.com" in url
 
 
+def _config_default_model() -> str | None:
+    """Return ``llm.default_provider.model`` from config, or ``None``."""
+    entry = _config_provider_entry()
+    return getattr(entry, "model", None)
+
+
+def _config_provider_entry() -> Any:
+    """Load the first OpenAI-kind provider entry from the config file.
+
+    Returns ``None`` if the config file is absent, malformed, or has no
+    ``provider_kind="openai"`` entry. Errors are swallowed by design — the
+    config file is a *fallback*, never a hard dependency. Lazy-imported so
+    a vanilla ``import rath.llm`` does not touch the filesystem.
+    """
+    try:
+        from rath.config.store import ConfigStore
+
+        return ConfigStore.load().find_provider_by_kind("openai")
+    except (FileNotFoundError, RuntimeError):
+        return None
+
+
 def _resolve_base_url(provider: Provider) -> str:
-    """Pick the first non-empty source: provider, OPENAI_BASE_URL, AZURE_OPENAI_ENDPOINT."""
+    """Resolve OpenAI ``base_url`` from Provider → env → config."""
+    entry = _config_provider_entry() if not provider.base_url else None
     return resolve_credential(
         provider.base_url,
         os.environ.get("OPENAI_BASE_URL"),
         os.environ.get("AZURE_OPENAI_ENDPOINT"),
+        getattr(entry, "base_url", None),
     )
 
 
 def _resolve_api_key(provider: Provider, base_url: str) -> str:
-    """Pick the first non-empty source.
-
-    For Azure endpoints, Azure-specific env vars are tried first; otherwise
-    ``OPENAI_API_KEY`` wins. ``Provider.api_key`` always takes precedence.
-    """
+    """Resolve OpenAI ``api_key`` from Provider → env (Azure-aware) → config."""
+    entry = _config_provider_entry() if not provider.api_key else None
+    config_key = getattr(entry, "api_key", None)
     if _is_azure_endpoint(base_url):
         return resolve_credential(
             provider.api_key,
             os.environ.get("AZURE_OPENAI_API_KEY"),
             os.environ.get("AZURE_API_KEY"),
             os.environ.get("OPENAI_API_KEY"),
+            config_key,
         )
     return resolve_credential(
         provider.api_key,
         os.environ.get("OPENAI_API_KEY"),
         os.environ.get("AZURE_OPENAI_API_KEY"),
+        config_key,
     )
 
 
@@ -88,8 +112,7 @@ class RathOpenAIChatClient:
     """Thin client around ``openai.OpenAI`` chat completions (sync + streaming).
 
     Empty ``Provider.api_key`` / ``Provider.base_url`` fall back to environment
-    variables, typically loaded from the project ``.env`` (see
-    :mod:`rath.__init__`):
+    variables (set them in the shell or via :mod:`rath.config`):
 
     * ``base_url``: ``OPENAI_BASE_URL`` then ``AZURE_OPENAI_ENDPOINT``.
     * ``api_key``: ``OPENAI_API_KEY`` for OpenAI-compatible endpoints; for
@@ -108,10 +131,12 @@ class RathOpenAIChatClient:
         key = _resolve_api_key(provider, base_url)
         if not key:
             raise ValueError(
-                "No API key found: Provider.api_key is empty and none of "
+                "No API key found: Provider.api_key is empty, none of "
                 "OPENAI_API_KEY / AZURE_OPENAI_API_KEY / AZURE_API_KEY are "
-                "set. Pass api_key= to Provider(...) or export one of these "
-                "(e.g. via a project .env file).",
+                "set in the environment, and no llm.default_provider with an "
+                "api_key is configured in ~/.openrath/config.json. Pass "
+                "api_key= to Provider(...), export one of these env vars, "
+                "or run Provider.from_config(...).",
             )
         self._provider = provider
         self._client: OpenAI | AzureOpenAI
@@ -145,7 +170,11 @@ class RathOpenAIChatClient:
         retried with exponential backoff per :attr:`Provider.retry_max_attempts`
         and :attr:`Provider.retry_base_seconds`.
         """
-        default_model = self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
+        default_model = (
+            self._provider.model
+            or os.environ.get("OPENAI_DEFAULT_MODEL")
+            or _config_default_model()
+        )
         kwargs = to_create_kwargs(req, default_model=default_model)
 
         def _call() -> RathLLMChatResponse:
@@ -166,7 +195,11 @@ class RathOpenAIChatClient:
         the iterator starts producing chunks, retries are no longer possible
         (the stream is committed).
         """
-        default_model = self._provider.model or os.environ.get("OPENAI_DEFAULT_MODEL")
+        default_model = (
+            self._provider.model
+            or os.environ.get("OPENAI_DEFAULT_MODEL")
+            or _config_default_model()
+        )
         kwargs = to_create_kwargs_stream(req, default_model=default_model)
 
         def _open_stream() -> Any:

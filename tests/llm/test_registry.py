@@ -24,7 +24,7 @@ def _stub_credentials(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Both built-in clients require an api key to construct; supply dummies."""
     monkeypatch.setenv("OPENAI_API_KEY", "test-key-openai")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-anthropic")
-    # Make sure no leftover base_url from a real .env steers Azure routing.
+    # Make sure no leftover env-var base_url steers Azure routing.
     for v in (
         "OPENAI_BASE_URL",
         "AZURE_OPENAI_ENDPOINT",

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -964,15 +964,12 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "mcp" },
     { name = "openai" },
     { name = "pydantic" },
-    { name = "python-dotenv" },
 ]
 
 [package.optional-dependencies]
-mcp = [
-    { name = "mcp" },
-]
 opensandbox = [
     { name = "opensandbox" },
     { name = "opensandbox-code-interpreter" },
@@ -997,15 +994,14 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
+    { name = "mcp", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "opensandbox", marker = "extra == 'opensandbox'", specifier = ">=0.1.7" },
     { name = "opensandbox-code-interpreter", marker = "extra == 'opensandbox'", specifier = ">=0.1.2" },
     { name = "opensandbox-server", marker = "extra == 'opensandbox'", specifier = ">=0.1.12" },
     { name = "pydantic", specifier = ">=2.0.0,<3" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
 ]
-provides-extras = ["opensandbox", "mcp"]
+provides-extras = ["opensandbox"]
 
 [package.metadata.requires-dev]
 dev = [

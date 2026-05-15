@@ -42,6 +42,9 @@ from rath.llm.retry import retry_with_backoff
 #: Anthropic's transient exception classes — the default ``retryable=`` tuple
 #: passed by :class:`RathAnthropicChatClient`. Exported for symmetry with
 #: :data:`rath.llm.openai.OPENAI_RETRYABLE`.
+#: Anthropic's transient exception classes — the default ``retryable=`` tuple
+#: passed by :class:`RathAnthropicChatClient`. Exported for symmetry with
+#: :data:`rath.llm.openai.OPENAI_RETRYABLE`.
 ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
     _AnthropicRateLimitError,
     _AnthropicAPIConnectionError,
@@ -53,21 +56,45 @@ ANTHROPIC_RETRYABLE: tuple[type[BaseException], ...] = (
 __all__ = ["RathAnthropicChatClient", "ANTHROPIC_RETRYABLE"]
 
 
+def _config_provider_entry() -> Any:
+    """Load the first Anthropic-kind provider entry from the config file.
+
+    Returns ``None`` if the config file is absent, malformed, or has no
+    ``provider_kind="anthropic"`` entry. Errors are swallowed by design —
+    config is a fallback below explicit kwargs and env vars.
+    """
+    try:
+        from rath.config.store import ConfigStore
+
+        return ConfigStore.load().find_provider_by_kind("anthropic")
+    except (FileNotFoundError, RuntimeError):
+        return None
+
+
 class RathAnthropicChatClient:
     """Thin client around ``anthropic.Anthropic().messages.create`` (non-streaming)."""
 
     def __init__(self, provider: Provider) -> None:
-        key = resolve_credential(provider.api_key, os.environ.get("ANTHROPIC_API_KEY"))
+        entry = _config_provider_entry() if not provider.api_key else None
+        key = resolve_credential(
+            provider.api_key,
+            os.environ.get("ANTHROPIC_API_KEY"),
+            getattr(entry, "api_key", None),
+        )
         if not key:
             raise ValueError(
-                "ANTHROPIC_API_KEY is not set and Provider.api_key is empty; "
-                "either pass api_key= to Provider(...) or export "
-                "ANTHROPIC_API_KEY (e.g. via a project .env file).",
+                "No Anthropic api_key found: Provider.api_key is empty, "
+                "ANTHROPIC_API_KEY is not set in the environment, and no "
+                "llm.default_provider with an api_key is configured in "
+                "~/.openrath/config.json. Pass api_key= to Provider(...), "
+                "export ANTHROPIC_API_KEY, or run Provider.from_config(...).",
             )
         self._provider = provider
         init_kw: dict[str, Any] = {"api_key": key}
         bu = resolve_credential(
-            provider.base_url, os.environ.get("ANTHROPIC_BASE_URL")
+            provider.base_url,
+            os.environ.get("ANTHROPIC_BASE_URL"),
+            getattr(entry, "base_url", None),
         )
         if bu:
             init_kw["base_url"] = bu
@@ -85,8 +112,10 @@ class RathAnthropicChatClient:
         Anthropic-flavored quadruple (``RateLimitError``, ``APIConnectionError``,
         ``APITimeoutError``, ``InternalServerError``).
         """
-        default_model = self._provider.model or os.environ.get(
-            "ANTHROPIC_DEFAULT_MODEL"
+        default_model = (
+            self._provider.model
+            or os.environ.get("ANTHROPIC_DEFAULT_MODEL")
+            or getattr(_config_provider_entry(), "model", None)
         )
         kwargs = build_anthropic_kwargs(req, default_model=default_model)
 

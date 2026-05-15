@@ -27,8 +27,9 @@ class Agent(Workflow):
         kwarg, which constructs a :class:`Provider` with just that model name.
 
         ``api_key`` and ``base_url`` left empty on the Provider fall back to
-        the ``OPENAI_API_KEY`` / ``OPENAI_BASE_URL`` environment variables
-        (loaded from the project ``.env`` if present) inside
+        the ``OPENAI_API_KEY`` / ``OPENAI_BASE_URL`` environment variables,
+        then to ``llm.default_provider`` in ``~/.openrath/config.json``
+        (see :mod:`rath.config`), inside
         :class:`~rath.llm.RathOpenAIChatClient`, so::
 
             flow.Agent("Use tools when helpful.", model="gpt-5.5")

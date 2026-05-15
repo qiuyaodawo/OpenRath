@@ -1,6 +1,7 @@
 """Print assistant tokens as they stream in.
 
-Requires ``OPENAI_API_KEY`` to be set (or in a project ``.env``).
+Requires ``OPENAI_API_KEY`` to be set in the environment, **or** an
+``llm.default_provider`` with an api_key in ``~/.openrath/config.json``.
 
 Run::
 
@@ -12,21 +13,37 @@ from __future__ import annotations
 import os
 import sys
 
+from rath.config.store import ConfigStore
 from rath.flow.agent_param import AgentParam, Provider
 from rath.llm import RathLLMStreamDelta, RathOpenAIChatClient
 from rath.session import Session
 from rath.session.loop_stream import run_session_loop_stream
 
 
+def _has_openai_credentials() -> bool:
+    if os.environ.get("OPENAI_API_KEY", "").strip():
+        return True
+    try:
+        store = ConfigStore.load()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    default = store.config.llm.default_provider
+    if default is None:
+        return False
+    entry = store.config.llm.providers.get(default)
+    return bool(entry and entry.api_key)
+
+
 def main() -> None:
-    if not os.environ.get("OPENAI_API_KEY"):
+    if not _has_openai_credentials():
         print(
-            "OPENAI_API_KEY is not set; export it or add to .env",
+            "No OpenAI credentials found: export OPENAI_API_KEY or "
+            "configure llm.default_provider in ~/.openrath/config.json.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    provider = Provider(model="gpt-5.5")
+    provider = Provider(model="glm-5.1")
     client = RathOpenAIChatClient(provider)
     agent = AgentParam(
         Session.from_agent_prompt("You are a concise assistant."),

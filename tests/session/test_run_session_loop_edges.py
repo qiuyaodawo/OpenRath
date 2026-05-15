@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 
 import pytest
 
@@ -340,12 +341,16 @@ def test_dispatch_exception_surfaces_in_tool_chunk() -> None:
 
 def test_default_executor_requires_api_key_somewhere(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Any,
 ) -> None:
-    """With no Provider.api_key and no env fallback, the default executor must
-    raise from the client (not from a redundant pre-check in the loop)."""
+    """With no Provider.api_key, no env fallback, and no config file, the
+    default executor must raise from the client (not from a redundant
+    pre-check in the loop)."""
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    # Isolate the config-file tier too — point OPENRATH_HOME at an empty dir.
+    monkeypatch.setenv("OPENRATH_HOME", str(tmp_path))
     backend = get("local")
     agent = AgentParam(
         Session.from_agent_prompt("sys"),

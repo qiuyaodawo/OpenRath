@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
-from typing import Any, Callable, Literal, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping
+
+if TYPE_CHECKING:
+    from rath.config.store import ConfigStore
 
 
 @dataclass(frozen=True, kw_only=True, slots=True)
@@ -72,6 +75,44 @@ class Provider:
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    @classmethod
+    def from_config(
+        cls,
+        name: str | None = None,
+        *,
+        store: "ConfigStore | None" = None,
+        **overrides: Any,
+    ) -> "Provider":
+        """Build a :class:`Provider` from ``~/.openrath/config.json``.
+
+        Looks up ``name`` (or ``llm.default_provider`` when ``name=None``)
+        under ``llm.providers``, then constructs a :class:`Provider` whose
+        fields come from the entry. Any explicit ``overrides`` win — pass
+        e.g. ``Provider.from_config("openai-main", api_key="ad-hoc")`` to
+        rotate one field without touching the on-disk file.
+
+        Lazy-imports :mod:`rath.config` so that ``import rath.llm`` never
+        touches the filesystem.
+
+        Raises :class:`KeyError` when the named provider is missing; the
+        message lists what is available.
+        """
+        from rath.config.store import ConfigStore  # local import — see docstring
+
+        s = store or ConfigStore.load()
+        entry = s.get_llm_provider(name)
+        base = cls(
+            provider_kind=entry.provider_kind,
+            model=entry.model,
+            api_key=entry.api_key,
+            base_url=entry.base_url,
+            temperature=entry.temperature,
+            max_tokens=entry.max_tokens,
+        )
+        if not overrides:
+            return base
+        return replace(base, **overrides)
 
 
 __all__ = ["Provider"]

@@ -1,6 +1,8 @@
 """Drive a session loop through the Anthropic adapter.
 
-Set ``ANTHROPIC_API_KEY`` in the environment (or in a project ``.env``).
+Set ``ANTHROPIC_API_KEY`` in the environment, or define
+``llm.default_provider`` (with an Anthropic entry) in
+``~/.openrath/config.json``.
 
 Run::
 
@@ -17,14 +19,31 @@ import os
 import sys
 
 from rath import flow
+from rath.config.store import ConfigStore
 from rath.llm import Provider
 from rath.session import Session
 
 
+def _has_anthropic_credentials() -> bool:
+    if os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return True
+    try:
+        store = ConfigStore.load()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    default = store.config.llm.default_provider
+    if default is None:
+        return False
+    entry = store.config.llm.providers.get(default)
+    return bool(entry and entry.api_key)
+
+
 def main() -> None:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    if not _has_anthropic_credentials():
         print(
-            "ANTHROPIC_API_KEY is not set; export it or add to .env",
+            "Anthropic credentials not found: export ANTHROPIC_API_KEY or "
+            "configure llm.default_provider with an api_key in "
+            "~/.openrath/config.json.",
             file=sys.stderr,
         )
         sys.exit(1)
