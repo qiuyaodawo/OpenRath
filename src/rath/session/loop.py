@@ -47,6 +47,7 @@ from rath.llm import (
     RathLLMChatResponse,
     RathLLMFinishReason,
     RathLLMFunctionTool,
+    RathLLMMessage,
     RathLLMStreamDelta,
     RathLLMTokenUsage,
     RathLLMToolCallFunction,
@@ -248,7 +249,7 @@ def resolve_executor(
     return DefaultSessionLoopExecutor(client)
 
 
-def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
+def _sync_loop_out_rows(out: Session, rows_list: list[ChunkRow]) -> None:
     out.chunk_table = ChunkTable(rows=tuple(rows_list))
 
 
@@ -446,7 +447,7 @@ def run_session_loop(
 
     prefs = agent_provider
 
-    rows_list: list[Any] = list(user_session.chunk_table.rows)
+    rows_list: list[ChunkRow] = list(user_session.chunk_table.rows)
     out = Session(
         chunk_table=ChunkTable(rows=tuple(rows_list)),
         sandbox_backend=user_session.sandbox_backend,
@@ -486,11 +487,21 @@ def run_session_loop(
     if not tool_schemas:
         tool_schemas = tools_dict_to_schemas(table)
 
+    # head is immutable after session start — compute once outside the loop.
+    head = chunk_table_to_messages(agent_session.chunk_table)
+    # Track how many rows have already been rendered into tail so we can
+    # incrementally extend rather than re-flatten every round.
+    _tail_rendered_up_to = 0
+    _tail_msgs: tuple[RathLLMMessage, ...] = ()
+
     try:
         for _ in range(max_tool_rounds):
-            head = chunk_table_to_messages(agent_session.chunk_table)
-            tail = chunk_table_to_messages(ChunkTable(rows=tuple(rows_list)))
-            messages = head + tail
+            # Incrementally extend tail with only new rows.
+            if len(rows_list) > _tail_rendered_up_to:
+                new_slice = ChunkTable(rows=tuple(rows_list[_tail_rendered_up_to:]))
+                _tail_msgs = _tail_msgs + chunk_table_to_messages(new_slice)
+                _tail_rendered_up_to = len(rows_list)
+            messages = head + _tail_msgs
 
             req = provider_into_chat_request(
                 messages,
@@ -588,7 +599,9 @@ def run_session_loop(
     if writer is not None:
         writer.close()
 
-    out.chunk_table = ChunkTable(rows=tuple(rows_list))
+    # Final sync covers the for/else exhaustion path; the normal break
+    # path already synced per-row above.
+    _sync_loop_out_rows(out, rows_list)
     reg.set_active(out)
     return out
 
