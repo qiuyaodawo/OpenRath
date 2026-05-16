@@ -54,6 +54,11 @@ class BackendSandbox:
     closed: bool = field(default=False)
     _refcount: int = field(default=0, repr=False)
 
+    @property
+    def refcount(self) -> int:
+        """Current number of live references; read-only mirror of internal state."""
+        return self._refcount
+
     def acquire(self) -> "BackendSandbox":
         """Add one reference; return ``self`` for chaining."""
         if self.closed:

@@ -19,7 +19,7 @@ def test_open_returns_zero_refcount() -> None:
     backend = get("local")
     sb = backend.open()
     try:
-        assert sb._refcount == 0
+        assert sb.refcount == 0
         assert not sb.closed
     finally:
         backend.close(sb)
@@ -29,7 +29,7 @@ def test_acquire_then_release_closes_via_backend() -> None:
     backend = get("local")
     sb = backend.open()
     sb.acquire()
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     assert not sb.closed
     sb.release()
     assert sb.closed
@@ -42,12 +42,12 @@ def test_multiple_acquires_require_matching_releases() -> None:
     sb.acquire()
     sb.acquire()
     sb.acquire()
-    assert sb._refcount == 3
+    assert sb.refcount == 3
     sb.release()
-    assert sb._refcount == 2
+    assert sb.refcount == 2
     assert not sb.closed
     sb.release()
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     assert not sb.closed
     sb.release()
     assert sb.closed
@@ -57,7 +57,7 @@ def test_context_manager_acquires_and_releases() -> None:
     backend = get("local")
     sb = backend.open()
     with sb:
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         assert not sb.closed
     assert sb.closed
 
@@ -66,11 +66,11 @@ def test_nested_context_managers_share_refcount() -> None:
     backend = get("local")
     sb = backend.open()
     with sb:
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         with sb:
-            assert sb._refcount == 2
+            assert sb.refcount == 2
             assert not sb.closed
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         assert not sb.closed
     assert sb.closed
 
@@ -112,13 +112,13 @@ def test_opensandbox_refcount_real_server() -> None:
     backend = get("opensandbox")
     sb = backend.open()
     try:
-        assert sb._refcount == 0
+        assert sb.refcount == 0
         sb.acquire()
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         sb.acquire()
-        assert sb._refcount == 2
+        assert sb.refcount == 2
         sb.release()
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         assert not sb.closed
         assert backend.sandbox_count() == 1
         sb.release()
@@ -134,7 +134,7 @@ def test_opensandbox_refcount_real_server() -> None:
 def test_opensandbox_context_manager_real_server() -> None:
     backend = get("opensandbox")
     with backend.open() as sb:
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         assert not sb.closed
         assert backend.sandbox_count() == 1
     assert sb.closed

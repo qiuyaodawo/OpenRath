@@ -57,7 +57,7 @@ def test_run_session_loop_stop_without_tools() -> None:
 
     assert user.sandbox is sandbox
     assert out.sandbox is sandbox
-    assert sandbox._refcount == 2
+    assert sandbox.refcount == 2
     assert out.lineage is not None
     assert session_registry().get_active_id() == out.id
 

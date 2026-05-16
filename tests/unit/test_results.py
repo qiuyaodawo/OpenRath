@@ -36,11 +36,6 @@ _RESULTS: list[ToolResult] = [
 
 
 @pytest.mark.parametrize("res", _RESULTS)
-def test_result_is_subclass(res: ToolResult) -> None:
-    assert isinstance(res, ToolResult)
-
-
-@pytest.mark.parametrize("res", _RESULTS)
 def test_result_is_frozen(res: ToolResult) -> None:
     field_name = dataclasses.fields(res)[0].name
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -51,11 +46,8 @@ def test_result_is_frozen(res: ToolResult) -> None:
 def test_result_pickle_round_trip(res: ToolResult) -> None:
     revived = pickle.loads(pickle.dumps(res))
     assert revived == res
-
-
-@pytest.mark.parametrize("res", _RESULTS)
-def test_result_hash_stable(res: ToolResult) -> None:
-    assert hash(res) == hash(res)
+    assert revived is not res
+    assert hash(revived) == hash(res)
 
 
 def test_file_entries_distinct_content_inequal() -> None:

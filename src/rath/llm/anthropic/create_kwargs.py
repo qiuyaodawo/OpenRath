@@ -12,10 +12,10 @@ The conversion is intentionally lossy on a few axes:
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from rath.llm.chat_request import RathLLMChatRequest
+from rath.llm.tool_args import parse_tool_arguments
 
 __all__ = ["build_anthropic_kwargs", "DEFAULT_MAX_TOKENS"]
 
@@ -121,17 +121,14 @@ def build_anthropic_kwargs(
                 blocks.append({"type": "text", "text": _coerce_text(m.content)})
             for tc in m.tool_calls:
                 fn = tc.get("function") or {}
-                arg_str = fn.get("arguments") or "{}"
-                try:
-                    parsed = json.loads(arg_str) if arg_str else {}
-                except json.JSONDecodeError:
-                    parsed = {}
+                arg_str = fn.get("arguments") or ""
+                parsed_dict, _ = parse_tool_arguments(arg_str)
                 blocks.append(
                     {
                         "type": "tool_use",
                         "id": tc.get("id", ""),
                         "name": fn.get("name", ""),
-                        "input": parsed,
+                        "input": parsed_dict or {},
                     }
                 )
             messages.append({"role": "assistant", "content": blocks})

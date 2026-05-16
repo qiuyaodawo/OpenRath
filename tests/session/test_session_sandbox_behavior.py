@@ -22,7 +22,7 @@ def test_with_session_optional_closes_handle() -> None:
     with s:
         sb = s.require_sandbox()
         assert not sb.closed
-        assert sb._refcount == 1
+        assert sb.refcount == 1
     assert s.sandbox is None
     assert sb.closed
     assert s.sandbox_backend == "local"
@@ -32,11 +32,11 @@ def test_require_sandbox_opens_lazily_and_keeps_one_reference() -> None:
     s = Session.from_user_message("x").to("local")
     sb = s.require_sandbox()
     try:
-        assert sb._refcount == 1
+        assert sb.refcount == 1
         assert not sb.closed
         # require again is idempotent — no extra acquire.
         assert s.require_sandbox() is sb
-        assert sb._refcount == 1
+        assert sb.refcount == 1
     finally:
         s.close_sandbox()
     assert sb.closed
@@ -45,7 +45,7 @@ def test_require_sandbox_opens_lazily_and_keeps_one_reference() -> None:
 def test_close_sandbox_releases_reference() -> None:
     s = Session.from_user_message("x").to("local")
     sb = s.require_sandbox()
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     s.close_sandbox()
     assert sb.closed
     assert s.sandbox is None
@@ -56,12 +56,12 @@ def test_bind_sandbox_acquires_and_releases_previous() -> None:
     sb_a = backend.open()
     sb_b = backend.open()
     s = Session.from_user_message("x").bind_sandbox(sb_a)
-    assert sb_a._refcount == 1
-    assert sb_b._refcount == 0
+    assert sb_a.refcount == 1
+    assert sb_b.refcount == 0
     s.bind_sandbox(sb_b)
     # Old reference released → sb_a closed; new acquired → refcount 1.
     assert sb_a.closed
-    assert sb_b._refcount == 1
+    assert sb_b.refcount == 1
     s.close_sandbox()
     assert sb_b.closed
 
@@ -70,9 +70,9 @@ def test_bind_same_sandbox_twice_is_noop() -> None:
     backend = get("local")
     sb = backend.open()
     s = Session.from_user_message("x").bind_sandbox(sb)
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     s.bind_sandbox(sb)
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     s.close_sandbox()
     assert sb.closed
 
@@ -82,9 +82,9 @@ def test_two_sessions_share_one_sandbox() -> None:
     sb = backend.open()
     a = Session.from_user_message("a").bind_sandbox(sb)
     b = Session.from_user_message("b").bind_sandbox(sb)
-    assert sb._refcount == 2
+    assert sb.refcount == 2
     a.close_sandbox()
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     assert not sb.closed
     b.close_sandbox()
     assert sb.closed

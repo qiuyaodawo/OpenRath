@@ -11,17 +11,14 @@ from rath.llm import (
     RathLLMChatResponse,
     RathLLMMessage,
     RathLLMStreamDelta,
-    StreamingChatClient,
     add_usage,
-    chat_client_for,
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
-from rath.session.loop import SessionLoopExecutor, StreamingExecutor
+from rath.session.loop import SessionLoopExecutor, resolve_executor
 from rath.session.manager import session_registry
 from rath.session.persistence import SessionWriter
-from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
 
 _DEFAULT_COMPRESS_INSTRUCTION = (
@@ -70,24 +67,9 @@ def run_session_compress(
     ``persist_path``) with a trailer.
     """
 
-    if executor is not None and on_event is not None:
-        raise ValueError(
-            "on_event with a custom executor is not supported; "
-            "wrap your client with StreamingExecutor and pass that as executor=."
-        )
-    if executor is None:
-        client = chat_client_for(agent_provider)
-        if on_event is not None:
-            if not isinstance(client, StreamingChatClient):
-                raise TypeError(
-                    "on_event requires a StreamingChatClient; "
-                    f"{type(client).__name__} (provider_kind="
-                    f"{agent_provider.provider_kind!r}) does not implement "
-                    "complete_stream(req). Drop on_event for non-streaming."
-                )
-            executor = StreamingExecutor(client, on_event)
-        else:
-            executor = DefaultSessionLoopExecutor(client)
+    executor = resolve_executor(
+        agent_provider=agent_provider, executor=executor, on_event=on_event
+    )
 
     instruction = (
         compress_instruction.strip()

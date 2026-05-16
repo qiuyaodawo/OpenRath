@@ -55,6 +55,7 @@ from rath.llm import (
     add_usage,
     chat_client_for,
 )
+from rath.llm.tool_args import parse_tool_arguments
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.chunk import (
     ChunkRow,
@@ -139,19 +140,7 @@ def _accumulate_stream_to_response(
         parts: list[RathLLMToolCallPart] = []
         for _, bucket in sorted(tool_buckets.items()):
             arg_str = bucket.get("arguments") or ""
-            parsed: dict[str, Any] | None
-            parse_error: bool
-            if arg_str:
-                try:
-                    parsed_val = json.loads(arg_str)
-                    if isinstance(parsed_val, dict):
-                        parsed, parse_error = parsed_val, False
-                    else:
-                        parsed, parse_error = None, True
-                except (ValueError, TypeError):
-                    parsed, parse_error = None, True
-            else:
-                parsed, parse_error = None, False
+            parsed, parse_error = parse_tool_arguments(arg_str)
             parts.append(
                 RathLLMToolCallPart(
                     id=str(bucket.get("id") or ""),
@@ -225,6 +214,38 @@ class StreamingExecutor:
 
     def tool_schemas(self) -> tuple[RathLLMFunctionTool, ...]:
         return self._inner.tool_schemas()
+
+
+def resolve_executor(
+    *,
+    agent_provider: Provider,
+    executor: SessionLoopExecutor | None,
+    on_event: OnEventCb | None,
+) -> SessionLoopExecutor:
+    """Pick the executor for ``run_session_loop`` / ``run_session_compress``.
+
+    A caller-supplied ``executor`` is returned as-is (and is incompatible with
+    ``on_event``). Otherwise a chat client is built from ``agent_provider`` —
+    streaming when ``on_event`` is set, default otherwise.
+    """
+    if executor is not None and on_event is not None:
+        raise ValueError(
+            "on_event with a custom executor is not supported; "
+            "wrap your client with StreamingExecutor and pass that as executor=."
+        )
+    if executor is not None:
+        return executor
+    client = chat_client_for(agent_provider)
+    if on_event is not None:
+        if not isinstance(client, StreamingChatClient):
+            raise TypeError(
+                "on_event requires a StreamingChatClient; "
+                f"{type(client).__name__} (provider_kind="
+                f"{agent_provider.provider_kind!r}) does not implement "
+                "complete_stream(req). Drop on_event for non-streaming."
+            )
+        return StreamingExecutor(client, on_event)
+    return DefaultSessionLoopExecutor(client)
 
 
 def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
@@ -419,24 +440,9 @@ def run_session_loop(
 
     table = merge_tools_for_loop(tools)
 
-    if executor is not None and on_event is not None:
-        raise ValueError(
-            "on_event with a custom executor is not supported; "
-            "wrap your client with StreamingExecutor and pass that as executor=."
-        )
-    if executor is None:
-        client = chat_client_for(agent_provider)
-        if on_event is not None:
-            if not isinstance(client, StreamingChatClient):
-                raise TypeError(
-                    "on_event requires a StreamingChatClient; "
-                    f"{type(client).__name__} (provider_kind="
-                    f"{agent_provider.provider_kind!r}) does not implement "
-                    "complete_stream(req). Drop on_event for non-streaming."
-                )
-            executor = StreamingExecutor(client, on_event)
-        else:
-            executor = DefaultSessionLoopExecutor(client)
+    executor = resolve_executor(
+        agent_provider=agent_provider, executor=executor, on_event=on_event
+    )
 
     prefs = agent_provider
 

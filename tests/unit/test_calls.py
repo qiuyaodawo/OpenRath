@@ -33,11 +33,6 @@ _HASHABLE_CALLS = [
 
 
 @pytest.mark.parametrize("call", _HASHABLE_CALLS)
-def test_call_is_subclass_of_backend_tool(call: BackendTool) -> None:
-    assert isinstance(call, BackendTool)
-
-
-@pytest.mark.parametrize("call", _HASHABLE_CALLS)
 def test_call_is_frozen(call: BackendTool) -> None:
     field_name = dataclasses.fields(call)[0].name
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -49,16 +44,7 @@ def test_call_pickle_round_trip(call: BackendTool) -> None:
     revived = pickle.loads(pickle.dumps(call))
     assert revived == call
     assert revived is not call
-
-
-@pytest.mark.parametrize("call", _HASHABLE_CALLS)
-def test_call_hash_stable(call: BackendTool) -> None:
-    assert hash(call) == hash(call)
-
-
-@pytest.mark.parametrize("call", _HASHABLE_CALLS)
-def test_call_equals_self(call: BackendTool) -> None:
-    assert call == call
+    assert hash(revived) == hash(call)
 
 
 def test_distinct_calls_inequal() -> None:

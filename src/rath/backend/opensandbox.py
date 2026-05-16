@@ -38,6 +38,7 @@ from rath.backend.results import (
     FileWriteResult,
     ToolExecutionFailure,
     ToolResult,
+    tool_failure_from,
 )
 from rath.backend.tool_types import (
     BackendTool,
@@ -370,17 +371,9 @@ class OpenSandboxBackend(Backend):
         try:
             return self._runner.run(self._dispatch_coro(native, call))
         except TimeoutError as exc:
-            return ToolExecutionFailure(
-                kind="timeout",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("timeout", exc)
         except Exception as exc:
-            return ToolExecutionFailure(
-                kind="dispatch_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("dispatch_error", exc)
 
     async def _dispatch_coro(self, native: Any, call: BackendTool) -> ToolResult | bool:
         match call:
@@ -465,16 +458,8 @@ class OpenSandboxBackend(Backend):
         except SandboxException as exc:
             msg = str(exc).lower()
             if "not found" in msg or "no such file" in msg or "404" in msg:
-                return ToolExecutionFailure(
-                    kind="file_not_found",
-                    message=str(exc),
-                    detail=str(path),
-                )
-            return ToolExecutionFailure(
-                kind="sandbox_sdk_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+                return tool_failure_from("file_not_found", exc, detail=str(path))
+            return tool_failure_from("sandbox_sdk_error", exc)
 
     async def _files_write(
         self, native: Any, call: BackendToolFilesWrite

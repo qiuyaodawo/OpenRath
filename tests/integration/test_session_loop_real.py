@@ -84,7 +84,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
         assert out.sandbox is sandbox
         assert out.sandbox.closed is False
         assert user.sandbox is sandbox
-        assert sandbox._refcount == 2
+        assert sandbox.refcount == 2
         assert out.lineage is not None
         assert out.lineage.producer_user_session_id == user.id
         assert out.parent_session_ids == (user.id, agent.agent_session.id)

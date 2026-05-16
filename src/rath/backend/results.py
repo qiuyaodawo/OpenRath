@@ -84,6 +84,22 @@ class ToolExecutionFailure(ToolResult):
     detail: str | None = None
 
 
+def tool_failure_from(
+    kind: str, exc: BaseException, detail: str | None = None
+) -> ToolExecutionFailure:
+    """Wrap ``exc`` as a :class:`ToolExecutionFailure` with vendor-uniform shape.
+
+    ``detail`` defaults to ``type(exc).__name__`` so callers omit it for the
+    common case. Pass an explicit string (e.g. the offending file path) to
+    override.
+    """
+    return ToolExecutionFailure(
+        kind=kind,
+        message=str(exc),
+        detail=detail if detail is not None else type(exc).__name__,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class CodeResult(ToolResult):
     """Result of :class:`~rath.backend.tool_types.BackendToolCodeRun`.

@@ -32,7 +32,7 @@ from rath.backend.persistence.paths import (
 )
 from rath.backend.registry import get as backend_get
 from rath.config.secrets import chmod_user_only
-from rath.session.persistence._serialize import (
+from rath.backend.persistence.spec_json import (
     SCHEMA_VERSION,
     spec_from_jsonable,
     spec_to_jsonable,

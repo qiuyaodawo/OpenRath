@@ -17,11 +17,15 @@ records by hand.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from rath.backend.abc import BackendSandboxSpec
+from rath.backend.persistence.spec_json import (
+    SCHEMA_VERSION,
+    spec_from_jsonable,
+    spec_to_jsonable,
+)
 from rath.llm.chat_response import RathLLMTokenUsage
 from rath.session.chunk import ChunkRow
 from rath.session.graph.export import (
@@ -30,8 +34,6 @@ from rath.session.graph.export import (
 )
 from rath.session.graph.kind import LineageKind
 from rath.session.session import Session
-
-SCHEMA_VERSION = 1
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -51,40 +53,6 @@ def _isoformat_utc(dt: datetime) -> str:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
-
-
-def spec_to_jsonable(spec: BackendSandboxSpec | None) -> dict[str, Any] | None:
-    """Project :class:`BackendSandboxSpec` into a plain-dict shape.
-
-    ``timedelta`` becomes total seconds (``float``); ``Sequence`` /
-    ``Mapping`` become ``list`` / ``dict``. Returns ``None`` when ``spec`` is
-    ``None``.
-    """
-    if spec is None:
-        return None
-    return {
-        "image": spec.image,
-        "entrypoint": list(spec.entrypoint) if spec.entrypoint is not None else None,
-        "env": dict(spec.env) if spec.env is not None else None,
-        "timeout_seconds": (
-            spec.timeout.total_seconds() if spec.timeout is not None else None
-        ),
-        "working_dir": spec.working_dir,
-    }
-
-
-def spec_from_jsonable(raw: dict[str, Any] | None) -> BackendSandboxSpec | None:
-    """Inverse of :func:`spec_to_jsonable`."""
-    if raw is None:
-        return None
-    timeout_s = raw.get("timeout_seconds")
-    return BackendSandboxSpec(
-        image=raw.get("image"),
-        entrypoint=tuple(raw["entrypoint"]) if raw.get("entrypoint") else None,
-        env=dict(raw["env"]) if raw.get("env") else None,
-        timeout=timedelta(seconds=float(timeout_s)) if timeout_s is not None else None,
-        working_dir=raw.get("working_dir"),
-    )
 
 
 def usage_from_jsonable(raw: dict[str, Any] | None) -> RathLLMTokenUsage | None:

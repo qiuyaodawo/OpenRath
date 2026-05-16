@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Literal, Mapping, cast
 
 from openai.types.chat import ChatCompletion
@@ -16,6 +15,7 @@ from rath.llm.chat_response import (
     RathLLMToolCallFunction,
     RathLLMToolCallPart,
 )
+from rath.llm.tool_args import parse_tool_arguments
 
 __all__ = ["normalize_chat_completion"]
 
@@ -31,18 +31,6 @@ def _coerce_finish_reason(value: str | None) -> RathLLMFinishReason:
     return "stop"
 
 
-def _parse_tool_arguments(arg_str: str) -> tuple[dict[str, Any] | None, bool]:
-    if not arg_str:
-        return None, False
-    try:
-        val: Any = json.loads(arg_str)
-        if isinstance(val, dict):
-            return val, False
-        return None, True
-    except json.JSONDecodeError:
-        return None, True
-
-
 def _normalize_tool_calls(
     raw_list: list[Mapping[str, Any]] | None,
 ) -> tuple[RathLLMToolCallPart, ...] | None:
@@ -55,7 +43,7 @@ def _normalize_tool_calls(
             fn_raw = {}
         name = str(fn_raw.get("name") or "")
         arg_str = str(fn_raw.get("arguments") or "")
-        parsed, perr = _parse_tool_arguments(arg_str)
+        parsed, perr = parse_tool_arguments(arg_str)
         parts.append(
             RathLLMToolCallPart(
                 id=str(raw.get("id") or ""),

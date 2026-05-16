@@ -30,6 +30,7 @@ from rath.backend.results import (
     FileWriteResult,
     ToolExecutionFailure,
     ToolResult,
+    tool_failure_from,
 )
 from rath.backend.tool_types import (
     BackendTool,
@@ -133,10 +134,8 @@ class LocalBackend(Backend):
                 return self._code_run(sandbox, call)
             case _:
                 exc = UnsupportedBackendTool(type(call), self.name)
-                return ToolExecutionFailure(
-                    kind="unsupported_tool",
-                    message=str(exc),
-                    detail=type(call).__name__,
+                return tool_failure_from(
+                    "unsupported_tool", exc, detail=type(call).__name__
                 )
 
     def _resolve(self, sandbox: BackendSandbox, path: str) -> Path:
@@ -177,23 +176,11 @@ class LocalBackend(Backend):
         try:
             proc = subprocess.run(**run_kw)
         except subprocess.TimeoutExpired as exc:
-            return ToolExecutionFailure(
-                kind="timeout",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("timeout", exc)
         except (FileNotFoundError, OSError) as exc:
-            return ToolExecutionFailure(
-                kind="os_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("os_error", exc)
         except Exception as exc:
-            return ToolExecutionFailure(
-                kind="unexpected",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("unexpected", exc)
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         return CommandResult(
             exit_code=int(proc.returncode),
@@ -211,17 +198,9 @@ class LocalBackend(Backend):
                 return FileContent(data=p.read_bytes())
             return FileContent(data=p.read_text(encoding=call.encoding))
         except FileNotFoundError as exc:
-            return ToolExecutionFailure(
-                kind="file_not_found",
-                message=str(exc),
-                detail=str(p),
-            )
+            return tool_failure_from("file_not_found", exc, detail=str(p))
         except OSError as exc:
-            return ToolExecutionFailure(
-                kind="os_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("os_error", exc)
 
     def _files_write(
         self, sandbox: BackendSandbox, call: BackendToolFilesWrite
@@ -234,11 +213,7 @@ class LocalBackend(Backend):
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(payload_bytes)
         except OSError as exc:
-            return ToolExecutionFailure(
-                kind="os_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("os_error", exc)
         with contextlib.suppress(OSError):
             p.chmod(call.mode)
         return FileWriteResult(bytes_written=len(payload_bytes))
@@ -257,11 +232,7 @@ class LocalBackend(Backend):
                 for child in p.iterdir()
             ]
         except OSError as exc:
-            return ToolExecutionFailure(
-                kind="os_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("os_error", exc)
         entries.sort(key=lambda e: e.name)
         return FileEntries(entries=tuple(entries))
 
@@ -281,11 +252,7 @@ class LocalBackend(Backend):
     ) -> CodeResult | ToolExecutionFailure:
         if call.language != "python":
             exc = UnsupportedBackendTool(type(call), self.name)
-            return ToolExecutionFailure(
-                kind="unsupported_tool",
-                message=str(exc),
-                detail=call.language,
-            )
+            return tool_failure_from("unsupported_tool", exc, detail=call.language)
         work = Path(sandbox.handle)
         tmp = work / f".rath_code_{uuid.uuid4().hex}.py"
         tmp.write_text(call.code, encoding="utf-8")
@@ -300,17 +267,9 @@ class LocalBackend(Backend):
                 run_kw["timeout"] = call.timeout
             proc = subprocess.run(**run_kw)
         except subprocess.TimeoutExpired as exc:
-            return ToolExecutionFailure(
-                kind="timeout",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("timeout", exc)
         except (FileNotFoundError, OSError) as exc:
-            return ToolExecutionFailure(
-                kind="os_error",
-                message=str(exc),
-                detail=type(exc).__name__,
-            )
+            return tool_failure_from("os_error", exc)
         finally:
             with contextlib.suppress(FileNotFoundError, OSError):
                 tmp.unlink()

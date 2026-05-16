@@ -19,10 +19,10 @@ def test_fork_shares_open_sandbox_handle() -> None:
     backend = get("local")
     sb = backend.open()
     s = Session.from_user_message("hi").bind_sandbox(sb)
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     f = s.fork()
     assert f.sandbox is sb
-    assert sb._refcount == 2
+    assert sb.refcount == 2
     assert not sb.closed
     s.close_sandbox()
     assert not sb.closed
@@ -42,10 +42,10 @@ def test_detach_shares_open_sandbox_handle() -> None:
     backend = get("local")
     sb = backend.open()
     s = Session.from_user_message("y").bind_sandbox(sb)
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     d = s.detach()
     assert d.sandbox is sb
-    assert sb._refcount == 2
+    assert sb.refcount == 2
     assert not sb.closed
     s.close_sandbox()
     assert not sb.closed
@@ -92,13 +92,13 @@ def test_merge_shared_sandbox_bumps_refcount() -> None:
     sb = backend.open()
     a = Session.from_user_message("a").bind_sandbox(sb)
     b = Session.from_user_message("b").bind_sandbox(sb)
-    assert sb._refcount == 2
+    assert sb.refcount == 2
     m = a.merge(b)
     assert m.sandbox is sb
-    assert sb._refcount == 3
+    assert sb.refcount == 3
     a.close_sandbox()
     b.close_sandbox()
-    assert sb._refcount == 1
+    assert sb.refcount == 1
     assert not sb.closed
     m.close_sandbox()
     assert sb.closed

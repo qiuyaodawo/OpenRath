@@ -88,7 +88,7 @@ def test_two_streams_run_in_parallel(fake_sandbox: BackendSandbox) -> None:
     """Overlapping streams advance concurrently (each dispatch sleeps briefly)."""
 
     backend: _RecordingBackend = fake_sandbox.backend  # type: ignore[assignment]
-    backend.delay = 0.05
+    backend.delay = 0.1
 
     start = time.perf_counter()
     with fake_sandbox.stream() as s1, fake_sandbox.stream() as s2:
@@ -99,7 +99,7 @@ def test_two_streams_run_in_parallel(fake_sandbox: BackendSandbox) -> None:
     elapsed = time.perf_counter() - start
 
     assert {c.cmd for c in backend.dispatched} == {"from-s1", "from-s2"}
-    assert elapsed < 0.12
+    assert elapsed < 0.18
 
 
 def test_wait_event_blocks_until_signaled(fake_sandbox: BackendSandbox) -> None:

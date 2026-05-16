@@ -60,8 +60,8 @@ def test_prompt_constants_are_non_empty() -> None:
         assert len(getattr(prompts, name).strip()) > 40
 
 
-def test_workflow_run_session_loop_call_count() -> None:
-    """layers=2 → 1 packager + 4 lit + 2×2 repro + 2 head = 11."""
+def test_workflow_invokes_stations_in_pipeline_order() -> None:
+    """layers=2 produces the documented call sequence: 11 loops + 2 compresses."""
 
     _prepend_example_path()
     from research_transformer.providers import (
@@ -74,27 +74,45 @@ def test_workflow_run_session_loop_call_count() -> None:
     from rath.llm import Provider
     from rath.session.session import Session
 
-    stub = Provider(api_key="k", model="m")
+    def _p(role: str) -> Provider:
+        return Provider(api_key="k", model=role)
+
     prov = ResearchTransformerProviders(
-        packager=stub,
-        literature=stub,
-        rewrite=stub,
-        qa=stub,
-        verifier=stub,
-        jargon=stub,
-        deai=stub,
-        compressor=stub,
+        packager=_p("packager"),
+        literature=_p("literature"),
+        rewrite=_p("rewrite"),
+        qa=_p("qa"),
+        verifier=_p("verifier"),
+        jargon=_p("jargon"),
+        deai=_p("deai"),
+        compressor=_p("compressor"),
     )
     user = Session.from_user_message("hello").to("local", spec=None)
+
+    loop_models: list[str] = []
+    compress_models: list[str] = []
+
+    def _record_loop(*args, **kwargs):
+        user_session = args[0] if args else kwargs["user_session"]
+        provider = kwargs["agent_provider"]
+        loop_models.append(provider.model or "")
+        return user_session
+
+    def _record_compress(*args, **kwargs):
+        user_session = args[0] if args else kwargs["user_session"]
+        provider = kwargs["agent_provider"]
+        compress_models.append(provider.model or "")
+        return user_session
+
     with (
         mock.patch(
             "research_transformer.workflow.run_session_loop",
-            side_effect=lambda u, *_a, **_k: u,
-        ) as m_loop,
+            side_effect=_record_loop,
+        ),
         mock.patch(
             "rath.flow.compressor.run_session_compress",
-            side_effect=lambda user_session, *_a, **_k: user_session,
-        ) as m_comp,
+            side_effect=_record_compress,
+        ),
     ):
         wf = ResearchTransformerWorkflow(
             prov,
@@ -104,8 +122,21 @@ def test_workflow_run_session_loop_call_count() -> None:
             image_tools=None,
         )
         wf.forward(user)
-    assert m_loop.call_count == 11
-    assert m_comp.call_count == 2
+
+    assert loop_models == [
+        "packager",
+        "literature",
+        "rewrite",
+        "literature",
+        "rewrite",
+        "qa",
+        "verifier",
+        "qa",
+        "verifier",
+        "jargon",
+        "deai",
+    ]
+    assert compress_models == ["compressor", "compressor"]
 
 
 def test_workflow_no_compress_skips_run_session_compress() -> None:

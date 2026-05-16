@@ -114,7 +114,7 @@ def test_run_session_compress_structure_and_lineage_real() -> None:
 
         assert user.sandbox is sb
         assert out.sandbox is sb and not out.sandbox.closed
-        assert sb._refcount == 2
+        assert sb.refcount == 2
         assert out.parent_session_ids == (user.id, agent.id)
         assert out.lineage_kind == LineageKind.OP_SESSION_COMPRESS
         assert out.lineage_operator == "run_session_compress"
