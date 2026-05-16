@@ -22,10 +22,13 @@ __all__ = [
     "export_jsonl_string",
     "export_jsonl",
     "export_journal_jsonl",
+    "cumulative_usage_to_jsonable",
+    "lineage_extras_to_jsonable",
 ]
 
 
-def _usage_to_jsonable(session: Session) -> dict[str, int] | None:
+def cumulative_usage_to_jsonable(session: Session) -> dict[str, int] | None:
+    """Project ``session.cumulative_usage`` into a JSON-ready dict (or ``None``)."""
     usage = session.cumulative_usage
     if usage is None:
         return None
@@ -36,10 +39,10 @@ def _usage_to_jsonable(session: Session) -> dict[str, int] | None:
     }
 
 
-def _lineage_extras_to_jsonable(
+def lineage_extras_to_jsonable(
     extras: tuple[tuple[str, Any], ...],
 ) -> list[list[Any]]:
-    """Convert lineage_extras (tuple of pairs) into a JSONable list of pairs.
+    """Convert ``lineage_extras`` into a JSONable list-of-pairs.
 
     Values that are not natively JSON-serializable are coerced to ``str(value)``
     so the row never fails to dump.
@@ -62,9 +65,9 @@ def session_to_jsonl_row(session: Session) -> dict[str, Any]:
         "parent_session_ids": [str(p) for p in session.parent_session_ids],
         "lineage_operator": session.lineage_operator,
         "lineage_kind": session.lineage_kind.value,
-        "lineage_extras": _lineage_extras_to_jsonable(session.lineage_extras),
+        "lineage_extras": lineage_extras_to_jsonable(session.lineage_extras),
         "chunk_count": len(session.chunk_table.rows),
-        "cumulative_usage": _usage_to_jsonable(session),
+        "cumulative_usage": cumulative_usage_to_jsonable(session),
     }
 
 

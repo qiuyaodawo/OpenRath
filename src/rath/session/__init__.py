@@ -37,6 +37,20 @@ from rath.session.loop import (
     sink_chunk_print,
 )
 from rath.session.manager import SessionRegistry, session_registry
+from rath.session.persistence import (
+    PersistedSession,
+    PersistedSessionHeader,
+    PersistedSessionMeta,
+    PersistenceError,
+    SessionWriter,
+    close_session_writers,
+    compose_hooks,
+    delete_session,
+    list_persisted_sessions,
+    load_session,
+    persist_chunks,
+    prune_sessions,
+)
 from rath.session.primitives import (
     create_leaf_system,
     create_leaf_user,
@@ -85,4 +99,17 @@ __all__ = [
     "tool_feedback_chunk",
     "user_text_chunk",
     "validate_acyclic",
+    # Persistence (append-only JSONL per session, see rath.session.persistence)
+    "PersistedSession",
+    "PersistedSessionHeader",
+    "PersistedSessionMeta",
+    "PersistenceError",
+    "SessionWriter",
+    "close_session_writers",
+    "compose_hooks",
+    "delete_session",
+    "list_persisted_sessions",
+    "load_session",
+    "persist_chunks",
+    "prune_sessions",
 ]

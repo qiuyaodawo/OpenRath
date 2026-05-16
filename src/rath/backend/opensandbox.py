@@ -281,6 +281,47 @@ class OpenSandboxBackend(Backend):
         )
         return self._runner.run(self._open_coro(image, timeout, env, entrypoint, spec))
 
+    def attach(
+        self,
+        remote_id: str,
+        *,
+        spec: BackendSandboxSpec | None = None,
+    ) -> BackendSandbox:
+        """Reattach to an already-running remote sandbox by its native id.
+
+        Calls ``opensandbox.Sandbox.connect(remote_id)`` so the SDK pulls the
+        live container metadata from the server and returns a working
+        handle. The returned :class:`BackendSandbox` is indistinguishable
+        from one produced by :meth:`open` — it can be used with ``dispatch``,
+        ``close``, ``stream`` etc.
+
+        ``spec`` is recorded on the :class:`BackendSandbox` purely for
+        bookkeeping (e.g. session-loop replay); it is not validated against
+        the live container.
+
+        Raises whatever :func:`opensandbox.Sandbox.connect` raises when the
+        remote id is missing / expired / unauthorized.
+        """
+        if not _SDK_AVAILABLE:  # pragma: no cover -- gated by is_available()
+            raise RuntimeError(
+                "opensandbox SDK is not installed; "
+                "install with `pip install rath[opensandbox]`"
+            )
+        return self._runner.run(self._attach_coro(remote_id, spec))
+
+    async def _attach_coro(
+        self,
+        remote_id: str,
+        spec: BackendSandboxSpec | None,
+    ) -> BackendSandbox:
+        native = await _OSBSandbox.connect(remote_id)
+        # The SDK populates ``native.id`` on connect; assert sanity rather
+        # than trust the caller. If the SDK ever returns a different id,
+        # honor what the server says.
+        handle = getattr(native, "id", remote_id) or remote_id
+        self._natives[handle] = native
+        return BackendSandbox(backend=self, handle=handle, spec=spec)
+
     async def _open_coro(
         self,
         image: str,
