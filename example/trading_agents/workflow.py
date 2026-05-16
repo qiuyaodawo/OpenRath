@@ -14,7 +14,7 @@ from tools import AlphaVantageGlobalQuoteTool
 from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.workflow import Workflow
 from rath.session import run_session_loop
-from rath.session.loop import ChunkAppendHook
+from rath.session.loop import OnEventCb
 from rath.session.session import Session
 
 
@@ -22,11 +22,11 @@ class TradingAgentsWorkflow(Workflow):
     """Sequential analyst → bear → bull → trader → risk/PM."""
 
     def __init__(
-        self, provider: Provider, *, chunk_print: ChunkAppendHook | None = None
+        self, provider: Provider, *, on_event: OnEventCb | None = None
     ) -> None:
         super().__init__()
         prov = provider
-        self._chunk_print = chunk_print
+        self._on_event = on_event
         self.analyst = AgentParam(Session.from_agent_prompt(ANALYST_SYSTEM), prov)
         self.researcher_bear = AgentParam(
             Session.from_agent_prompt(RESEARCHER_BEAR_SYSTEM),
@@ -41,39 +41,39 @@ class TradingAgentsWorkflow(Workflow):
 
     def forward(self, session: Session) -> Session:
         market_tools = [AlphaVantageGlobalQuoteTool()]
-        cp = self._chunk_print
+        cp = self._on_event
         s = run_session_loop(
             session,
             self.analyst.agent_session,
             agent_provider=self.analyst.provider,
             tools=market_tools,
-            chunk_print=cp,
+            on_event=cp,
         )
         s = run_session_loop(
             s,
             self.researcher_bear.agent_session,
             agent_provider=self.researcher_bear.provider,
             tools=None,
-            chunk_print=cp,
+            on_event=cp,
         )
         s = run_session_loop(
             s,
             self.researcher_bull.agent_session,
             agent_provider=self.researcher_bull.provider,
             tools=None,
-            chunk_print=cp,
+            on_event=cp,
         )
         s = run_session_loop(
             s,
             self.trader.agent_session,
             agent_provider=self.trader.provider,
             tools=None,
-            chunk_print=cp,
+            on_event=cp,
         )
         return run_session_loop(
             s,
             self.risk_pm.agent_session,
             agent_provider=self.risk_pm.provider,
             tools=None,
-            chunk_print=cp,
+            on_event=cp,
         )

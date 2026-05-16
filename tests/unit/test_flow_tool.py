@@ -15,7 +15,7 @@ from rath.session import Session
 def test_flow_tool_session_helpers_dispatch_local() -> None:
     backend = get("local")
     with backend.open() as sb:
-        sess = Session.from_user_message(".").with_sandbox(sb)
+        sess = Session.from_user_message(".").bind_sandbox(sb)
 
         if sys.platform == "win32":
             r_cmd = ft.flow_tool_command_run(sess, "cmd /c echo flow_tool_cmd")

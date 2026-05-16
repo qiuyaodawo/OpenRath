@@ -147,8 +147,7 @@ class ConfigStore:
         except KeyError as e:
             available = sorted(self._data.mcp.servers)
             raise KeyError(
-                f"MCP server {name!r} not found in {self.path}; "
-                f"available: {available}",
+                f"MCP server {name!r} not found in {self.path}; available: {available}",
             ) from e
 
     def enabled_mcp_servers(self) -> list[MCPServerConfig]:

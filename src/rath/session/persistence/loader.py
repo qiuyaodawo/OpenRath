@@ -137,7 +137,9 @@ class PersistedSession:
         return user, agent
 
 
-def load_session(session_id: UUID | str, *, path: Path | None = None) -> PersistedSession:
+def load_session(
+    session_id: UUID | str, *, path: Path | None = None
+) -> PersistedSession:
     """Parse one session JSONL into a :class:`PersistedSession`.
 
     Pass ``session_id`` to look up under the resolved sessions directory, or
@@ -305,9 +307,7 @@ def _header_from_record(
         ) from e
 
 
-def _chunk_from_record(
-    record: dict[str, Any], *, path: Path, lineno: int
-) -> ChunkRow:
+def _chunk_from_record(record: dict[str, Any], *, path: Path, lineno: int) -> ChunkRow:
     try:
         kind = ChunkKind(record["kind"])
     except (KeyError, ValueError) as e:

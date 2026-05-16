@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from rath.flow.agent_param import AgentParam
 from rath.flow.workflow import Workflow
+from rath.llm import RathLLMStreamDelta
 from rath.llm.provider import Provider
-from rath.session import ChunkAppendHook, Session, run_session_compress
+from rath.session import Session, run_session_compress
 
 
 class Compressor(Workflow):
@@ -14,10 +17,10 @@ class Compressor(Workflow):
         compress_instruction: str,
         provider: Provider,
         *,
-        chunk_print: ChunkAppendHook | None = None,
+        on_event: Callable[[RathLLMStreamDelta], None] | None = None,
     ):
         super().__init__()
-        self._chunk_print = chunk_print
+        self._on_event = on_event
         self.agent = AgentParam(
             agent_session=Session.from_agent_prompt(compress_instruction),
             provider=provider,
@@ -28,7 +31,7 @@ class Compressor(Workflow):
             user_session=session,
             agent_session=self.agent.agent_session,
             agent_provider=self.agent.provider,
-            chunk_print=self._chunk_print,
+            on_event=self._on_event,
         )
 
 

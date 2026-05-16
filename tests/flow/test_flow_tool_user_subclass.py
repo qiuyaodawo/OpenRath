@@ -89,7 +89,7 @@ def test_user_flow_tool_result_in_tool_chunk() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("go").with_sandbox(sb)
+        user = Session.from_user_message("go").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,

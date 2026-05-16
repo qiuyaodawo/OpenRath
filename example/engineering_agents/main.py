@@ -15,7 +15,7 @@ if str(_EX) not in sys.path:
     sys.path.insert(0, str(_EX))
 
 # Imports below require ``example/`` on ``sys.path`` (see above).
-from _chunk_print import optional_chunk_print  # noqa: E402
+from _on_event import optional_on_event  # noqa: E402
 from workflows import EngineeringProjectWorkflow  # noqa: E402
 
 
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> None:
     user = Session.from_user_message(args.goal.strip()).to("local", spec=workdir)
     EngineeringProjectWorkflow(
         provider=provider,
-        chunk_print=optional_chunk_print(args.print_chunks),
+        on_event=optional_on_event(args.print_chunks),
     ).forward(user)
 
 

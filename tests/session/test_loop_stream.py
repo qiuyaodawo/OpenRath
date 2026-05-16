@@ -1,4 +1,8 @@
-"""Streaming session loop (:func:`run_session_loop_stream`)."""
+"""run_session_loop streaming behavior via ``on_event`` (scripted client).
+
+Covers the unified ``on_event`` parameter that replaces the deprecated
+``chunk_print`` hook and the standalone ``run_session_loop_stream``.
+"""
 
 from __future__ import annotations
 
@@ -13,14 +17,14 @@ from rath.llm import (
     RathLLMChatRequest,
     RathLLMChatResponse,
     RathLLMStreamDelta,
-    RathLLMTokenUsage,
 )
-from rath.session import Session, session_registry
+from rath.session import (
+    Session,
+    run_session_loop,
+    session_registry,
+)
 from rath.session.chunk import ChunkKind
-from rath.session.loop_stream import (
-    accumulate_stream_to_response,
-    run_session_loop_stream,
-)
+from rath.session.loop import StreamingExecutor
 
 
 @pytest.fixture(autouse=True)
@@ -29,62 +33,11 @@ def _clear_active() -> None:
     session_registry().set_active(None)
 
 
-def test_accumulate_text_stream() -> None:
-    deltas = iter(
-        [
-            RathLLMStreamDelta(content_delta="Hel"),
-            RathLLMStreamDelta(content_delta="lo, "),
-            RathLLMStreamDelta(content_delta="world!"),
-            RathLLMStreamDelta(finish_reason="stop"),
-            RathLLMStreamDelta(
-                usage=RathLLMTokenUsage(
-                    prompt_tokens=5, completion_tokens=3, total_tokens=8
-                )
-            ),
-        ]
-    )
-    seen: list[RathLLMStreamDelta] = []
-    resp = accumulate_stream_to_response(deltas, on_event=seen.append)
-    assert resp.primary_choice.message.content == "Hello, world!"
-    assert resp.primary_choice.finish_reason == "stop"
-    assert resp.usage is not None
-    assert resp.usage.total_tokens == 8
-    # Every delta was forwarded.
-    assert len(seen) == 5
-
-
-def test_accumulate_tool_call_stream() -> None:
-    args_chunks = [json.dumps({"path": "/etc"})[i : i + 4] for i in range(0, 14, 4)]
-    deltas: list[RathLLMStreamDelta] = [
-        RathLLMStreamDelta(
-            tool_call_index=0,
-            tool_call_id="tc1",
-            tool_call_name_delta="list_files",
-        ),
-    ]
-    for chunk in args_chunks:
-        deltas.append(
-            RathLLMStreamDelta(
-                tool_call_index=0,
-                tool_call_args_delta=chunk,
-            )
-        )
-    deltas.append(RathLLMStreamDelta(finish_reason="tool_calls"))
-    resp = accumulate_stream_to_response(iter(deltas))
-    tc = resp.primary_choice.message.tool_calls
-    assert tc is not None and len(tc) == 1
-    assert tc[0].id == "tc1"
-    assert tc[0].function.name == "list_files"
-    assert tc[0].function.arguments_parsed == {"path": "/etc"}
-    assert resp.primary_choice.finish_reason == "tool_calls"
-
-
 class _ScriptedStreamingClient:
-    """Fake :class:`~rath.llm.RathOpenAIChatClient`-shape with complete_stream."""
+    """Streaming-shaped chat client used to script multi-round loops."""
 
     def __init__(self, scripts: list[list[RathLLMStreamDelta]]) -> None:
         self._scripts = list(scripts)
-        # Provider attribute so DefaultSessionLoopExecutor wrapping works.
         self.provider = Provider(model="scripted")
 
     def complete_stream(self, req: RathLLMChatRequest) -> Iterator[RathLLMStreamDelta]:
@@ -93,43 +46,47 @@ class _ScriptedStreamingClient:
         for d in self._scripts.pop(0):
             yield d
 
-    # complete() so DefaultSessionLoopExecutor's non-streaming path still works
-    # if the loop ever calls it (it won't, but the adapter delegates dispatch
-    # via DefaultSessionLoopExecutor which only needs complete on its inner).
     def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
         raise NotImplementedError("scripted client is stream-only")
 
 
-def test_run_session_loop_stream_refuses_anthropic_provider_kind(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Streaming + Anthropic must fail upfront, not after sessions are stamped.
-
-    After the registry/capability refactor, dispatch goes through
-    :func:`rath.llm.chat_client_for` (which builds the Anthropic client) and
-    then trips the :class:`~rath.llm.StreamingChatClient` ``isinstance`` check
-    — surfacing a clear :class:`TypeError` instead of the previous string-
-    branch ``NotImplementedError``. A dummy ``ANTHROPIC_API_KEY`` lets the
-    client construct so we exercise the capability gate, not the credential
-    check.
-    """
+def test_on_event_refuses_non_streaming_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``on_event`` requires the resolved client to implement complete_stream(req)."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
+    monkeypatch.delenv("OPENRATH_HOME", raising=False)
     agent = AgentParam(
         Session.from_agent_prompt("sys"),
         Provider(provider_kind="anthropic", model="claude-opus-4-7"),
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         with pytest.raises(TypeError, match="StreamingChatClient"):
-            run_session_loop_stream(
+            run_session_loop(
                 user,
                 agent.agent_session,
                 agent_provider=agent.provider,
+                on_event=lambda _d: None,
             )
 
 
-def test_run_session_loop_stream_emits_per_delta_and_settles_to_chunk() -> None:
+def test_on_event_with_custom_executor_raises() -> None:
+    backend = get("local")
+    with backend.open() as sb:
+        user = Session.from_user_message("hi").bind_sandbox(sb)
+        agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
+        scripted = StreamingExecutor(_ScriptedStreamingClient([]), lambda _d: None)
+        with pytest.raises(ValueError, match="custom executor"):
+            run_session_loop(
+                user,
+                agent.agent_session,
+                agent_provider=agent.provider,
+                executor=scripted,
+                on_event=lambda _d: None,
+            )
+
+
+def test_streaming_executor_emits_deltas_and_settles_to_chunk() -> None:
     script = [
         [
             RathLLMStreamDelta(content_delta="Hel"),
@@ -138,26 +95,62 @@ def test_run_session_loop_stream_emits_per_delta_and_settles_to_chunk() -> None:
         ]
     ]
     client = _ScriptedStreamingClient(script)
+    events: list[RathLLMStreamDelta] = []
+    executor = StreamingExecutor(client, events.append)
     agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
     backend = get("local")
-    events: list[RathLLMStreamDelta] = []
 
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
-        out = run_session_loop_stream(
+        user = Session.from_user_message("hi").bind_sandbox(sb)
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
-            client=client,
-            on_event=events.append,
+            executor=executor,
         )
 
-    # All 3 deltas should have been forwarded.
     assert len(events) == 3
-    # Final chunk_table holds the assembled assistant message.
     assistant_rows = [
         r.payload.get("content")
         for r in out.chunk_table.rows
         if r.kind == ChunkKind.ASSISTANT
     ]
     assert "Hello" in assistant_rows
+
+
+def test_streaming_tool_call_then_stop() -> None:
+    args = json.dumps({"path": "."})
+    script = [
+        [
+            RathLLMStreamDelta(
+                tool_call_index=0, tool_call_id="tc1", tool_call_name_delta="echo_tool"
+            ),
+            RathLLMStreamDelta(tool_call_index=0, tool_call_args_delta=args),
+            RathLLMStreamDelta(finish_reason="tool_calls"),
+        ],
+        [
+            RathLLMStreamDelta(content_delta="done"),
+            RathLLMStreamDelta(finish_reason="stop"),
+        ],
+    ]
+    client = _ScriptedStreamingClient(script)
+    events: list[RathLLMStreamDelta] = []
+    executor = StreamingExecutor(client, events.append)
+    agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
+    backend = get("local")
+
+    with backend.open() as sb:
+        user = Session.from_user_message("trigger").bind_sandbox(sb)
+        out = run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+        )
+
+    kinds = [r.kind for r in out.chunk_table.rows]
+    assert ChunkKind.TOOL_RESULT in kinds
+    assert any(
+        r.kind == ChunkKind.ASSISTANT and r.payload.get("content") == "done"
+        for r in out.chunk_table.rows
+    )

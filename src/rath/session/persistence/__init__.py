@@ -1,20 +1,19 @@
 """Append-only persistence for OpenRath sessions.
 
 Stores each :class:`~rath.session.session.Session` as a JSONL file under
-``.openrath/sessions/<uuid>.jsonl`` (resolved exactly like
-``config.json`` — see :mod:`rath.config.paths`). Designed for crash safety:
-every chunk is flushed to disk as it lands, so a ``kill -9`` mid-loop loses
-at most the last partial line.
+``.openrath/sessions/<uuid>.jsonl`` (resolved exactly like ``config.json`` —
+see :mod:`rath.config.paths`). Designed for crash safety: every chunk is
+flushed to disk as it lands, so a ``kill -9`` mid-loop loses at most the
+last partial line.
 
 Public surface:
 
-* :func:`persist_chunks` / :func:`compose_hooks` — write side, plug into
-  ``run_session_loop(..., chunk_print=...)``.
-* :func:`close_session_writers` — graceful trailer writeout.
+* :class:`SessionWriter` — direct writer; also wired into
+  :func:`~rath.session.loop.run_session_loop` via its ``persist=`` parameter.
 * :func:`load_session` / :func:`list_persisted_sessions` — read side.
 * :class:`PersistedSession` / :class:`PersistedSessionMeta` /
   :class:`PersistedSessionHeader` — round-trip dataclasses.
-* :class:`SessionWriter` — direct writer for non-loop callers.
+* :func:`delete_session` / :func:`prune_sessions` — GC helpers.
 * :exc:`PersistenceError` — corrupt / unreadable file.
 """
 
@@ -24,11 +23,6 @@ from rath.session.persistence._migrations import (
     register_header_migration,
 )
 from rath.session.persistence.errors import PersistenceError
-from rath.session.persistence.hook import (
-    close_session_writers,
-    compose_hooks,
-    persist_chunks,
-)
 from rath.session.persistence.loader import (
     PersistedSession,
     PersistedSessionHeader,
@@ -50,10 +44,6 @@ from rath.session.persistence.writer import SessionWriter
 __all__ = [
     # Errors
     "PersistenceError",
-    # Hook helpers
-    "persist_chunks",
-    "compose_hooks",
-    "close_session_writers",
     # Writer
     "SessionWriter",
     # Loader + GC

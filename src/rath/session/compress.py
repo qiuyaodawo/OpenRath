@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
+from pathlib import Path
 
 from rath.llm import (
     Provider,
     RathLLMChatResponse,
     RathLLMMessage,
+    RathLLMStreamDelta,
+    StreamingChatClient,
     add_usage,
     chat_client_for,
 )
 from rath.session.chat_request_build import provider_into_chat_request
 from rath.session.chunk import ChunkTable, chunk_table_to_messages, user_text_chunk
 from rath.session.graph import LineageKind, LineageRecorder, SessionLineage
-from rath.session.loop import ChunkAppendHook, SessionLoopExecutor
+from rath.session.loop import SessionLoopExecutor, StreamingExecutor
 from rath.session.manager import session_registry
+from rath.session.persistence import SessionWriter
 from rath.session.provider_builtin import DefaultSessionLoopExecutor
 from rath.session.session import Session
 
@@ -35,28 +40,54 @@ def run_session_compress(
     executor: SessionLoopExecutor | None = None,
     compress_instruction: str | None = None,
     register_sessions: bool = True,
-    chunk_print: ChunkAppendHook | None = None,
+    on_event: Callable[[RathLLMStreamDelta], None] | None = None,
+    persist: bool = False,
+    persist_path: Path | None = None,
+    sandbox_handle_id: str | None = None,
 ) -> Session:
     """Summarize transcript via LLM into a new user-only session (no SYSTEM chunks).
 
     ``agent_session`` and ``user_session`` chunks are folded into the completion
     request only — they are not copied into ``out.chunk_table``. The returned session
-    contains **USER** rows built from the model reply.
+    contains a single **USER** row built from the model reply.
 
     Completions use ``tools=None`` and ``tool_choice=none``. If the model returns tool
     calls, raises ``RuntimeError``.
 
-    When ``executor`` is ``None``, a default executor is built from ``agent_provider``;
-    it must carry a non-empty ``api_key``.
+    When ``executor`` is ``None``, a default executor is built from
+    ``agent_provider``; it must carry a non-empty ``api_key``.
 
-    Rebases sandbox from ``user_session`` onto the returned session (same as the loop).
+    Shares the ``BackendSandbox`` from ``user_session`` with the returned
+    session (refcount + 1) when one is bound; the user session keeps its
+    reference.
 
-    If ``chunk_print`` is set, it is called once as ``hook(row, 0, out)`` for the
-    single compressed **user** row after ``out`` is built (sandbox rebound).
+    When ``on_event`` is provided, the completion streams — the resolved
+    client must satisfy :class:`~rath.llm.StreamingChatClient`. Each
+    :class:`RathLLMStreamDelta` is forwarded to ``on_event``.
+
+    When ``persist`` is true or ``persist_path`` is given, the single output
+    row is written to ``.openrath/sessions/<out.id>.jsonl`` (or to
+    ``persist_path``) with a trailer.
     """
 
+    if executor is not None and on_event is not None:
+        raise ValueError(
+            "on_event with a custom executor is not supported; "
+            "wrap your client with StreamingExecutor and pass that as executor=."
+        )
     if executor is None:
-        executor = DefaultSessionLoopExecutor(chat_client_for(agent_provider))
+        client = chat_client_for(agent_provider)
+        if on_event is not None:
+            if not isinstance(client, StreamingChatClient):
+                raise TypeError(
+                    "on_event requires a StreamingChatClient; "
+                    f"{type(client).__name__} (provider_kind="
+                    f"{agent_provider.provider_kind!r}) does not implement "
+                    "complete_stream(req). Drop on_event for non-streaming."
+                )
+            executor = StreamingExecutor(client, on_event)
+        else:
+            executor = DefaultSessionLoopExecutor(client)
 
     instruction = (
         compress_instruction.strip()
@@ -78,13 +109,6 @@ def run_session_compress(
         default_tool_choice="none",
     )
 
-    # Compress is a pure-LLM operation (tool_choice is forced to "none"); a
-    # sandbox is only useful for rebinding to the output session. Skip
-    # take_sandbox() entirely when the caller has not attached one, so
-    # Session.from_user_message("...") works without a prior .to("local").
-    sb = None
-    if user_session.sandbox is not None or user_session.sandbox_backend is not None:
-        sb = user_session.take_sandbox()
     resp = executor.complete(req)
     body = _completion_body(resp)
     if body is None or not str(body).strip():
@@ -102,8 +126,8 @@ def run_session_compress(
         ),
         cumulative_usage=add_usage(None, resp.usage),
     )
-    if sb is not None:
-        out.bind_sandbox(sb)
+    if user_session.sandbox is not None and not user_session.sandbox.closed:
+        out.bind_sandbox(user_session.sandbox)
 
     LineageRecorder.stamp_new_session(
         out,
@@ -123,8 +147,13 @@ def run_session_compress(
         reg.register(out)
         reg.set_active(out)
 
-    if chunk_print is not None:
-        chunk_print(rows[0], 0, out)
+    if persist or persist_path is not None:
+        with SessionWriter(
+            out,
+            sandbox_handle_id=sandbox_handle_id,
+            path=persist_path,
+        ) as writer:
+            writer.write_chunk(0, rows[0])
 
     return out
 

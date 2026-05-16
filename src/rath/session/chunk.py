@@ -113,7 +113,7 @@ def _tool_result_body_preview(raw: str, *, max_chars: int) -> str:
 
 
 def format_chunk_row_brief(index: int, row: ChunkRow, *, max_payload: int = 400) -> str:
-    """Single-line description of one chunk row (for :func:`~rath.session.loop.sink_chunk_print`)."""
+    """Single-line description of one chunk row (debugging / logging helper)."""
 
     kind = row.kind.value
     p = row.payload

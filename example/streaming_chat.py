@@ -15,9 +15,8 @@ import sys
 
 from rath.config.store import ConfigStore
 from rath.flow.agent_param import AgentParam, Provider
-from rath.llm import RathLLMStreamDelta, RathOpenAIChatClient
-from rath.session import Session
-from rath.session.loop_stream import run_session_loop_stream
+from rath.llm import RathLLMStreamDelta
+from rath.session import Session, run_session_loop
 
 
 def _has_openai_credentials() -> bool:
@@ -44,7 +43,6 @@ def main() -> None:
         sys.exit(1)
 
     provider = Provider(model="glm-5.1")
-    client = RathOpenAIChatClient(provider)
     agent = AgentParam(
         Session.from_agent_prompt("You are a concise assistant."),
         provider,
@@ -61,11 +59,10 @@ def main() -> None:
         "Count from 1 to 5 with a one-line note about each number."
     ).to("local")
 
-    out = run_session_loop_stream(
+    out = run_session_loop(
         user,
         agent.agent_session,
         agent_provider=agent.provider,
-        client=client,
         on_event=on_event,
     )
 

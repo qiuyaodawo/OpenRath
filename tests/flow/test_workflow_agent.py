@@ -98,7 +98,7 @@ def test_workflow_registers_agent_and_runs_loop() -> None:
 
     backend = get("local")
     with backend.open() as sandbox:
-        user = Session.from_user_message("Trigger scripted reply.").with_sandbox(
+        user = Session.from_user_message("Trigger scripted reply.").bind_sandbox(
             sandbox
         )
         out = wf.forward(user)

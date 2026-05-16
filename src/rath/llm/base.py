@@ -1,4 +1,4 @@
-"""Chat-client Protocols consumed by the session loop and stream loop.
+"""Chat-client Protocols consumed by the session loop.
 
 Two runtime-checkable Protocols define the contract every LLM adapter must
 satisfy:
@@ -6,10 +6,10 @@ satisfy:
 * :class:`ChatClient` — the minimum surface (``provider`` + blocking
   ``complete``). Sufficient for :class:`~rath.session.loop.run_session_loop`.
 * :class:`StreamingChatClient` — extends :class:`ChatClient` with
-  ``complete_stream``. :func:`~rath.session.loop_stream.run_session_loop_stream`
-  guards on this protocol instead of inspecting
-  :attr:`~rath.llm.Provider.provider_kind`, so any adapter that implements
-  ``complete_stream`` gains streaming support automatically.
+  ``complete_stream``. :func:`~rath.session.loop.run_session_loop` switches to
+  streaming when ``on_event`` is supplied and guards on this Protocol instead
+  of inspecting :attr:`~rath.llm.Provider.provider_kind`, so any adapter that
+  implements ``complete_stream`` gains streaming support automatically.
 """
 
 from __future__ import annotations
@@ -42,9 +42,9 @@ class ChatClient(Protocol):
 class StreamingChatClient(ChatClient, Protocol):
     """A :class:`ChatClient` that also supports streaming completions.
 
-    :func:`~rath.session.loop_stream.run_session_loop_stream` accepts any
-    object satisfying this Protocol. The OpenAI adapter implements it; the
-    Anthropic adapter currently does not.
+    :func:`~rath.session.loop.run_session_loop` accepts any object satisfying
+    this Protocol when ``on_event`` is provided. The OpenAI adapter implements
+    it; the Anthropic adapter currently does not.
     """
 
     def complete_stream(

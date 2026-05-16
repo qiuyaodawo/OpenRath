@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 
-from _chunk_print import example_chunk_print
+from _on_event import example_on_event
 from _openai_provider import provider_from_env
 
 import rath.backend as backend
@@ -16,7 +16,7 @@ _PROVIDER = replace(provider_from_env(), model="glm-5.1")
 agent = flow.Agent(
     system_prompt="You are a helpful assistant.",
     provider=_PROVIDER,
-    chunk_print=example_chunk_print(),
+    on_event=example_on_event(),
 )
 
 

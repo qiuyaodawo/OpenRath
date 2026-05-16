@@ -63,19 +63,6 @@ def _shell_echo_cmd(marker: str) -> str:
     return f"echo {marker}"
 
 
-def test_missing_user_sandbox_raises() -> None:
-    executor = ScriptedSessionLoopExecutor([])
-    agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
-    user = Session.from_user_message("no sandbox attached")
-    with pytest.raises(RuntimeError, match="no sandbox to take"):
-        run_session_loop(
-            user,
-            agent.agent_session,
-            agent_provider=agent.provider,
-            executor=executor,
-        )
-
-
 def test_tool_arguments_parse_error_surfaces_in_tool_chunk() -> None:
     part = RathLLMToolCallPart(
         id="bad",
@@ -116,7 +103,7 @@ def test_tool_arguments_parse_error_surfaces_in_tool_chunk() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("s"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("x").with_sandbox(sb)
+        user = Session.from_user_message("x").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -170,7 +157,7 @@ def test_unknown_tool_name_surfaces_in_tool_chunk() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("s"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("x").with_sandbox(sb)
+        user = Session.from_user_message("x").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -192,7 +179,7 @@ def test_max_tool_rounds_caps_iterations_without_final_stop() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("cap"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("loop").with_sandbox(sb)
+        user = Session.from_user_message("loop").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -248,7 +235,7 @@ def test_shell_command_puts_stdout_json_in_tool_chunk() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("sh"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("run echo").with_sandbox(sb)
+        user = Session.from_user_message("run echo").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -323,7 +310,7 @@ def test_dispatch_exception_surfaces_in_tool_chunk() -> None:
     backend = get("local")
     agent = AgentParam(Session.from_agent_prompt("ex"), Provider())
     with backend.open() as sb:
-        user = Session.from_user_message("x").with_sandbox(sb)
+        user = Session.from_user_message("x").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -357,7 +344,7 @@ def test_default_executor_requires_api_key_somewhere(
         Provider(model="phony-model-id"),
     )
     with backend.open() as sb:
-        user = Session.from_user_message("x").with_sandbox(sb)
+        user = Session.from_user_message("x").bind_sandbox(sb)
         with pytest.raises(ValueError, match="No API key found"):
             run_session_loop(
                 user,
@@ -380,7 +367,7 @@ def test_max_tool_rounds_truncation_emits_warning_and_lineage(
     backend = get("local")
 
     with backend.open() as sb:
-        user = Session.from_user_message("trigger loop budget").with_sandbox(sb)
+        user = Session.from_user_message("trigger loop budget").bind_sandbox(sb)
         with caplog.at_level(logging.WARNING, logger="rath.session.loop"):
             out = run_session_loop(
                 user,

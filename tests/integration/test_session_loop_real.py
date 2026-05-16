@@ -71,7 +71,7 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
     with backend.open() as sandbox:
         user = Session.from_user_message(
             f"Use run_shell_command exactly once. The cmd must run: echo {marker}"
-        ).with_sandbox(sandbox)
+        ).bind_sandbox(sandbox)
 
         out = run_session_loop(
             user,
@@ -83,7 +83,8 @@ def test_run_session_loop_opensandbox_shell_echo() -> None:
 
         assert out.sandbox is sandbox
         assert out.sandbox.closed is False
-        assert user.sandbox is None
+        assert user.sandbox is sandbox
+        assert sandbox._refcount == 2
         assert out.lineage is not None
         assert out.lineage.producer_user_session_id == user.id
         assert out.parent_session_ids == (user.id, agent.agent_session.id)
@@ -131,7 +132,7 @@ def test_workflow_opensandbox_shell_echo() -> None:
     with backend.open() as sandbox:
         user = Session.from_user_message(
             f"Call run_shell_command once with cmd: echo {marker}"
-        ).with_sandbox(sandbox)
+        ).bind_sandbox(sandbox)
 
         wf = _ShellEchoWorkflow(system_prompt, executor, prov)
         assert len(wf.named_agents()) == 1

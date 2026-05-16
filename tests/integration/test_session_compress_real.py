@@ -112,8 +112,9 @@ def test_run_session_compress_structure_and_lineage_real() -> None:
             compress_instruction=compress_instruction,
         )
 
-        assert user.sandbox is None
-        assert out.sandbox is not None and not out.sandbox.closed
+        assert user.sandbox is sb
+        assert out.sandbox is sb and not out.sandbox.closed
+        assert sb._refcount == 2
         assert out.parent_session_ids == (user.id, agent.id)
         assert out.lineage_kind == LineageKind.OP_SESSION_COMPRESS
         assert out.lineage_operator == "run_session_compress"
@@ -171,7 +172,8 @@ def test_run_session_compress_sandbox_probe_file_survives_real() -> None:
             compress_instruction=instruction,
         )
 
-        assert user.sandbox is None
+        assert user.sandbox is sb
+        assert out.sandbox is sb
         raw = flow_tool_files_read(out, "_rath_compress_probe.txt")
         assert isinstance(raw, FileContent)
         body = raw.data

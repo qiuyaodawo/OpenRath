@@ -16,9 +16,7 @@ from rath.config.store import ConfigStore
 from rath.flow.tool.mcp_adapter import mcp_tools_from_config
 
 
-def _store_with_servers(
-    tmp_path: Path, **servers: MCPServerConfig
-) -> ConfigStore:
+def _store_with_servers(tmp_path: Path, **servers: MCPServerConfig) -> ConfigStore:
     cfg_path = tmp_path / "config.json"
     store = ConfigStore(path=cfg_path)
     for name, entry in servers.items():

@@ -13,8 +13,8 @@ if str(_EX) not in sys.path:
     sys.path.insert(0, str(_EX))
 
 # Imports below require ``example/`` on ``sys.path`` (see above).
-from _chunk_print import optional_chunk_print  # noqa: E402
 from _env import require_alpha_vantage_key, require_openai_provider  # noqa: E402
+from _on_event import optional_on_event  # noqa: E402
 from workflow import TradingAgentsWorkflow  # noqa: E402
 
 
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> None:
 
     workflow = TradingAgentsWorkflow(
         provider=prov,
-        chunk_print=optional_chunk_print(args.print_chunks),
+        on_event=optional_on_event(args.print_chunks),
     )
     msg = _build_user_message(ticker=args.ticker, as_of=as_of)
     user = Session.from_user_message(msg).to("local", spec=workdir)

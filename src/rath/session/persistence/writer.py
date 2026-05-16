@@ -102,9 +102,7 @@ class SessionWriter:
         self._open_if_needed()
         if not self._header_written:
             self._write_record(
-                build_header(
-                    self._session, sandbox_handle_id=self._sandbox_handle_id
-                )
+                build_header(self._session, sandbox_handle_id=self._sandbox_handle_id)
             )
             self._header_written = True
         self._write_record(build_chunk_record(index, row))

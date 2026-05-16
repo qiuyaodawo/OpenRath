@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 
 from rath.flow.agent_param import AgentParam
 from rath.flow.tool import FlowToolCall
 from rath.flow.workflow import Workflow
+from rath.llm import RathLLMStreamDelta
 from rath.llm.provider import Provider
-from rath.session import ChunkAppendHook, Session, run_session_loop
+from rath.session import Session, run_session_loop
 
 
 class Agent(Workflow):
@@ -17,7 +19,7 @@ class Agent(Workflow):
         tools: list[FlowToolCall] | None = None,
         *,
         model: str | None = None,
-        chunk_print: ChunkAppendHook | None = None,
+        on_event: Callable[[RathLLMStreamDelta], None] | None = None,
     ):
         """Build a single-agent workflow.
 
@@ -35,6 +37,10 @@ class Agent(Workflow):
             flow.Agent("Use tools when helpful.", model="gpt-5.5")
 
         is the minimal form that works once the environment is configured.
+
+        ``on_event`` enables streaming: each forward pass invokes the loop
+        with the callback wired up. The resolved chat client must satisfy
+        :class:`~rath.llm.StreamingChatClient`.
         """
         super().__init__()
         if provider is None and model is None:
@@ -46,7 +52,7 @@ class Agent(Workflow):
         elif model is not None and provider.model is None:
             provider = replace(provider, model=model)
         self.tools = list(tools or [])
-        self._chunk_print = chunk_print
+        self._on_event = on_event
         self.agent = AgentParam(
             agent_session=Session.from_agent_prompt(system_prompt),
             provider=provider,
@@ -58,7 +64,7 @@ class Agent(Workflow):
             agent_session=self.agent.agent_session,
             agent_provider=self.agent.provider,
             tools=self.tools,
-            chunk_print=self._chunk_print,
+            on_event=self._on_event,
         )
 
     def register_tool(self, tool: FlowToolCall) -> None:

@@ -43,7 +43,7 @@ Per-role model overrides (each falls back to `OPENAI_DEFAULT_MODEL`):
 
 ## How to run
 
-From the repository `example/` directory (so sibling imports like `_chunk_print` resolve):
+From the repository `example/` directory (so sibling imports like `_on_event` resolve):
 
 ```bash
 uv run python research_transformer/main.py \

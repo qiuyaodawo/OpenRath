@@ -29,12 +29,8 @@ from rath.session.graph import (
     validate_acyclic,
 )
 from rath.session.loop import (
-    ChunkAppendHook,
-    ChunkPrintFn,
     SessionLoopExecutor,
-    ensure_stdio_utf8,
     run_session_loop,
-    sink_chunk_print,
 )
 from rath.session.manager import SessionRegistry, session_registry
 from rath.session.persistence import (
@@ -43,12 +39,9 @@ from rath.session.persistence import (
     PersistedSessionMeta,
     PersistenceError,
     SessionWriter,
-    close_session_writers,
-    compose_hooks,
     delete_session,
     list_persisted_sessions,
     load_session,
-    persist_chunks,
     prune_sessions,
 )
 from rath.session.primitives import (
@@ -64,11 +57,9 @@ __all__ = [
     "ancestors_bfs",
     "assistant_turn_chunk",
     "chunk_table_to_messages",
-    "ChunkAppendHook",
     "ChunkKind",
     "ChunkRow",
     "ChunkTable",
-    "ChunkPrintFn",
     "create_leaf_system",
     "create_leaf_user",
     "DefaultSessionLoopExecutor",
@@ -90,11 +81,9 @@ __all__ = [
     "SessionLineage",
     "SessionLoopExecutor",
     "SessionRegistry",
-    "ensure_stdio_utf8",
     "run_session_compress",
     "run_session_loop",
     "session_registry",
-    "sink_chunk_print",
     "system_text_chunk",
     "tool_feedback_chunk",
     "user_text_chunk",
@@ -105,11 +94,8 @@ __all__ = [
     "PersistedSessionMeta",
     "PersistenceError",
     "SessionWriter",
-    "close_session_writers",
-    "compose_hooks",
     "delete_session",
     "list_persisted_sessions",
     "load_session",
-    "persist_chunks",
     "prune_sessions",
 ]

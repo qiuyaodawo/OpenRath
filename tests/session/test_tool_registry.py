@@ -74,7 +74,7 @@ def test_tools_dict_to_schemas_sorted_by_name() -> None:
 def test_run_shell_command_tool_dispatch_local_exit_code_and_stdout() -> None:
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message(".").with_sandbox(sb)
+        user = Session.from_user_message(".").bind_sandbox(sb)
         tool = RunShellCommandTool()
         if __import__("sys").platform == "win32":
             cmd = "cmd /c echo 42"
@@ -92,7 +92,7 @@ def test_write_workspace_tool_returns_file_write_result() -> None:
     wt = WriteWorkspaceFileTool()
     backend = get("local")
     with backend.open() as sb:
-        sess = Session.from_user_message(".").with_sandbox(sb)
+        sess = Session.from_user_message(".").bind_sandbox(sb)
         raw = wt(sess, {"path": "_rath_reg_probe.txt", "content": "Z"})
     assert isinstance(raw, FileWriteResult)
     assert raw.bytes_written == 1

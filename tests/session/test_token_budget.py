@@ -57,7 +57,7 @@ def test_cumulative_usage_starts_none_and_accumulates() -> None:
     agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -88,7 +88,7 @@ def test_usage_remains_none_when_provider_reports_no_usage() -> None:
     agent = AgentParam(Session.from_agent_prompt("sys"), Provider())
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -112,7 +112,7 @@ def test_budget_exceeded_invokes_callback() -> None:
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -147,7 +147,7 @@ def test_budget_callback_raising_aborts_loop() -> None:
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         with pytest.raises(BudgetExceededError, match="hit cap"):
             run_session_loop(
                 user,
@@ -246,7 +246,7 @@ def test_budget_callback_fires_only_on_first_crossing() -> None:
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         out = run_session_loop(
             user,
             agent.agent_session,
@@ -283,7 +283,7 @@ def test_budget_warning_emits_only_on_first_crossing(
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         with caplog.at_level(logging.WARNING, logger="rath.session.loop"):
             run_session_loop(
                 user,
@@ -313,7 +313,7 @@ def test_budget_without_callback_emits_warning(
     )
     backend = get("local")
     with backend.open() as sb:
-        user = Session.from_user_message("hi").with_sandbox(sb)
+        user = Session.from_user_message("hi").bind_sandbox(sb)
         with caplog.at_level(logging.WARNING, logger="rath.session.loop"):
             out = run_session_loop(
                 user,

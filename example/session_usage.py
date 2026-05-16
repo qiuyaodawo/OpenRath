@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from _chunk_print import example_chunk_print
+from _on_event import example_on_event
 from _openai_provider import provider_from_env
 
 from rath.session import Session, run_session_compress, run_session_loop
@@ -24,12 +24,12 @@ if __name__ == "__main__":
         user_session=user_session,
         agent_session=agent_session,
         agent_provider=provider,
-        chunk_print=example_chunk_print(),
+        on_event=example_on_event(),
     )
 
     out_session = run_session_compress(
         user_session=out_session,
         agent_session=agent_session,
         agent_provider=provider,
-        chunk_print=example_chunk_print(),
+        on_event=example_on_event(),
     )

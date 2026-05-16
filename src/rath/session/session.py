@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from rath.backend import BackendSandbox, BackendSandboxSpec, get
+from rath.llm import add_usage
 from rath.llm.chat_response import RathLLMTokenUsage
 from rath.session.chunk import ChunkKind, ChunkRow, ChunkTable
 from rath.session.graph.kind import LineageKind
@@ -97,24 +98,23 @@ class Session:
     """Chunk transcript (:attr:`chunk_table`), optional sandbox, and lineage metadata.
 
     Sandbox placement is **torch-like**: :attr:`sandbox_backend` is ``None`` until
-    you call :meth:`to` (or :meth:`with_sandbox` / :meth:`bind_sandbox`). The handle
-    in :attr:`sandbox` is opened **lazily** on first use (e.g. :meth:`take_sandbox`,
-    :meth:`require_sandbox`, or entering ``with session:``). Call
-    :meth:`close_sandbox` to release the handle; the backend name is kept so the
-    next use can open again. ``with session:`` is optional; when used, the outermost
-    exit calls :meth:`close_sandbox`.
+    you call :meth:`to` (or :meth:`bind_sandbox`). The handle in :attr:`sandbox` is
+    opened **lazily** on first use (:meth:`require_sandbox` or entering
+    ``with session:``). Every ``self.sandbox`` slot counts as one reference on the
+    :class:`~rath.backend.BackendSandbox` instance; :meth:`close_sandbox` drops it,
+    and the backend ``close`` is called only when the reference count reaches zero.
+    ``with session:`` is optional; when used, the outermost exit calls
+    :meth:`close_sandbox`.
 
-    :func:`~rath.session.loop.run_session_loop` takes the sandbox attached to an
-    incoming user session and rebinds it to the returned session.
+    Sharing semantics: :func:`~rath.session.loop.run_session_loop`,
+    :func:`~rath.session.compress.run_session_compress`, :meth:`fork`, and
+    :meth:`merge` all bind the new session to the **same** sandbox object as the
+    source (refcount + 1). The source session keeps its reference. :meth:`detach`
+    is the exception — it copies only the backend name and spec, never the handle.
 
     Flat lineage (preferred graph substrate): :attr:`parent_session_ids` (ordered
     parents), :attr:`lineage_operator`, :attr:`lineage_kind`, :attr:`lineage_extras`.
     :attr:`lineage` is an optional legacy DTO tying loop outputs to producer sessions.
-    :meth:`~Session.fork` and :meth:`~Session.detach` duplicate chunk rows only;
-    **open sandbox handles are never copied**. The source session keeps its handle;
-    derived sessions start with :attr:`sandbox` ``None`` but may inherit
-    :attr:`sandbox_backend` / reopen spec from the fork source.
-
     """
 
     chunk_table: ChunkTable
@@ -168,10 +168,10 @@ class Session:
         return self
 
     def close_sandbox(self) -> Session:
-        """Close the active sandbox handle if present; keep :attr:`sandbox_backend`."""
+        """Drop this session's sandbox reference; close when refcount hits zero."""
 
         if self.sandbox is not None and not self.sandbox.closed:
-            self.sandbox.backend.close(self.sandbox)
+            self.sandbox.release()
         self.sandbox = None
         return self
 
@@ -186,7 +186,9 @@ class Session:
                 "or session.bind_sandbox(...)"
             )
         open_spec = _coerce_sandbox_open_spec(self._sandbox_open_spec)
-        self.sandbox = get(self.sandbox_backend).open(open_spec)
+        sb = get(self.sandbox_backend).open(open_spec)
+        sb.acquire()
+        self.sandbox = sb
 
     def __enter__(self) -> Session:
         if self._cm_depth == 0:
@@ -204,12 +206,6 @@ class Session:
         if self._cm_depth == 0:
             self.close_sandbox()
 
-    def with_sandbox(self, sandbox: BackendSandbox) -> Session:
-        self.sandbox = sandbox
-        self.sandbox_backend = sandbox.backend.name
-        self._sandbox_open_spec = sandbox.spec
-        return self
-
     def require_sandbox(self) -> BackendSandbox:
         if self.sandbox is not None:
             if self.sandbox.closed:
@@ -224,34 +220,20 @@ class Session:
         assert self.sandbox is not None
         return self.sandbox
 
-    def take_sandbox(self) -> BackendSandbox:
-        """Detach sandbox for rebinding to another session (lazy-opens if needed)."""
-
-        if self.sandbox is not None and self.sandbox.closed:
-            self.sandbox = None
-        if self.sandbox is None:
-            if self.sandbox_backend is None:
-                raise RuntimeError("no sandbox to take")
-            self._ensure_sandbox()
-        assert self.sandbox is not None
-        sb = self.sandbox
-        self.sandbox = None
-        return sb
-
     def bind_sandbox(self, sandbox: BackendSandbox) -> Session:
-        """Attach sandbox to this session (active executor)."""
+        """Take a reference to ``sandbox`` (refcount + 1); release the previous one."""
+        if self.sandbox is sandbox:
+            return self
+        if self.sandbox is not None and not self.sandbox.closed:
+            self.sandbox.release()
+        sandbox.acquire()
         self.sandbox = sandbox
         self.sandbox_backend = sandbox.backend.name
         self._sandbox_open_spec = sandbox.spec
         return self
 
     def fork(self) -> "Session":
-        """Copy transcript and sandbox **target** (backend + open spec); no open handle.
-
-        Does not move or close the source session's sandbox; the fork starts with
-        :attr:`sandbox` ``None``. Open a new handle via :meth:`to`, context manager,
-        or :meth:`take_sandbox` / :meth:`require_sandbox` when appropriate.
-        """
+        """Duplicate transcript; share the same sandbox reference (refcount + 1)."""
 
         rows = tuple(self.chunk_table.rows)
         forked = Session(
@@ -259,6 +241,8 @@ class Session:
             sandbox_backend=self.sandbox_backend,
             _sandbox_open_spec=self._sandbox_open_spec,
         )
+        if self.sandbox is not None and not self.sandbox.closed:
+            forked.bind_sandbox(self.sandbox)
         LineageRecorder.stamp_new_session(
             forked,
             parent_session_ids=(self.id,),
@@ -268,7 +252,7 @@ class Session:
         return forked
 
     def detach(self) -> "Session":
-        """Copy transcript and sandbox target with a fresh lineage root (no parents)."""
+        """Duplicate transcript with a fresh lineage root; share the sandbox reference."""
 
         rows = tuple(self.chunk_table.rows)
         detached = Session(
@@ -276,6 +260,8 @@ class Session:
             sandbox_backend=self.sandbox_backend,
             _sandbox_open_spec=self._sandbox_open_spec,
         )
+        if self.sandbox is not None and not self.sandbox.closed:
+            detached.bind_sandbox(self.sandbox)
         LineageRecorder.stamp_new_session(
             detached,
             parent_session_ids=(),
@@ -284,6 +270,48 @@ class Session:
             lineage_extras=(),
         )
         return detached
+
+    def merge(self, other: "Session") -> "Session":
+        """Concatenate ``self.rows + other.rows`` into a new session.
+
+        The two sessions must share the same sandbox handle (``is`` comparison),
+        or both be unbound. Mismatched sandboxes raise :class:`ValueError` —
+        cross-sandbox merging is not yet supported. The returned session takes a
+        reference to the shared sandbox (refcount + 1) when one is present, and
+        sums :attr:`cumulative_usage` across both inputs. Lineage parents are
+        ``(self.id, other.id)``, kind is :attr:`LineageKind.OP_MERGE`.
+        """
+        if self.sandbox is not other.sandbox:
+            raise ValueError(
+                "cannot merge sessions with different sandboxes: "
+                f"self.sandbox={self.sandbox!r} vs other.sandbox={other.sandbox!r}"
+            )
+        if (
+            self.sandbox is None
+            and other.sandbox is None
+            and self.sandbox_backend != other.sandbox_backend
+        ):
+            raise ValueError(
+                "cannot merge unbound sessions targeting different backends: "
+                f"{self.sandbox_backend!r} vs {other.sandbox_backend!r}"
+            )
+        merged_rows = self.chunk_table.rows + other.chunk_table.rows
+        merged_usage = add_usage(self.cumulative_usage, other.cumulative_usage)
+        merged = Session(
+            chunk_table=ChunkTable(rows=merged_rows),
+            sandbox_backend=self.sandbox_backend,
+            _sandbox_open_spec=self._sandbox_open_spec,
+            cumulative_usage=merged_usage,
+        )
+        if self.sandbox is not None and not self.sandbox.closed:
+            merged.bind_sandbox(self.sandbox)
+        LineageRecorder.stamp_new_session(
+            merged,
+            parent_session_ids=(self.id, other.id),
+            lineage_operator="Session.merge",
+            lineage_kind=LineageKind.OP_MERGE,
+        )
+        return merged
 
     def __str__(self) -> str:
         cls_name = type(self).__name__

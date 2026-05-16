@@ -35,15 +35,42 @@ class BackendSandboxSpec:
 
 @dataclass
 class BackendSandbox:
-    """Sandbox handle: owning :class:`Backend`, opaque ``handle``, and lifecycle flag."""
+    """Sandbox handle with reference counting.
+
+    Lifecycle is governed by :attr:`_refcount`: each :class:`Session.sandbox`
+    slot, each ``with sandbox:`` block, and any explicit :meth:`acquire` counts
+    as one reference. :meth:`release` decrements and, when the count reaches
+    zero, calls ``backend.close(self)``. There is no "force close" path —
+    callers that want immediate teardown must drop all references.
+
+    :func:`Backend.open` returns a sandbox with ``_refcount == 0``. The caller
+    is expected to either bind it to a :class:`Session` (which acquires) or
+    enter ``with sandbox:`` (which acquires) before it can be safely held.
+    """
 
     backend: "Backend"
     handle: str
     spec: BackendSandboxSpec | None = None
     closed: bool = field(default=False)
+    _refcount: int = field(default=0, repr=False)
+
+    def acquire(self) -> "BackendSandbox":
+        """Add one reference; return ``self`` for chaining."""
+        if self.closed:
+            raise BackendSandboxClosed(self.handle)
+        self._refcount += 1
+        return self
+
+    def release(self) -> None:
+        """Drop one reference; close via the backend when the count hits zero."""
+        if self.closed:
+            return
+        self._refcount -= 1
+        if self._refcount <= 0:
+            self.backend.close(self)
 
     def __enter__(self) -> "BackendSandbox":
-        return self
+        return self.acquire()
 
     def __exit__(
         self,
@@ -51,8 +78,7 @@ class BackendSandbox:
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        if not self.closed:
-            self.backend.close(self)
+        self.release()
 
     def dispatch(self, call: BackendTool) -> ToolResult | bool:
         """Apply ``call`` through :meth:`~rath.backend.abc.Backend.dispatch`."""

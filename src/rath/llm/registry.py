@@ -50,8 +50,7 @@ def chat_client_for(provider: Provider) -> ChatClient:
         factory = _FACTORIES[kind]
     except KeyError as e:
         raise ValueError(
-            f"unknown provider_kind={kind!r}; "
-            f"registered kinds: {sorted(_FACTORIES)}",
+            f"unknown provider_kind={kind!r}; registered kinds: {sorted(_FACTORIES)}",
         ) from e
     return factory(provider)
 

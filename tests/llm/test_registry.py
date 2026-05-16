@@ -53,9 +53,7 @@ def test_anthropic_provider_kind() -> None:
 def test_unknown_provider_kind_raises_value_error() -> None:
     # ``provider_kind`` is typed as a Literal but the registry must still
     # produce a useful runtime error for callers that bypass the type.
-    bogus = cast(
-        Provider, replace(Provider(), provider_kind=cast("str", "imaginary"))
-    )
+    bogus = cast(Provider, replace(Provider(), provider_kind=cast("str", "imaginary")))
     with pytest.raises(ValueError, match="unknown provider_kind"):
         chat_client_for(bogus)
 
@@ -75,9 +73,7 @@ def test_register_chat_client_extends_dispatch() -> None:
     register_chat_client("dummy-test", DummyClient)
     assert "dummy-test" in registered_kinds()
 
-    bogus = cast(
-        Provider, replace(Provider(), provider_kind=cast("str", "dummy-test"))
-    )
+    bogus = cast(Provider, replace(Provider(), provider_kind=cast("str", "dummy-test")))
     client = chat_client_for(bogus)
     assert isinstance(client, DummyClient)
 

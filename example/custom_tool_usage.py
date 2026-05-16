@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from typing import Any
 
-from _chunk_print import example_chunk_print
+from _on_event import example_on_event
 from _openai_provider import provider_from_env
 from pydantic import BaseModel, Field
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         "mention the image URL from the response.",
         provider=replace(provider_from_env(), model="glm-5.1"),
         tools=[ImageGenTool()],
-        chunk_print=example_chunk_print(),
+        on_event=example_on_event(),
     )
     user_session = Session.from_user_message(
         "Generate a simple cartoon cat on a sofa (no text in the image). "

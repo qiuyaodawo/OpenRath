@@ -91,7 +91,7 @@ def test_context_manager_closes_on_success(_isolate_openrath_home: Path) -> None
     with SessionWriter(s) as writer:
         writer.write_chunk(0, user_text_chunk("done"))
     text = writer.path.read_text(encoding="utf-8")
-    assert "\"record_type\": \"trailer\"" in text
+    assert '"record_type": "trailer"' in text
 
 
 def test_context_manager_abandons_on_exception(_isolate_openrath_home: Path) -> None:
@@ -102,7 +102,7 @@ def test_context_manager_abandons_on_exception(_isolate_openrath_home: Path) -> 
             writer.write_chunk(0, user_text_chunk("partial"))
             raise RuntimeError("boom")
     text = writer.path.read_text(encoding="utf-8")
-    assert "\"record_type\": \"trailer\"" not in text
+    assert '"record_type": "trailer"' not in text
 
 
 def test_write_after_close_raises(_isolate_openrath_home: Path) -> None:
