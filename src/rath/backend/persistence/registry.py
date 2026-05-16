@@ -30,13 +30,13 @@ from rath.backend.persistence.paths import (
     opensandbox_index_path,
     opensandbox_root,
 )
-from rath.backend.registry import get as backend_get
-from rath.config.secrets import chmod_user_only
 from rath.backend.persistence.spec_json import (
     SCHEMA_VERSION,
     spec_from_jsonable,
     spec_to_jsonable,
 )
+from rath.backend.registry import get as backend_get
+from rath.config.secrets import chmod_user_only
 
 __all__ = [
     "PersistentSandboxRegistry",

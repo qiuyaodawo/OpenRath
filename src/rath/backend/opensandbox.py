@@ -508,18 +508,68 @@ class OpenSandboxBackend(Backend):
                 ),
                 detail=call.language,
             )
+        source = (
+            _wrap_python_for_traceback(call.code)
+            if call.language == "python"
+            else call.code
+        )
         ci = await CodeInterpreter.create(native)
         execution = await _await_maybe_timeout(
-            ci.codes.run(call.code, language=call.language),
+            ci.codes.run(source, language=call.language),
             call.timeout,
         )
         stdout = "".join(m.text for m in execution.logs.stdout).encode("utf-8")
         stderr = "".join(m.text for m in execution.logs.stderr).encode("utf-8")
         text = execution.result[0].text if execution.result else None
-        error = execution.error.value if execution.error is not None else None
+        error = _extract_execution_error(execution, stderr)
         return CodeResult(text=text, stdout=stdout, stderr=stderr, error=error)
 
 
 def _join_cmd(cmd: Sequence[str]) -> str:
     """Shell-escape a argv-style command for ``commands.run``."""
     return shlex.join(cmd)
+
+
+def _wrap_python_for_traceback(code: str) -> str:
+    """Wrap user Python so an uncaught exception always writes a traceback to stderr.
+
+    The OpenSandbox v1.0.2 code-interpreter image does not consistently
+    populate ``Execution.error`` for top-level Python raises. We guarantee
+    stderr-side surfacing by exec'ing the user source inside a try/except.
+    The original ``raise`` is re-raised so the runtime still observes the
+    failure (exit_code, ``Execution.error``) if it cares to. Source is
+    passed as a base64 blob to avoid quoting edge cases.
+    """
+    import base64
+
+    encoded = base64.b64encode(code.encode("utf-8")).decode("ascii")
+    return (
+        "import sys as _rath_sys, traceback as _rath_tb, base64 as _rath_b64\n"
+        f"_rath_src = _rath_b64.b64decode({encoded!r}).decode('utf-8')\n"
+        "try:\n"
+        "    exec(compile(_rath_src, '<rath>', 'exec'), {'__name__': '__main__'})\n"
+        "except SystemExit:\n"
+        "    raise\n"
+        "except BaseException:\n"
+        "    _rath_tb.print_exc(file=_rath_sys.stderr)\n"
+        "    raise\n"
+    )
+
+
+def _extract_execution_error(execution: Any, stderr: bytes) -> str | None:
+    """Pick the most informative error string from an ``Execution`` result.
+
+    Prefers ``execution.error.value`` when the runtime populated it. Falls
+    back to decoded ``stderr`` (when present) and finally to a synthetic
+    message from a non-zero ``execution.exit_code``. Returns ``None`` when
+    no signal indicates failure.
+    """
+    sdk_error = execution.error.value if execution.error is not None else None
+    if sdk_error:
+        return sdk_error
+    if stderr:
+        return stderr.decode("utf-8", errors="replace")
+    exit_code = getattr(execution, "exit_code", None)
+    if exit_code is not None and exit_code != 0:
+        return f"code execution failed with exit code {exit_code}"
+    return None
