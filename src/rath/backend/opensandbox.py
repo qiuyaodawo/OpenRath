@@ -20,6 +20,7 @@ import logging
 import os
 import shlex
 import stat as stat_module
+import threading
 from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
@@ -235,6 +236,7 @@ class OpenSandboxBackend(Backend):
 
     def __init__(self) -> None:
         self._natives: dict[str, Any] = {}
+        self._natives_lock = threading.Lock()
         self._runner = shared_opensandbox_loop()
 
     @classmethod
@@ -260,16 +262,32 @@ class OpenSandboxBackend(Backend):
         return cls._SUPPORTED_CALLS
 
     def sandbox_count(self) -> int:
-        return len(self._natives)
+        with self._natives_lock:
+            return len(self._natives)
 
-    def open(self, spec: BackendSandboxSpec | None = None) -> BackendSandbox:
+    def open(
+        self, spec: BackendSandboxSpec | None = None, *, timeout: float | None = None
+    ) -> BackendSandbox:
+        """Create and register a new sandbox.
+
+        Parameters
+        ----------
+        spec:
+            Optional sandbox specification (image, env, entrypoint, etc.).
+        timeout:
+            Optional timeout in seconds for the sandbox creation call.
+            If *None* (the default), the call blocks indefinitely until
+            the remote API responds.  This is documented here for
+            awareness; callers that need bounded waits should pass an
+            explicit value.
+        """
         if not _SDK_AVAILABLE:  # pragma: no cover -- ``is_available()`` gate
             raise RuntimeError(
                 "opensandbox SDK is not installed; "
                 "install with `pip install rath[opensandbox]`"
             )
         image = spec.image if spec is not None and spec.image else self._DEFAULT_IMAGE
-        timeout = (
+        sandbox_timeout = (
             spec.timeout
             if spec is not None and spec.timeout is not None
             else self._DEFAULT_TIMEOUT
@@ -280,7 +298,9 @@ class OpenSandboxBackend(Backend):
             if spec is not None and spec.entrypoint is not None
             else list(self._DEFAULT_ENTRYPOINT)
         )
-        return self._runner.run(self._open_coro(image, timeout, env, entrypoint, spec))
+        return self._runner.run(
+            self._open_coro(image, sandbox_timeout, env, entrypoint, spec),
+        )
 
     def attach(
         self,
@@ -341,14 +361,16 @@ class OpenSandboxBackend(Backend):
         )
         if not effective_volumes:
             await native.commands.run(f"mkdir -p {shlex.quote(self._SANDBOX_ROOT)}")
-        self._natives[native.id] = native
+        with self._natives_lock:
+            self._natives[native.id] = native
         return BackendSandbox(backend=self, handle=native.id, spec=spec)
 
     def close(self, sandbox: BackendSandbox) -> None:
-        if sandbox.closed:
-            return
-        sandbox.closed = True
-        native = self._natives.pop(sandbox.handle, None)
+        with self._natives_lock:
+            if sandbox.closed:
+                return
+            sandbox.closed = True
+            native = self._natives.pop(sandbox.handle, None)
         if native is not None:
             self._runner.run(self._close_coro(native))
 
@@ -357,12 +379,13 @@ class OpenSandboxBackend(Backend):
         await native.close()
 
     def dispatch(self, sandbox: BackendSandbox, call: BackendTool) -> ToolResult | bool:
-        if sandbox.closed:
-            return ToolExecutionFailure(
-                kind="sandbox_closed",
-                message=f"backend sandbox {sandbox.handle!r} is already closed",
-            )
-        native = self._natives.get(sandbox.handle)
+        with self._natives_lock:
+            if sandbox.closed:
+                return ToolExecutionFailure(
+                    kind="sandbox_closed",
+                    message=f"backend sandbox {sandbox.handle!r} is already closed",
+                )
+            native = self._natives.get(sandbox.handle)
         if native is None:
             return ToolExecutionFailure(
                 kind="sandbox_closed",
