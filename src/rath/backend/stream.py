@@ -7,13 +7,15 @@ import threading
 import time
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 from rath.backend.abc import BackendSandbox
 from rath.backend.results import ToolResult
 from rath.backend.tool_types import BackendTool
 
 T = TypeVar("T")
+
+_UNSET = object()
 
 
 class Future(Generic[T]):
@@ -23,7 +25,7 @@ class Future(Generic[T]):
 
     def __init__(self) -> None:
         self._evt = threading.Event()
-        self._result: T | None = None
+        self._result: T | object = _UNSET
         self._exc: BaseException | None = None
 
     def _set_result(self, result: T) -> None:
@@ -38,7 +40,8 @@ class Future(Generic[T]):
         self._evt.wait()
         if self._exc is not None:
             raise self._exc
-        return self._result  # type: ignore[return-value]
+        assert self._result is not _UNSET, "Future result was never set"
+        return cast(T, self._result)
 
     def done(self) -> bool:
         return self._evt.is_set()

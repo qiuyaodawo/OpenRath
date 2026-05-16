@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 from openai import (
     APIConnectionError,
@@ -104,7 +104,7 @@ _STREAM_FINISH_REASONS = frozenset(
 
 def _coerce_stream_finish(value: Any) -> RathLLMFinishReason | None:
     if isinstance(value, str) and value in _STREAM_FINISH_REASONS:
-        return value  # type: ignore[return-value]
+        return cast(RathLLMFinishReason, value)
     return None
 
 

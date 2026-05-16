@@ -248,7 +248,7 @@ def resolve_executor(
     return DefaultSessionLoopExecutor(client)
 
 
-def _sync_loop_out_rows(out: Session, rows_list: list[Any]) -> None:
+def _sync_loop_out_rows(out: Session, rows_list: list[ChunkRow]) -> None:
     out.chunk_table = ChunkTable(rows=tuple(rows_list))
 
 
@@ -387,7 +387,7 @@ def _summarize_dispatch_result(tool: FlowToolCall, raw: Any) -> str:
 
 def _append_and_persist(
     out: Session,
-    rows_list: list[Any],
+    rows_list: list[ChunkRow],
     row: ChunkRow,
     writer: SessionWriter | None,
 ) -> None:
@@ -446,7 +446,7 @@ def run_session_loop(
 
     prefs = agent_provider
 
-    rows_list: list[Any] = list(user_session.chunk_table.rows)
+    rows_list: list[ChunkRow] = list(user_session.chunk_table.rows)
     out = Session(
         chunk_table=ChunkTable(rows=tuple(rows_list)),
         sandbox_backend=user_session.sandbox_backend,
