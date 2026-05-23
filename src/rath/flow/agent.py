@@ -97,14 +97,67 @@ class Agent(Workflow):
             memory=resolved_memory,
         )
 
+    _executor_override = None  # tests-only seam; production paths leave it None
+
     def forward(self, session: Session) -> Session:
-        return run_session_loop(
-            user_session=session,
+        effective = self._inject_memory_into(session) if self.memory is not None else session
+        loop_kwargs: dict[str, object] = dict(
+            user_session=effective,
             agent_session=self.agent.agent_session,
             agent_provider=self.agent.provider,
             tools=self.tools,
             on_event=self._on_event,
         )
+        if self._executor_override is not None:
+            loop_kwargs["executor"] = self._executor_override
+        out = run_session_loop(**loop_kwargs)  # type: ignore[arg-type]
+        if self._commit_on_forward and self.memory is not None:
+            self._commit_session(out, wait=False)
+        return out
+
+    def _inject_memory_into(self, session: Session) -> Session:
+        """Return a forked session with policy-supplied chunks prepended."""
+        assert self.memory is not None  # caller-checked
+        try:
+            extras = self._memory_inject.inject(session, self.memory)
+        except Exception:  # noqa: BLE001 -- recall must not break the loop
+            extras = ()
+        if not extras:
+            return session
+        from rath.session.chunk import ChunkTable as _CT
+        from dataclasses import replace as _dc_replace
+        merged = _CT(rows=tuple(extras) + session.chunk_table.rows)
+        return _dc_replace(session, chunk_table=merged)
+
+    def _commit_session(self, session: Session, *, wait: bool) -> None:
+        """Best-effort commit of ``session``'s chat history into memory."""
+        from rath.memory.op_types import MemoryOpCommit
+        from rath.session.chunk import ChunkKind as _CK
+        messages: list[dict[str, object]] = []
+        for row in session.chunk_table.rows:
+            if row.kind == _CK.SYSTEM:
+                messages.append({"role": "system", "content": row.payload.get("content", "")})
+            elif row.kind == _CK.USER:
+                messages.append({"role": "user", "content": row.payload.get("content", "")})
+            elif row.kind == _CK.ASSISTANT:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": row.payload.get("content"),
+                    }
+                )
+        if self.memory is None:
+            return
+        try:
+            self.memory.dispatch(
+                MemoryOpCommit(
+                    session_id=str(session.id),
+                    messages=tuple(messages),
+                    wait=wait,
+                )
+            )
+        except Exception:  # noqa: BLE001 -- commit must not break forward
+            pass
 
     def register_tool(self, tool: FlowToolCall) -> None:
         if any(t.name == tool.name for t in self.tools):
