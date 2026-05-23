@@ -85,16 +85,29 @@ def test_rath_memory_exposes_public_api():
     assert not missing, f"missing public exports: {sorted(missing)}"
 
 
-def test_rath_memory_has_no_default_registered_backends():
+def test_rath_memory_registry_only_contains_optional_extras():
     """Importing :mod:`rath.memory` in a fresh interpreter must not register
-    adapters; the OpenViking adapter is gated behind the optional extra and
-    must only register when explicitly imported."""
+    any backend whose optional extra is *not* installed.
+
+    The OpenViking adapter self-registers on import IFF ``openviking`` is
+    importable; that is intentional (mirrors how ``rath.backend`` auto-loads
+    OpenSandbox when its extra is present). The contract this test guards
+    is the *negative* one: a name only appears in ``list_names()`` when its
+    SDK is importable -- never as a stub.
+    """
     script = textwrap.dedent(
         """
+        import importlib
         import rath.memory
-        names = rath.memory.list_names()
-        assert names == [], f"unexpected default backends: {names!r}"
-        print("OK")
+        names = set(rath.memory.list_names())
+        # For every registered name, the corresponding optional SDK must be
+        # importable -- adapters never register as stubs.
+        for name in names:
+            if name == "openviking":
+                importlib.import_module("openviking")
+            else:
+                raise AssertionError(f"unknown adapter registered: {name!r}")
+        print("OK", sorted(names))
         """
     )
     result = subprocess.run(

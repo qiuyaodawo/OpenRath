@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from rath.memory.capabilities import MemoryCapabilities
 from rath.memory.errors import MemoryStoreClosed
@@ -36,7 +36,7 @@ class MemoryStoreSpec:
     account_id: str | None = None
     user_id: str | None = None
     agent_id: str | None = None
-    options: Mapping[str, str] | None = None
+    options: Mapping[str, Any] | None = None
 
 
 @dataclass
