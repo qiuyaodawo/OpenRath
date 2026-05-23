@@ -1,26 +1,27 @@
 """Memory-backend abstract base, store handle, and store spec.
 
 Parallel to :mod:`rath.backend.abc`: :class:`MemoryStore` mirrors
-:class:`~rath.backend.abc.BackendSandbox` (refcount handle), and
+:class:`~rath.backend.abc.BackendSandbox` (refcount handle),
 :class:`MemoryStoreSpec` mirrors
-:class:`~rath.backend.abc.BackendSandboxSpec`. The :class:`MemoryBackend`
-ABC itself lands in the next task.
+:class:`~rath.backend.abc.BackendSandboxSpec`, and :class:`MemoryBackend`
+mirrors :class:`~rath.backend.abc.Backend`.
 """
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import TYPE_CHECKING
+from typing import ClassVar
 
+from rath.memory.capabilities import MemoryCapabilities
 from rath.memory.errors import MemoryStoreClosed
+from rath.memory.op_types import MemoryOp
+from rath.memory.results import MemoryResult
 
-if TYPE_CHECKING:
-    from rath.memory.abc import MemoryBackend  # noqa: F401  (forward ref placeholder)
 
-
-__all__ = ["MemoryStoreSpec", "MemoryStore"]
+__all__ = ["MemoryStoreSpec", "MemoryStore", "MemoryBackend"]
 
 
 @dataclass
@@ -91,3 +92,69 @@ class MemoryStore:
         tb: TracebackType | None,
     ) -> None:
         self.release()
+
+    def dispatch(self, op: MemoryOp) -> MemoryResult:
+        """Apply ``op`` through :meth:`MemoryBackend.dispatch`."""
+        if self.closed:
+            raise MemoryStoreClosed(self.handle)
+        return self.backend.dispatch(self, op)
+
+
+class MemoryBackend(ABC):
+    """Abstract base class for memory backends.
+
+    Subclasses must:
+
+    1. Set the ``name`` class attribute and register via
+       :func:`rath.memory.register`.
+    2. Implement the classmethods ``is_available``, ``capabilities`` and
+       ``supported_ops``.
+    3. Implement the instance methods ``store_count``, ``open``, ``close``
+       and ``dispatch``.
+    """
+
+    name: ClassVar[str]
+
+    @classmethod
+    @abstractmethod
+    def is_available(cls) -> bool:
+        """Return whether this backend is usable in the current environment.
+
+        Must be cheap (microseconds, no network, no subprocess). Examples:
+        check that a required SDK is importable, or that a config file or
+        environment variable is present.
+        """
+
+    @classmethod
+    @abstractmethod
+    def capabilities(cls) -> MemoryCapabilities:
+        """Return the static capability description of this backend type."""
+
+    @classmethod
+    @abstractmethod
+    def supported_ops(cls) -> frozenset[type[MemoryOp]]:
+        """Return :class:`MemoryOp` subclasses this backend handles."""
+
+    @abstractmethod
+    def store_count(self) -> int:
+        """Return the number of open memory stores managed by this instance."""
+
+    @abstractmethod
+    def open(self, spec: MemoryStoreSpec | None = None) -> MemoryStore:
+        """Open a fresh memory store and return its handle."""
+
+    @abstractmethod
+    def close(self, store: MemoryStore) -> None:
+        """Close ``store`` and release resources.
+
+        Calling close on an already-closed store is a no-op.
+        """
+
+    @abstractmethod
+    def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:
+        """Execute ``op`` against ``store`` and return its result.
+
+        Implementations should raise
+        :class:`~rath.memory.errors.UnsupportedMemoryOp` for op types not in
+        :meth:`supported_ops`.
+        """
