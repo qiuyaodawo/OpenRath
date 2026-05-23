@@ -159,6 +159,74 @@ class Agent(Workflow):
         except Exception:  # noqa: BLE001 -- commit must not break forward
             pass
 
+    # ---------------------------------------------------------------- public memory API
+
+    def remember(
+        self,
+        content: str,
+        *,
+        scope: str = "user",
+        category: str = "preferences",
+        wait: bool = False,
+    ) -> "object":
+        """Persist a free-form note under ``viking://{scope}/memories/{category}/...``.
+
+        ``scope`` is intentionally permissive (``user`` / ``agent`` /
+        ``session``) so user code can decide which namespace to target;
+        the URI prefix is adapter-coupled and other backends may rewrite
+        it. See :class:`~rath.memory.adapters.openviking.OpenVikingBackend`.
+        """
+        from rath.memory.op_types import MemoryOpWrite
+        store = self._require_memory()
+        uri = self._memory_uri(scope=scope, category=category)
+        return store.dispatch(MemoryOpWrite(uri=uri, content=content, wait=wait))
+
+    def recall(
+        self,
+        query: str,
+        *,
+        top_k: int = 4,
+        target_uri: str | None = None,
+    ) -> "object":
+        """Issue a ``MemoryOpFind`` against the bound store and return the result."""
+        from rath.memory.op_types import MemoryOpFind
+        store = self._require_memory()
+        return store.dispatch(
+            MemoryOpFind(query=query, top_k=top_k, target_uri=target_uri)
+        )
+
+    def commit(self, session: Session, *, wait: bool = False) -> "object":
+        """Commit ``session``'s chat transcript into memory for extraction."""
+        from rath.memory.op_types import MemoryOpCommit
+        from rath.session.chunk import ChunkKind as _CK
+        store = self._require_memory()
+        messages: list[dict[str, object]] = []
+        for row in session.chunk_table.rows:
+            if row.kind == _CK.SYSTEM:
+                messages.append({"role": "system", "content": row.payload.get("content", "")})
+            elif row.kind == _CK.USER:
+                messages.append({"role": "user", "content": row.payload.get("content", "")})
+            elif row.kind == _CK.ASSISTANT:
+                messages.append({"role": "assistant", "content": row.payload.get("content")})
+        return store.dispatch(
+            MemoryOpCommit(
+                session_id=str(session.id),
+                messages=tuple(messages),
+                wait=wait,
+            )
+        )
+
+    def _require_memory(self) -> MemoryStore:
+        if self.memory is None:
+            raise RuntimeError("agent has no memory store")
+        return self.memory
+
+    @staticmethod
+    def _memory_uri(*, scope: str, category: str) -> str:
+        import uuid as _uuid
+        slug = _uuid.uuid4().hex[:8]
+        return f"viking://{scope}/memories/{category}/{slug}"
+
     def register_tool(self, tool: FlowToolCall) -> None:
         if any(t.name == tool.name for t in self.tools):
             return
