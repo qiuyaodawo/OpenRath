@@ -37,7 +37,7 @@ _OP_SAMPLES = [
     (MemoryOpFind, {"query": "dark mode"}),
     (
         MemoryOpSearch,
-        {"query": "login flow", "session_info": (("session_id", "s1"),)},
+        {"query": "login flow", "session_id": "s1"},
     ),
     (MemoryOpResource, {"source": "https://example.com/doc"}),
     (

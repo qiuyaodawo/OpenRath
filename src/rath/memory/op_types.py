@@ -79,10 +79,12 @@ class MemoryOpFind(MemoryOp):
 
 @dataclass(frozen=True, slots=True)
 class MemoryOpSearch(MemoryOp):
-    """Intent-aware search; backends consume ``session_info`` opaquely."""
+    """Intent-aware search; ``session_id`` scopes ranking against a session."""
 
     query: str
-    session_info: Mapping[str, Any] | Sequence[tuple[str, Any]]
+    session_id: str | None = None
+    target_uri: str | None = None
+    top_k: int = 8
 
 
 @dataclass(frozen=True, slots=True)

@@ -35,6 +35,8 @@ from rath.memory.registry import register
 from rath.memory.results import (
     MemoryEntry,
     MemoryExecutionFailure,
+    MemoryFindResult,
+    MemoryHit,
     MemoryListResult,
     MemoryReadResult,
     MemoryResult,
@@ -175,6 +177,10 @@ class OpenVikingBackend(MemoryBackend):
                 return self._dispatch_list(client, op)
             if isinstance(op, MemoryOpTree):
                 return self._dispatch_tree(client, op)
+            if isinstance(op, MemoryOpFind):
+                return self._dispatch_find(client, op)
+            if isinstance(op, MemoryOpSearch):
+                return self._dispatch_search(client, op)
         except MemoryStoreClosed:
             raise
         except Exception as exc:  # noqa: BLE001 -- normalize through _failure_from
@@ -208,6 +214,26 @@ class OpenVikingBackend(MemoryBackend):
         entries = tuple(_entry_from_raw(item) for item in raw)
         return MemoryListResult(entries=entries)
 
+    # ------------------------------------------------------------------ Find/Search
+    @staticmethod
+    def _dispatch_find(client: Any, op: "MemoryOpFind") -> MemoryFindResult:
+        raw = client.find(
+            op.query,
+            target_uri=op.target_uri or "",
+            limit=op.top_k,
+        )
+        return MemoryFindResult(hits=_hits_from_findresult(raw))
+
+    @staticmethod
+    def _dispatch_search(client: Any, op: "MemoryOpSearch") -> MemoryFindResult:
+        raw = client.search(
+            op.query,
+            target_uri=op.target_uri or "",
+            session_id=op.session_id,
+            limit=op.top_k,
+        )
+        return MemoryFindResult(hits=_hits_from_findresult(raw))
+
     # ------------------------------------------------------------------ Tree
     @staticmethod
     def _dispatch_tree(client: Any, op: "MemoryOpTree") -> MemoryListResult:
@@ -215,6 +241,43 @@ class OpenVikingBackend(MemoryBackend):
         flattened: list[MemoryEntry] = []
         _flatten_tree(raw, flattened, base_depth=op.uri.count("/"), max_depth=op.depth)
         return MemoryListResult(entries=tuple(flattened))
+
+
+_LEVEL_INT_TO_NAME: dict[int, str] = {0: "abstract", 1: "overview", 2: "detail"}
+
+
+def _hits_from_findresult(raw: Any) -> tuple[MemoryHit, ...]:
+    """Walk an ``openviking.FindResult`` into typed :class:`MemoryHit` tuples.
+
+    The SDK exposes two parallel lists -- ``raw.memories`` and ``raw.resources``
+    -- each carrying ``MatchedContext`` objects with ``uri``, ``score``,
+    ``abstract``, ``overview``, ``level`` (int 0/1/2).
+    """
+    matches: list[Any] = []
+    for attr in ("memories", "resources", "skills"):
+        ms = getattr(raw, attr, None) or []
+        matches.extend(ms)
+    matches.sort(key=lambda m: getattr(m, "score", 0.0), reverse=True)
+    hits: list[MemoryHit] = []
+    for m in matches:
+        level_raw = getattr(m, "level", None)
+        level: str | None
+        if isinstance(level_raw, int):
+            level = _LEVEL_INT_TO_NAME.get(level_raw)
+        elif isinstance(level_raw, str):
+            level = level_raw if level_raw in _LEVEL_INT_TO_NAME.values() else None
+        else:
+            level = None
+        snippet = getattr(m, "abstract", None) or getattr(m, "overview", None)
+        hits.append(
+            MemoryHit(
+                uri=str(getattr(m, "uri", "")),
+                score=float(getattr(m, "score", 0.0)),
+                snippet=snippet,
+                level=level,
+            )
+        )
+    return tuple(hits)
 
 
 def _entry_from_raw(item: Mapping[str, Any]) -> MemoryEntry:
