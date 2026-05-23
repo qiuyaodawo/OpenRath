@@ -12,9 +12,13 @@ import block at the bottom of :mod:`rath.memory.__init__` swallows the
 
 from __future__ import annotations
 
+import uuid
+from dataclasses import dataclass
+from typing import Any
+
 from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
-from rath.memory.errors import UnsupportedMemoryOp
+from rath.memory.errors import MemoryBackendError, MemoryStoreClosed, UnsupportedMemoryOp
 from rath.memory.op_types import (
     MemoryOp,
     MemoryOpCommit,
@@ -65,9 +69,20 @@ _SUPPORTED_OPS: frozenset[type[MemoryOp]] = frozenset(
 )
 
 
+@dataclass
+class _OpenVikingHandle:
+    """Internal binding between a :class:`MemoryStore` handle and an SDK client."""
+
+    client: Any
+    mode: str  # "http" or "embedded"
+
+
 @register("openviking")
 class OpenVikingBackend(MemoryBackend):
     """:class:`~rath.memory.MemoryBackend` backed by OpenViking 0.3.x."""
+
+    def __init__(self) -> None:
+        self._handles: dict[str, _OpenVikingHandle] = {}
 
     @classmethod
     def is_available(cls) -> bool:
@@ -82,15 +97,67 @@ class OpenVikingBackend(MemoryBackend):
         return _SUPPORTED_OPS
 
     def store_count(self) -> int:
-        raise NotImplementedError("OpenVikingBackend.store_count lands in task 2.3")
+        return len(self._handles)
 
     def open(self, spec: MemoryStoreSpec | None = None) -> MemoryStore:
-        raise NotImplementedError("OpenVikingBackend.open lands in task 2.3")
+        spec = spec or MemoryStoreSpec()
+        options = dict(spec.options or {})
+
+        url = options.get("url")
+        if url:
+            try:
+                client = _ov.SyncHTTPClient(
+                    url=url,
+                    api_key=options.get("api_key"),
+                    account=spec.account_id or "default",
+                    user_id=spec.user_id or "default",
+                    agent_id=spec.agent_id or "default",
+                    timeout=float(options.get("timeout", 60.0)),
+                )
+                client.initialize()
+            except Exception as exc:  # noqa: BLE001 -- surface real cause
+                raise MemoryBackendError(
+                    f"failed to open OpenViking HTTP client at {url}: {exc}"
+                ) from exc
+            mode = "http"
+        else:
+            path = options.get("path")
+            if not path:
+                raise MemoryBackendError(
+                    "MemoryStoreSpec.options must carry either 'url' (HTTP mode) or "
+                    "'path' (embedded mode)"
+                )
+            try:
+                client = _ov.OpenViking(path=str(path))
+            except ImportError as exc:
+                raise MemoryBackendError(
+                    "openviking embedded mode requires the pyagfs binding-client "
+                    f"wheel: {exc}"
+                ) from exc
+            except Exception as exc:  # noqa: BLE001
+                raise MemoryBackendError(
+                    f"failed to open OpenViking embedded client at {path}: {exc}"
+                ) from exc
+            mode = "embedded"
+
+        handle = uuid.uuid4().hex
+        self._handles[handle] = _OpenVikingHandle(client=client, mode=mode)
+        return MemoryStore(backend=self, handle=handle, spec=spec)
 
     def close(self, store: MemoryStore) -> None:
-        raise NotImplementedError("OpenVikingBackend.close lands in task 2.3")
+        if store.closed:
+            return
+        entry = self._handles.pop(store.handle, None)
+        if entry is not None:
+            try:
+                entry.client.close()
+            except Exception:  # noqa: BLE001 -- close must be best-effort
+                pass
+        store.closed = True
 
     def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:
+        if store.closed:
+            raise MemoryStoreClosed(store.handle)
         if type(op) not in _SUPPORTED_OPS:
             raise UnsupportedMemoryOp(op_type=type(op))
         raise NotImplementedError(
