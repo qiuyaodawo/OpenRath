@@ -227,6 +227,33 @@ class Agent(Workflow):
         slug = _uuid.uuid4().hex[:8]
         return f"viking://{scope}/memories/{category}/{slug}"
 
+    # ---------------------------------------------------------------- lifecycle
+
+    def close(self) -> None:
+        """Release the memory store reference acquired in ``__init__`` (idempotent)."""
+        mem = self.memory
+        if mem is None:
+            return
+        self.memory = None
+        # Also drop the reference from the AgentParam mirror so repr stops
+        # showing a stale handle once the store has been released.
+        try:
+            self.agent.memory = None
+        except Exception:  # noqa: BLE001 -- agent_param may already be gone
+            pass
+        mem.release()
+
+    def __enter__(self) -> "Agent":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: object | None,
+    ) -> None:
+        self.close()
+
     def register_tool(self, tool: FlowToolCall) -> None:
         if any(t.name == tool.name for t in self.tools):
             return
