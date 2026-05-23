@@ -37,10 +37,18 @@ class MemoryOp:
 
 @dataclass(frozen=True, slots=True)
 class MemoryOpWrite(MemoryOp):
-    """Write a single memory entry at ``uri`` with free-form text content."""
+    """Update an existing memory entry at ``uri`` with free-form text content.
+
+    OpenViking's ``write`` semantics are an *update* of an existing memory
+    file (created by ``commit_session`` extraction or seeded via
+    :class:`MemoryOpResource`); it is not a generic create-file path.
+    """
 
     uri: str
     content: str
+    mode: str = "replace"
+    wait: bool = False
+    timeout_seconds: float | None = None
     metadata: Mapping[str, str] | None = None
 
 
@@ -89,18 +97,29 @@ class MemoryOpSearch(MemoryOp):
 
 @dataclass(frozen=True, slots=True)
 class MemoryOpResource(MemoryOp):
-    """Register an external resource (URL / file / dir) for ingestion."""
+    """Register an external resource (URL / file / dir) for ingestion.
+
+    ``target_uri`` is the destination directory under ``viking://resources/``.
+    """
 
     source: str
+    target_uri: str | None = None
+    reason: str = ""
+    instruction: str = ""
     wait: bool = True
     timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MemoryOpCommit(MemoryOp):
-    """Commit a session's messages for archive + memory extraction."""
+    """Commit a session's messages for archive + memory extraction.
+
+    Each entry in ``messages`` is a ``{"role": ..., "content": ...}`` dict
+    (or ``{"role": ..., "parts": [...]}`` for multipart messages).
+    """
 
     session_id: str
     messages: Sequence[Any]
     used_uris: Sequence[str] = field(default_factory=tuple)
     wait: bool = False
+    timeout_seconds: float | None = None

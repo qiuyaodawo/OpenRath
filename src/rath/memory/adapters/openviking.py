@@ -33,6 +33,7 @@ from rath.memory.op_types import (
 )
 from rath.memory.registry import register
 from rath.memory.results import (
+    MemoryCommitResult,
     MemoryEntry,
     MemoryExecutionFailure,
     MemoryFindResult,
@@ -40,6 +41,7 @@ from rath.memory.results import (
     MemoryListResult,
     MemoryReadResult,
     MemoryResult,
+    MemoryWriteResult,
 )
 
 # Importing ``openviking`` is what gates this adapter; failures here propagate
@@ -181,12 +183,111 @@ class OpenVikingBackend(MemoryBackend):
                 return self._dispatch_find(client, op)
             if isinstance(op, MemoryOpSearch):
                 return self._dispatch_search(client, op)
+            if isinstance(op, MemoryOpWrite):
+                return self._dispatch_write(client, op)
+            if isinstance(op, MemoryOpResource):
+                return self._dispatch_resource(client, op)
+            if isinstance(op, MemoryOpCommit):
+                return self._dispatch_commit(client, op)
         except MemoryStoreClosed:
             raise
         except Exception as exc:  # noqa: BLE001 -- normalize through _failure_from
             return _failure_from(exc)
         raise NotImplementedError(
-            f"OpenVikingBackend.dispatch for {type(op).__name__} lands in tasks 2.5-2.6"
+            f"OpenVikingBackend.dispatch missing branch for {type(op).__name__}"
+        )
+
+    # ------------------------------------------------------------------ Write
+    @staticmethod
+    def _dispatch_write(client: Any, op: "MemoryOpWrite") -> MemoryResult:
+        if not _valid_viking_uri(op.uri):
+            return MemoryExecutionFailure(
+                kind="invalid_uri",
+                message=f"unsupported URI scope: {op.uri!r}",
+                detail="MemoryOpWrite",
+            )
+        raw = client.write(
+            op.uri,
+            op.content,
+            mode=op.mode,
+            wait=op.wait,
+            timeout=op.timeout_seconds,
+        )
+        written = (
+            int(raw["written_bytes"])
+            if isinstance(raw, Mapping) and raw.get("written_bytes") is not None
+            else len(op.content.encode("utf-8"))
+        )
+        return MemoryWriteResult(uri=op.uri, bytes_written=written)
+
+    # ------------------------------------------------------------------ Resource
+    @staticmethod
+    def _dispatch_resource(client: Any, op: "MemoryOpResource") -> MemoryResult:
+        raw = client.add_resource(
+            op.source,
+            to=op.target_uri or None,
+            reason=op.reason or "",
+            instruction=op.instruction or "",
+            wait=op.wait,
+            timeout=op.timeout_seconds,
+        )
+        uri = ""
+        if isinstance(raw, Mapping):
+            uri = (
+                raw.get("root_uri")
+                or raw.get("uri")
+                or (op.target_uri or "")
+            )
+        return MemoryWriteResult(uri=uri or (op.target_uri or ""), bytes_written=0)
+
+    # ------------------------------------------------------------------ Commit
+    @staticmethod
+    def _dispatch_commit(client: Any, op: "MemoryOpCommit") -> MemoryResult:
+        # create_session is idempotent on this server: returns the existing
+        # session if one already exists.
+        try:
+            client.create_session(session_id=op.session_id)
+        except Exception:  # noqa: BLE001 -- tolerate AlreadyExists / similar
+            pass
+        for msg in op.messages:
+            if isinstance(msg, Mapping):
+                client.add_message(
+                    session_id=op.session_id,
+                    role=msg.get("role", "user"),
+                    content=msg.get("content"),
+                    parts=msg.get("parts"),
+                )
+            else:
+                client.add_message(
+                    session_id=op.session_id,
+                    role=getattr(msg, "role", "user"),
+                    content=getattr(msg, "content", None),
+                    parts=getattr(msg, "parts", None),
+                )
+        raw = client.commit_session(session_id=op.session_id)
+        task_id = raw.get("task_id") if isinstance(raw, Mapping) else None
+        archived_uri = raw.get("archive_uri") if isinstance(raw, Mapping) else None
+        extracted = -1
+        if op.wait and op.timeout_seconds:
+            try:
+                client.wait_processed(timeout=float(op.timeout_seconds))
+            except Exception:  # noqa: BLE001
+                pass
+            if task_id:
+                try:
+                    task = client.get_task(task_id)
+                    if isinstance(task, Mapping):
+                        result = task.get("result")
+                        if isinstance(result, Mapping):
+                            ex = result.get("memories_extracted") or {}
+                            if isinstance(ex, Mapping):
+                                extracted = int(sum(ex.values())) if ex else 0
+                except Exception:  # noqa: BLE001
+                    pass
+        return MemoryCommitResult(
+            task_id=task_id,
+            archived_uri=archived_uri,
+            extracted_count=extracted,
         )
 
     # ------------------------------------------------------------------ Read
@@ -241,6 +342,24 @@ class OpenVikingBackend(MemoryBackend):
         flattened: list[MemoryEntry] = []
         _flatten_tree(raw, flattened, base_depth=op.uri.count("/"), max_depth=op.depth)
         return MemoryListResult(entries=tuple(flattened))
+
+
+_VALID_SCOPES: frozenset[str] = frozenset({"user", "agent", "session", "resources"})
+
+
+def _valid_viking_uri(uri: str) -> bool:
+    """Check that ``uri`` looks like ``viking://{user|agent|session|resources}/...``.
+
+    The server enforces this too (InvalidURIError), but doing a cheap
+    client-side check lets us surface a clean ``invalid_uri`` failure
+    without burning an HTTP roundtrip on obviously-wrong inputs.
+    """
+    prefix = "viking://"
+    if not uri.startswith(prefix):
+        return False
+    tail = uri[len(prefix):]
+    head = tail.split("/", 1)[0]
+    return head in _VALID_SCOPES
 
 
 _LEVEL_INT_TO_NAME: dict[int, str] = {0: "abstract", 1: "overview", 2: "detail"}
