@@ -35,6 +35,9 @@ opensandbox = [
     "opensandbox-code-interpreter>=0.1.2",
     "opensandbox-server>=0.1.12",
 ]
+openviking = [
+    "openviking>=0.2.6",
+]
 
 [tool.ruff]
 line-length = 88
