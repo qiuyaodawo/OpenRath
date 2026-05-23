@@ -13,6 +13,7 @@ import block at the bottom of :mod:`rath.memory.__init__` swallows the
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -31,7 +32,13 @@ from rath.memory.op_types import (
     MemoryOpWrite,
 )
 from rath.memory.registry import register
-from rath.memory.results import MemoryResult
+from rath.memory.results import (
+    MemoryEntry,
+    MemoryExecutionFailure,
+    MemoryListResult,
+    MemoryReadResult,
+    MemoryResult,
+)
 
 # Importing ``openviking`` is what gates this adapter; failures here propagate
 # up to ``rath.memory.__init__``'s try/except so the registry stays empty when
@@ -160,6 +167,147 @@ class OpenVikingBackend(MemoryBackend):
             raise MemoryStoreClosed(store.handle)
         if type(op) not in _SUPPORTED_OPS:
             raise UnsupportedMemoryOp(op_type=type(op))
+        client = self._handles[store.handle].client
+        try:
+            if isinstance(op, MemoryOpRead):
+                return self._dispatch_read(client, op)
+            if isinstance(op, MemoryOpList):
+                return self._dispatch_list(client, op)
+            if isinstance(op, MemoryOpTree):
+                return self._dispatch_tree(client, op)
+        except MemoryStoreClosed:
+            raise
+        except Exception as exc:  # noqa: BLE001 -- normalize through _failure_from
+            return _failure_from(exc)
         raise NotImplementedError(
-            "OpenVikingBackend.dispatch implementation lands in tasks 2.4-2.6"
+            f"OpenVikingBackend.dispatch for {type(op).__name__} lands in tasks 2.5-2.6"
         )
+
+    # ------------------------------------------------------------------ Read
+    @staticmethod
+    def _dispatch_read(client: Any, op: "MemoryOpRead") -> MemoryReadResult:
+        if op.level == "detail":
+            text = client.read(op.uri)
+        elif op.level == "abstract":
+            text = client.abstract(op.uri)
+        elif op.level == "overview":
+            text = client.overview(op.uri)
+        else:  # pragma: no cover -- Literal protects this branch at type-check time
+            raise ValueError(f"unknown read level: {op.level!r}")
+        data: str | bytes
+        if op.encoding is None:
+            data = (text or "").encode("utf-8")
+        else:
+            data = text or ""
+        return MemoryReadResult(uri=op.uri, data=data, level=op.level)
+
+    # ------------------------------------------------------------------ List
+    @staticmethod
+    def _dispatch_list(client: Any, op: "MemoryOpList") -> MemoryListResult:
+        raw = client.ls(op.uri)
+        entries = tuple(_entry_from_raw(item) for item in raw)
+        return MemoryListResult(entries=entries)
+
+    # ------------------------------------------------------------------ Tree
+    @staticmethod
+    def _dispatch_tree(client: Any, op: "MemoryOpTree") -> MemoryListResult:
+        raw = client.tree(op.uri)
+        flattened: list[MemoryEntry] = []
+        _flatten_tree(raw, flattened, base_depth=op.uri.count("/"), max_depth=op.depth)
+        return MemoryListResult(entries=tuple(flattened))
+
+
+def _entry_from_raw(item: Mapping[str, Any]) -> MemoryEntry:
+    return MemoryEntry(
+        name=str(item.get("name", "")),
+        uri=str(item.get("uri", "")),
+        is_dir=bool(item.get("isDir", False)),
+        size=int(item["size"]) if item.get("size") is not None else None,
+    )
+
+
+def _flatten_tree(
+    nodes: Any,
+    out: list[MemoryEntry],
+    base_depth: int,
+    max_depth: int | None,
+) -> None:
+    if not nodes:
+        return
+    for node in nodes:
+        if not isinstance(node, Mapping):
+            continue
+        uri = str(node.get("uri", ""))
+        if max_depth is not None and uri.count("/") - base_depth > max_depth:
+            continue
+        out.append(_entry_from_raw(node))
+        children = node.get("children") or node.get("entries")
+        if children:
+            _flatten_tree(children, out, base_depth, max_depth)
+
+
+# ---------------------------------------------------------------- error mapping
+
+_KIND_CACHE: dict[type[BaseException], str] | None = None
+
+
+def _import_exc_classes() -> dict[type[BaseException], str]:
+    """Resolve OpenViking exception classes lazily.
+
+    The SDK uses lazy imports under ``openviking.pyagfs.exceptions``; some
+    classes only resolve once the relevant submodule has been touched.
+    """
+    global _KIND_CACHE
+    if _KIND_CACHE is not None:
+        return _KIND_CACHE
+    mapping: dict[type[BaseException], str] = {}
+    try:  # CLI-side exceptions: always present when openviking is installed
+        from openviking_cli.exceptions import (
+            NotFoundError,
+            InvalidArgumentError,
+            InvalidURIError,
+        )
+
+        mapping[NotFoundError] = "not_found"
+        mapping[InvalidURIError] = "invalid_uri"
+        mapping[InvalidArgumentError] = "invalid_uri"
+    except ImportError:
+        pass
+    for name, kind in [
+        ("PermissionDeniedError", "unauthorized"),
+        ("UnauthenticatedError", "unauthorized"),
+        ("FailedPreconditionError", "invalid_uri"),
+        ("UnimplementedError", "unsupported"),
+    ]:
+        try:
+            mod = __import__("openviking_cli.exceptions", fromlist=[name])
+            cls = getattr(mod, name, None)
+            if cls is not None:
+                mapping[cls] = kind
+        except ImportError:
+            continue
+    return mapping
+
+
+def _failure_from(exc: BaseException) -> MemoryExecutionFailure:
+    classes = _import_exc_classes()
+    for cls, kind in classes.items():
+        if isinstance(exc, cls):
+            return MemoryExecutionFailure(
+                kind=kind,
+                message=str(exc),
+                detail=type(exc).__name__,
+            )
+    if isinstance(exc, TimeoutError):
+        return MemoryExecutionFailure(
+            kind="timeout", message=str(exc), detail=type(exc).__name__
+        )
+    if isinstance(exc, ConnectionError):
+        return MemoryExecutionFailure(
+            kind="transport", message=str(exc), detail=type(exc).__name__
+        )
+    return MemoryExecutionFailure(
+        kind="internal",
+        message=str(exc),
+        detail=type(exc).__name__,
+    )
