@@ -434,40 +434,69 @@ _KIND_CACHE: dict[type[BaseException], str] | None = None
 
 
 def _import_exc_classes() -> dict[type[BaseException], str]:
-    """Resolve OpenViking exception classes lazily.
+    """Resolve OpenViking exception classes once and memoize the mapping.
 
-    The SDK uses lazy imports under ``openviking.pyagfs.exceptions``; some
-    classes only resolve once the relevant submodule has been touched.
+    Built from the real ``openviking_cli.exceptions`` module: every class
+    here is an actual SDK exception raised by ``SyncHTTPClient``. We do
+    NOT include the ``openviking.pyagfs.exceptions`` family because (a)
+    they only surface in embedded mode and (b) the SDK normalises pyagfs
+    errors to the CLI hierarchy before they reach our dispatch.
     """
     global _KIND_CACHE
     if _KIND_CACHE is not None:
         return _KIND_CACHE
     mapping: dict[type[BaseException], str] = {}
-    try:  # CLI-side exceptions: always present when openviking is installed
+    try:
         from openviking_cli.exceptions import (
-            NotFoundError,
+            AbortedError,
+            AlreadyExistsError,
+            ConflictError,
+            DeadlineExceededError,
+            EmbeddingFailedError,
+            FailedPreconditionError,
+            InternalError,
             InvalidArgumentError,
             InvalidURIError,
+            NotFoundError,
+            NotInitializedError,
+            PermissionDeniedError,
+            ProcessingError,
+            ResourceExhaustedError,
+            SessionExpiredError,
+            UnauthenticatedError,
+            UnavailableError,
+            UnimplementedError,
+            UnsupportedDirectoryFilesError,
+            VLMFailedError,
         )
 
-        mapping[NotFoundError] = "not_found"
-        mapping[InvalidURIError] = "invalid_uri"
-        mapping[InvalidArgumentError] = "invalid_uri"
+        mapping.update(
+            {
+                NotFoundError: "not_found",
+                InvalidURIError: "invalid_uri",
+                InvalidArgumentError: "invalid_uri",
+                FailedPreconditionError: "invalid_uri",
+                UnsupportedDirectoryFilesError: "invalid_uri",
+                PermissionDeniedError: "unauthorized",
+                UnauthenticatedError: "unauthorized",
+                UnimplementedError: "unsupported",
+                NotInitializedError: "unsupported",
+                DeadlineExceededError: "timeout",
+                UnavailableError: "transport",
+                AbortedError: "transport",
+                ResourceExhaustedError: "transport",
+                ConflictError: "internal",
+                AlreadyExistsError: "internal",
+                ProcessingError: "extraction_failed",
+                EmbeddingFailedError: "extraction_failed",
+                VLMFailedError: "extraction_failed",
+                SessionExpiredError: "store_closed",
+                InternalError: "internal",
+            }
+        )
     except ImportError:
         pass
-    for name, kind in [
-        ("PermissionDeniedError", "unauthorized"),
-        ("UnauthenticatedError", "unauthorized"),
-        ("FailedPreconditionError", "invalid_uri"),
-        ("UnimplementedError", "unsupported"),
-    ]:
-        try:
-            mod = __import__("openviking_cli.exceptions", fromlist=[name])
-            cls = getattr(mod, name, None)
-            if cls is not None:
-                mapping[cls] = kind
-        except ImportError:
-            continue
+    _KIND_CACHE = mapping
     return mapping
 
 
