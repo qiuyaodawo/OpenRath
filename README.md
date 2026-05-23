@@ -1,6 +1,6 @@
 # OpenRath
 
-![OpenRath logo](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/logo.png)
+![OpenRath logo](assets/readme/logo.png)
 
 <p align="center">
   <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/v/openrath.svg" alt="PyPI"></a>
@@ -37,7 +37,7 @@ Many stacks keep conversation state, orchestration logic, and execution environm
 
 Separate ledgers for messages and where commands actually run stay in sync only by hand. After machine or directory changes, or tighter isolation, tool landing points and the workspace implied by the conversation often diverge, which hurts reproducibility and audit. Here backend choice chain-loads off the same object, much like putting data on a device. After a dialogue-and-tool round, ownership of the active sandbox is written back into the returned session so later dispatch still targets the same workflow outcome.
 
-![Sandbox as session backend](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/backend.png)
+![Sandbox as session backend](assets/readme/backend.png)
 
 ### Context through chunk tables for better reuse in multi-agent collaboration
 
@@ -47,7 +47,7 @@ Flat message lists encourage whole-history copies and repeated stitching of syst
 
 A common pattern is a small inner loop per agent (read, model, tools) wrapped by outer orchestration, which yields nested loops and unnecessary completions at a fixed cadence when many roles exist. The default path is session-centric: completions and tool rounds interleave on one evolving session; agents attach to the workflow mainly as prompts and sampling configuration, not each with its own closed executor, which fits sparse clusters better when only part of the roles should activate.
 
-![Session-first loop](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/session.png)
+![Session-first loop](assets/readme/session.png)
 
 ### Dynamic multi-agent fleets: automatic session-graph tracking
 
@@ -57,7 +57,7 @@ When topology is wired by hand or an external DAG, lineage often depends on ad-h
 
 If one agent type owns prompts, network I/O, tools, and the loop, inheritance and callbacks stack up and even changing a system prompt or sampling field pulls the whole class. Workflows expose a forward step that takes a session and returns an updated session; agent-side settings sit in parameter-like objects; networking and sandbox dispatch live with the loop executor so module boundaries stay clearer for nesting and reuse.
 
-![Workflow composition](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/workflow.png)
+![Workflow composition](assets/readme/workflow.png)
 
 ---
 
@@ -105,7 +105,8 @@ Set the backend to `opensandbox` in-session with a spec; see `example/sandbox_ba
 Build Sphinx locally:
 
 ```bash
-git clone https://github.com/Rath-Team/OpenRath.git
+git clone --recurse-submodules https://github.com/Rath-Team/OpenRath.git
+cd OpenRath
 uv sync --group dev --group docs
 uv run sphinx-build -M html docs/source docs/_build
 ```
@@ -127,7 +128,7 @@ Sample OpenRath entry points:
 7. [`research_transformer/`](example/research_transformer/): a **Transformer-metaphor** academic pipeline (literature vs reproduction branches over N layers, optional figure tool, final polish) demonstrating story-first composition on `Session`/`Workflow`; default sandbox root is `example/research_transformer/.workspace/`.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
+  <img src="assets/readme/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
 </div>
 
 The folders above that reimplement or storyboard upstream scenarios (`trading_agents`, `engineering_agents`, and similar) are for demonstrating complex orchestration only; they are not guarantees about upstream behavior. Using upstream names still means following those repositories’ licenses and terms.

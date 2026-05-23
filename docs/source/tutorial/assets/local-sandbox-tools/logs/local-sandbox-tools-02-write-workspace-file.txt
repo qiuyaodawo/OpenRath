@@ -1,5 +1,0 @@
-$ sandbox.dispatch(flow_tool_files_write("notes/hello.txt", "..."))
-
-{
-  "bytes_written": 34
-}

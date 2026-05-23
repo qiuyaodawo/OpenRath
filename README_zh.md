@@ -1,6 +1,6 @@
 # OpenRath
 
-![OpenRath logo](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/logo.png)
+![OpenRath logo](assets/readme/logo.png)
 
 <p align="center">
   <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/v/openrath.svg" alt="PyPI"></a>
@@ -37,7 +37,7 @@
 
 消息记录与命令实际执行的位置通常各自独立维护，仅靠手动同步。在机器或目录变更、或隔离要求更严格的情况下，工具的落地位置与会话隐含的工作区容易偏离，损害可复现性和审计能力。在 OpenRath 中，沙箱后端的选择从同一个对象链式加载，类似于将数据放到指定设备上。经过一轮对话和工具调用后，活动沙箱的所有权会写回返回的 Session 中，后续的调度仍指向相同的工作流结果。
 
-![沙箱作为会话后端](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/backend.png)
+![沙箱作为会话后端](assets/readme/backend.png)
 
 ### 通过分块表管理上下文，提升多智能体协作中的复用能力
 
@@ -47,7 +47,7 @@
 
 常见模式是每个智能体维护一个小型内部循环（读取、模型调用、工具执行），由外部编排层包裹。当存在多个角色时，这会产生嵌套循环，且以固定频率触发不必要的补全。OpenRath 的默认路径以会话为中心：补全和工具轮次交替作用于一个不断演进的会话上；智能体主要作为提示词和采样配置接入工作流，而非各自封闭的执行器。在只需要部分角色激活的稀疏集群中，这种方式更为合适。
 
-![会话中心循环](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/session.png)
+![会话中心循环](assets/readme/session.png)
 
 ### 动态多智能体集群：自动追踪会话图
 
@@ -57,7 +57,7 @@
 
 如果一个智能体类型同时管理提示词、网络 I/O、工具和循环，继承关系和回调会不断堆叠，哪怕只是修改系统提示词或采样字段也会牵连整个类。OpenRath 的工作流暴露一个 `forward` 方法，接收一个 Session 并返回更新后的 Session；智能体侧的设置存放在类似参数的对象中；网络通信和沙箱调度归入循环执行器，使模块边界更加清晰，便于嵌套和复用。
 
-![工作流组合](https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/workflow.png)
+![工作流组合](assets/readme/workflow.png)
 
 ---
 
@@ -105,7 +105,8 @@ pip install "openrath[opensandbox]"
 本地构建 Sphinx 文档：
 
 ```bash
-git clone https://github.com/Rath-Team/OpenRath.git
+git clone --recurse-submodules https://github.com/Rath-Team/OpenRath.git
+cd OpenRath
 uv sync --group dev --group docs
 uv run sphinx-build -M html docs/source docs/_build
 ```
@@ -127,7 +128,7 @@ HTML 输出位于 `docs/_build/html/` 目录下。
 7. [`research_transformer/`](example/research_transformer/)：一个 **Transformer 隐喻** 的学术流水线（文献 vs 复现分支经过 N 层、可选的绘图工具、最终润色），展示了基于 `Session`/`Workflow` 的故事优先组合方式；默认沙箱根目录为 `example/research_transformer/.workspace/`。
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Rath-Team/OpenRath/main/docs/source/_static/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
+  <img src="assets/readme/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
 </div>
 
 以上重实现或剧本化上游场景的目录（`trading_agents`、`engineering_agents` 及类似目录）仅用于演示复杂编排能力；它们不代表上游项目的行为或效果。使用上游项目名称仍须遵守其仓库的许可证和条款。

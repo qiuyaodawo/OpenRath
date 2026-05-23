@@ -20,6 +20,12 @@ We use **[uv](https://github.com/astral-sh/uv)** for environments.
 uv sync --group dev
 ```
 
+After cloning, initialize the documentation submodule if you did not use `--recurse-submodules`:
+
+```bash
+git submodule update --init --recursive
+```
+
 Optional groups:
 
 ```bash
@@ -83,7 +89,8 @@ Then preview them at `http://127.0.0.1:8000/`.
 src/rath/          Installable package (wheel maps here via hatch)
 tests/             pytest tree (unit, integration, conformance, examples checks)
 example/           Runnable demos and CLI entry points (also ruff-clean)
-docs/source/       Sphinx + MyST sources
+assets/readme/     README and example-facing images (independent of docs submodule)
+docs/              Sphinx + MyST sources (git submodule: OpenRath-Docs)
 pyproject.toml     Metadata, dependencies, dependency groups
 ```
 

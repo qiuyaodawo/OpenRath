@@ -3,7 +3,7 @@
 A multi-stage **academic pipeline** example for OpenRath. It models a “transformer-like” stack: two parallel branches (literature synthesis and thesis reproduction), **session compression** between major stages, then an output head that tightens register and polishes prose. Each station can use a **different model** via environment variables.
 
 <div align="center">
-  <img src="../../docs/source/_static/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
+  <img src="../../assets/readme/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
 </div>
 
 ## When to use this example
