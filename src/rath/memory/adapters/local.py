@@ -48,6 +48,7 @@ from rath.memory.persistence import (
 )
 from rath.memory.registry import register
 from rath.memory.results import (
+    MemoryCommitResult,
     MemoryEntry,
     MemoryExecutionFailure,
     MemoryFindResult,
@@ -191,6 +192,8 @@ class LocalMemoryBackend(MemoryBackend):
                 )
             if isinstance(op, MemoryOpResource):
                 return self._dispatch_resource(bound, op)
+            if isinstance(op, MemoryOpCommit):
+                return self._dispatch_commit(bound, op)
         except PermissionError as exc:
             return MemoryExecutionFailure(
                 kind="unauthorized",
@@ -242,8 +245,9 @@ class LocalMemoryBackend(MemoryBackend):
         resolved = _resolve_uri(bound.path, op.uri)
         if isinstance(resolved, MemoryExecutionFailure):
             return resolved
-        target = resolved.with_suffix(_MD_SUFFIX)
-        if not target.is_file():
+        candidates = [resolved.with_suffix(_MD_SUFFIX), resolved]
+        target: Path | None = next((c for c in candidates if c.is_file()), None)
+        if target is None:
             return MemoryExecutionFailure(
                 kind="not_found",
                 message=f"no memory at {op.uri}",
@@ -358,6 +362,67 @@ class LocalMemoryBackend(MemoryBackend):
         return MemoryWriteResult(
             uri=f"{target_uri.rstrip('/')}/{sha}",
             bytes_written=len(raw_bytes),
+        )
+
+    # ---------------------------------------------------------------- Commit
+
+    def _dispatch_commit(
+        self, bound: "_LocalHandle", op: MemoryOpCommit
+    ) -> MemoryResult:
+        if not op.session_id:
+            return MemoryExecutionFailure(
+                kind="invalid_uri",
+                message="MemoryOpCommit requires non-empty session_id",
+            )
+        # Archive messages.json under session/<sid>/commits/<timestamp>/.
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+        commit_root = (
+            bound.path
+            / "session"
+            / op.session_id
+            / "commits"
+            / stamp
+        )
+        commit_root.mkdir(parents=True, exist_ok=True)
+        archive_path = commit_root / "messages.json"
+        normalized = [_normalize_message(m) for m in op.messages]
+        archive_path.write_text(
+            json.dumps(normalized, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        archived_uri = (
+            f"viking://session/{op.session_id}/commits/{stamp}/messages.json"
+        )
+
+        if not op.wait:
+            return MemoryCommitResult(
+                task_id=None,
+                archived_uri=archived_uri,
+                extracted_count=-1,
+            )
+
+        chat_client = bound.options.get("chat")
+        if chat_client is None:
+            return MemoryCommitResult(
+                task_id=None,
+                archived_uri=archived_uri,
+                extracted_count=0,
+            )
+
+        extracted = _extract_memos(
+            chat_client, normalized, op.used_uris
+        )
+        for uri, content in extracted:
+            sub = _resolve_uri(bound.path, uri)
+            if isinstance(sub, MemoryExecutionFailure):
+                continue
+            target = sub.with_suffix(_MD_SUFFIX)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+        return MemoryCommitResult(
+            task_id=None,
+            archived_uri=archived_uri,
+            extracted_count=len(extracted),
         )
 
     # ---------------------------------------------------------------- helpers
@@ -759,6 +824,135 @@ def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
             exc_info=True,
         )
         bound.embedding_init_failed = True
+        return None
+
+
+def _normalize_message(msg: Any) -> dict[str, Any]:
+    """Coerce a message-like object into ``{role, content, ...}`` for archive."""
+    if isinstance(msg, dict):
+        return {k: v for k, v in msg.items()}
+    out: dict[str, Any] = {}
+    if hasattr(msg, "role"):
+        out["role"] = getattr(msg, "role")
+    if hasattr(msg, "content"):
+        out["content"] = getattr(msg, "content")
+    if hasattr(msg, "parts"):
+        parts = getattr(msg, "parts")
+        if parts is not None:
+            out["parts"] = parts
+    return out
+
+
+_EXTRACTION_PROMPT = """\
+You are a memory extractor. From the conversation below, extract durable
+facts about the user that would be useful to remember in future sessions
+(preferences, profile, recurring projects). Skip transient task context.
+
+Return STRICT JSON: an array of objects with two string keys:
+- "uri": a viking://user/memories/extracted/<slug> URI
+- "content": one-sentence English memo
+
+If no durable facts are present, return [].
+"""
+
+
+def _extract_memos(
+    chat_client: Any,
+    messages: list[dict[str, Any]],
+    used_uris: Any,
+) -> list[tuple[str, str]]:
+    """Ask the chat client for a JSON array of memos; tolerate any error."""
+    try:
+        from rath.llm.chat_request import RathLLMChatRequest, RathLLMMessage
+    except Exception:  # noqa: BLE001
+        return []
+    convo_lines = []
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content")
+        if content is None:
+            parts = msg.get("parts") or []
+            content = " ".join(str(p) for p in parts)
+        convo_lines.append(f"[{role}] {content}")
+    convo = "\n".join(convo_lines)
+    req = RathLLMChatRequest(
+        messages=(
+            RathLLMMessage(role="system", content=_EXTRACTION_PROMPT),
+            RathLLMMessage(
+                role="user",
+                content=f"Conversation:\n{convo}\n\nReturn the JSON array now.",
+            ),
+        ),
+        temperature=0.0,
+    )
+    try:
+        resp = chat_client.complete(req)
+    except Exception:  # noqa: BLE001 -- network/transport surfaced as zero memos
+        logger.warning(
+            "LocalMemoryBackend: chat extraction failed", exc_info=True
+        )
+        return []
+    raw = _extract_response_text(resp)
+    payload = _coerce_json_array(raw)
+    out: list[tuple[str, str]] = []
+    if not isinstance(payload, list):
+        return out
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        uri = item.get("uri")
+        content = item.get("content")
+        if not isinstance(uri, str) or not isinstance(content, str):
+            continue
+        if not uri.startswith(_VIKING_PREFIX):
+            continue
+        out.append((uri, content))
+    return out
+
+
+def _extract_response_text(resp: Any) -> str:
+    """Pull the assistant text content from a chat response, tolerantly."""
+    if resp is None:
+        return ""
+    direct = getattr(resp, "content", None)
+    if isinstance(direct, str):
+        return direct
+    choices = getattr(resp, "choices", None)
+    if choices:
+        try:
+            choice = choices[0]
+        except (IndexError, TypeError):
+            return ""
+        msg = getattr(choice, "message", None)
+        if msg is not None:
+            content = getattr(msg, "content", None)
+            if isinstance(content, str):
+                return content
+    return ""
+
+
+def _coerce_json_array(text: str) -> Any:
+    """Best-effort: extract the first JSON array from ``text``."""
+    text = text.strip()
+    if not text:
+        return None
+    # Strip ```json fences if present.
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    start = text.find("[")
+    end = text.rfind("]")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(text[start : end + 1])
+    except json.JSONDecodeError:
         return None
 
 
