@@ -1,11 +1,18 @@
-"""Metadata-only tests for :class:`OpenVikingBackend` (no live server needed).
+"""OpenViking liveness + metadata canary.
 
-These tests still gate on ``openviking`` being importable -- the
-``_openviking_canary`` autouse fixture from ``conftest.py`` skips the
-module otherwise.
+Consolidated from (every test function name preserved verbatim):
+- test_openviking_skipgate.py    (health / SDK / api-key probes)
+- test_openviking_metadata.py    (backend class metadata; no live server)
+
+If any test here fails or skips, the rest of this directory is dark — the
+``_openviking_canary`` autouse fixture under ``conftest.py`` would have
+already short-circuited it.
 """
 
 from __future__ import annotations
+
+import json
+import urllib.request
 
 import pytest
 
@@ -14,6 +21,33 @@ from rath.memory import ScopeModel
 from rath.memory.adapters import openviking as ov_mod
 
 pytestmark = pytest.mark.openviking
+
+
+# ---------------------------------------------------------------------------
+# liveness canary
+# ---------------------------------------------------------------------------
+
+
+def test_openviking_health(openviking_url: str) -> None:
+    with urllib.request.urlopen(f"{openviking_url}/health", timeout=2.0) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    assert payload.get("healthy") is True, payload
+
+
+def test_openviking_sdk_imports() -> None:
+    import openviking as ov
+
+    assert hasattr(ov, "SyncHTTPClient")
+    assert hasattr(ov, "OpenViking")
+
+
+def test_openviking_root_api_key_present(openviking_root_api_key: str) -> None:
+    assert openviking_root_api_key  # non-empty
+
+
+# ---------------------------------------------------------------------------
+# class metadata (no live server required beyond SDK import)
+# ---------------------------------------------------------------------------
 
 
 def test_backend_name():
