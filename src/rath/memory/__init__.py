@@ -57,6 +57,9 @@ from rath.memory.results import (
     MemoryWriteResult,
 )
 
+# Local backend ships with the base install — always registered.
+from rath.memory.adapters import local as _local  # noqa: F401
+
 try:
     from rath.memory.adapters import openviking as _openviking  # noqa: F401
 except ImportError:  # pragma: no cover -- optional ``openviking`` extra

@@ -89,20 +89,23 @@ def test_rath_memory_registry_only_contains_optional_extras():
     """Importing :mod:`rath.memory` in a fresh interpreter must not register
     any backend whose optional extra is *not* installed.
 
-    The OpenViking adapter self-registers on import IFF ``openviking`` is
+    ``"local"`` is the always-on default (stdlib only, no extras). The
+    OpenViking adapter self-registers on import IFF ``openviking`` is
     importable; that is intentional (mirrors how ``rath.backend`` auto-loads
     OpenSandbox when its extra is present). The contract this test guards
     is the *negative* one: a name only appears in ``list_names()`` when its
-    SDK is importable -- never as a stub.
+    SDK is importable (or, for ``"local"``, when stdlib is present, which is
+    trivially always) -- never as a stub.
     """
     script = textwrap.dedent(
         """
         import importlib
         import rath.memory
         names = set(rath.memory.list_names())
-        # For every registered name, the corresponding optional SDK must be
-        # importable -- adapters never register as stubs.
-        for name in names:
+        # ``"local"`` is the always-on default; other names must each be
+        # backed by an importable optional SDK.
+        assert "local" in names, "local backend must always be registered"
+        for name in names - {"local"}:
             if name == "openviking":
                 importlib.import_module("openviking")
             else:
