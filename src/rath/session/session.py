@@ -1,10 +1,22 @@
-"""Session dataclass — chunk table plus optional sandbox binding."""
+"""Session — chunk transcript with optional sandbox binding and lazy materialization.
+
+Public surface is intentionally synchronous: callers construct a
+:class:`Session`, run a workflow, and read ``out.chunk_table``. Under the
+hood, :func:`~rath.session.loop.run_session_loop` may return an ``out``
+whose ``chunk_table`` / ``cumulative_usage`` are still being materialized
+on :class:`~rath._async.runtime.OpenRathRuntime`. Reading either attribute
+implicitly calls :meth:`Session.synchronize`, which blocks until the
+runtime publishes the result. Lineage attributes are eager and do not
+trigger synchronize().
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import logging
+import threading
+import weakref
 from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from rath.backend import BackendSandbox, BackendSandboxSpec, get
@@ -14,6 +26,32 @@ from rath.session.chunk import ChunkKind, ChunkRow, ChunkTable
 from rath.session.graph.kind import LineageKind
 from rath.session.graph.legacy import SessionLineage
 from rath.session.graph.recording import LineageRecorder
+
+if TYPE_CHECKING:
+    from rath._async.lazy import LazyValue
+
+logger = logging.getLogger(__name__)
+
+
+# Thread-local re-entrancy guard for tools running on the runtime's thread
+# pool. ``_arun_session_loop`` dispatches each tool through
+# ``asyncio.to_thread``; that worker thread sets this flag before calling
+# the tool body so any ``session.chunk_table`` read inside the tool
+# short-circuits the lazy ``synchronize()`` (which would otherwise wait on
+# the in-flight future the worker is part of, deadlocking).
+_TOOL_DISPATCH_TLS = threading.local()
+
+
+def _in_tool_dispatch() -> bool:
+    return getattr(_TOOL_DISPATCH_TLS, "depth", 0) > 0
+
+
+def _enter_tool_dispatch() -> None:
+    _TOOL_DISPATCH_TLS.depth = getattr(_TOOL_DISPATCH_TLS, "depth", 0) + 1
+
+
+def _exit_tool_dispatch() -> None:
+    _TOOL_DISPATCH_TLS.depth = max(0, getattr(_TOOL_DISPATCH_TLS, "depth", 0) - 1)
 
 
 def _coerce_sandbox_open_spec(
@@ -28,7 +66,6 @@ def _coerce_sandbox_open_spec(
     return spec
 
 
-# Defaults for chunk previews in :meth:`Session.__str__` and ``__repr__``.
 _SESSION_REPR_CHUNK_EDGE = 4
 _SESSION_REPR_TEXT_MAX = 256
 _SESSION_REPR_TOOL_ARGS_MAX = 160
@@ -93,7 +130,6 @@ def _format_chunks_block(rows: tuple[ChunkRow, ...], *, edge: int) -> str:
     return "[\n    " + inner + "\n  ]"
 
 
-@dataclass(slots=True)
 class Session:
     """Chunk transcript (:attr:`chunk_table`), optional sandbox, and lineage metadata.
 
@@ -105,6 +141,15 @@ class Session:
     and the backend ``close`` is called only when the reference count reaches zero.
     ``with session:`` is optional; when used, the outermost exit calls
     :meth:`close_sandbox`.
+
+    Lazy materialization: when a session is returned from
+    :func:`~rath.session.loop.run_session_loop` (Phase 4+), it may carry an
+    in-flight :class:`~rath._async.lazy.LazyValue` in :attr:`_pending`. Reading
+    :attr:`chunk_table` or :attr:`cumulative_usage` calls :meth:`synchronize`,
+    which blocks until the runtime publishes the materialized values.
+    Lineage attributes (:attr:`parent_session_ids`, :attr:`lineage_operator`,
+    :attr:`lineage_kind`, :attr:`lineage_extras`) are eager and never trigger
+    synchronize.
 
     Sharing semantics: :func:`~rath.session.loop.run_session_loop`,
     :func:`~rath.session.compress.run_session_compress`, :meth:`fork`,
@@ -121,22 +166,137 @@ class Session:
     :attr:`lineage` is an optional legacy DTO tying loop outputs to producer sessions.
     """
 
-    chunk_table: ChunkTable
-    id: UUID = field(default_factory=uuid4)
-    sandbox: BackendSandbox | None = None
-    sandbox_backend: str | None = None
-    _sandbox_open_spec: BackendSandboxSpec | None = field(default=None, repr=False)
-    _cm_depth: int = field(default=0, repr=False)
-    lineage: SessionLineage | None = None
-    parent_session_ids: tuple[UUID, ...] = ()
-    lineage_operator: str = "implicit"
-    lineage_kind: LineageKind = LineageKind.UNKNOWN
-    lineage_extras: tuple[tuple[str, Any], ...] = ()
-    # Running total of LLM token usage attributed to this session. Set by
-    # run_session_loop / run_session_compress after each completion. ``None``
-    # before any completion has been folded in. Not propagated by fork() /
-    # detach() - derived sessions start at zero.
-    cumulative_usage: RathLLMTokenUsage | None = None
+    __slots__ = (
+        "_chunk_table",
+        "id",
+        "sandbox",
+        "sandbox_backend",
+        "_sandbox_open_spec",
+        "_cm_depth",
+        "lineage",
+        "parent_session_ids",
+        "lineage_operator",
+        "lineage_kind",
+        "lineage_extras",
+        "_cumulative_usage",
+        "_pending",
+        "_sync_lock",
+        "__weakref__",
+    )
+
+    def __init__(
+        self,
+        chunk_table: ChunkTable,
+        *,
+        id: UUID | None = None,
+        sandbox: BackendSandbox | None = None,
+        sandbox_backend: str | None = None,
+        _sandbox_open_spec: BackendSandboxSpec | None = None,
+        _cm_depth: int = 0,
+        lineage: SessionLineage | None = None,
+        parent_session_ids: tuple[UUID, ...] = (),
+        lineage_operator: str = "implicit",
+        lineage_kind: LineageKind = LineageKind.UNKNOWN,
+        lineage_extras: tuple[tuple[str, Any], ...] = (),
+        cumulative_usage: RathLLMTokenUsage | None = None,
+    ) -> None:
+        self._chunk_table = chunk_table
+        self.id = id if id is not None else uuid4()
+        self.sandbox = sandbox
+        self.sandbox_backend = sandbox_backend
+        self._sandbox_open_spec = _sandbox_open_spec
+        self._cm_depth = _cm_depth
+        self.lineage = lineage
+        self.parent_session_ids = parent_session_ids
+        self.lineage_operator = lineage_operator
+        self.lineage_kind = lineage_kind
+        self.lineage_extras = lineage_extras
+        self._cumulative_usage = cumulative_usage
+        self._pending: LazyValue[tuple[ChunkTable, RathLLMTokenUsage | None]] | None = (
+            None
+        )
+        self._sync_lock = threading.Lock()
+
+    @property
+    def chunk_table(self) -> ChunkTable:
+        """Materialized transcript. Blocks on ``_pending`` if still in flight.
+
+        Re-entrancy: when a tool dispatched by the runtime reads
+        ``session.chunk_table`` from inside its own producing future,
+        ``synchronize()`` would deadlock (the future cannot complete until
+        the tool returns). In that case we read the in-flight
+        ``_chunk_table`` directly — tools see the transcript as it grows.
+        """
+        if self._pending is not None and not _in_tool_dispatch():
+            self.synchronize()
+        return self._chunk_table
+
+    @chunk_table.setter
+    def chunk_table(self, value: ChunkTable) -> None:
+        # Runtime-internal writers (session.loop._sync_loop_out_rows,
+        # _async.aloop) call this; setting bypasses the lazy gate because the
+        # materialization itself is what produces these writes.
+        self._chunk_table = value
+
+    @property
+    def cumulative_usage(self) -> RathLLMTokenUsage | None:
+        if self._pending is not None and not _in_tool_dispatch():
+            self.synchronize()
+        return self._cumulative_usage
+
+    @cumulative_usage.setter
+    def cumulative_usage(self, value: RathLLMTokenUsage | None) -> None:
+        self._cumulative_usage = value
+
+    def synchronize(self) -> Session:
+        """Block until ``_pending`` resolves; publish staged values; return self.
+
+        Idempotent — repeated calls (including from multiple threads) only
+        materialize once. Exceptions raised by the in-flight future are
+        re-raised here (after ``_pending`` is cleared so subsequent reads do
+        not block again).
+        """
+        # Fast-path read without lock; the slow path re-checks under the lock.
+        pending = self._pending
+        if pending is None:
+            return self
+        with self._sync_lock:
+            pending = self._pending
+            if pending is None:
+                return self
+            try:
+                table, usage = pending.result()
+            except BaseException:
+                # Even on failure, mark consumed and drop pending so the next
+                # access raises the same error from the future, not a hang.
+                pending.mark_consumed()
+                self._pending = None
+                raise
+            pending.mark_consumed()
+            # Total-store order (concurrency invariant 3): write data fields
+            # first, then clear _pending. Readers use `_pending is None` as
+            # the happens-before signal.
+            self._chunk_table = table
+            self._cumulative_usage = usage
+            self._pending = None
+        return self
+
+    def _set_pending(
+        self,
+        lazy: LazyValue[tuple[ChunkTable, RathLLMTokenUsage | None]],
+    ) -> None:
+        """Internal hook used by the runtime to attach an in-flight materialization.
+
+        Installs a :func:`weakref.finalize` that fires on session GC and emits
+        :func:`rath._async.lazy.unraisable_warn` only if the materialization
+        actually finished with an unobserved exception. Doing this at finalize
+        time (rather than as a future done-callback) avoids racing with a
+        ``synchronize()`` call that observes the error on the very next line.
+        """
+        self._pending = lazy
+        from rath._async.lazy import unraisable_warn
+
+        weakref.finalize(self, unraisable_warn, lazy, self.id)
 
     @classmethod
     def from_agent_prompt(cls, prompt: str) -> Session:
@@ -203,12 +363,7 @@ class Session:
         *,
         spec: BackendSandboxSpec | str | None = None,
     ) -> Session:
-        """Close any current handle, set target backend, and return ``self`` (chainable).
-
-        ``spec`` may be a :class:`~rath.backend.abc.BackendSandboxSpec` or a string
-        path interpreted as ``BackendSandboxSpec(working_dir=...)`` (e.g. ``"."``).
-        """
-
+        """Close any current handle, set target backend, and return ``self`` (chainable)."""
         self.close_sandbox()
         self.sandbox_backend = backend
         self._sandbox_open_spec = _coerce_sandbox_open_spec(spec)
@@ -216,7 +371,6 @@ class Session:
 
     def close_sandbox(self) -> Session:
         """Drop this session's sandbox reference; close when refcount hits zero."""
-
         if self.sandbox is not None and not self.sandbox.closed:
             self.sandbox.release()
         self.sandbox = None
@@ -281,7 +435,6 @@ class Session:
 
     def fork(self) -> "Session":
         """Duplicate transcript; share the same sandbox reference (refcount + 1)."""
-
         rows = tuple(self.chunk_table.rows)
         forked = Session(
             chunk_table=ChunkTable(rows=rows),
@@ -300,7 +453,6 @@ class Session:
 
     def detach(self) -> "Session":
         """Duplicate transcript with a fresh lineage root; share the sandbox reference."""
-
         rows = tuple(self.chunk_table.rows)
         detached = Session(
             chunk_table=ChunkTable(rows=rows),
@@ -361,8 +513,11 @@ class Session:
 
     def __str__(self) -> str:
         cls_name = type(self).__name__
+        # Avoid triggering synchronize() in repr -- show pending state instead.
+        if self._pending is not None:
+            return f"{cls_name}(pending …, operator={self.lineage_operator!r})"
         block = _format_chunks_block(
-            self.chunk_table.rows, edge=_SESSION_REPR_CHUNK_EDGE
+            self._chunk_table.rows, edge=_SESSION_REPR_CHUNK_EDGE
         )
         return (
             f"{cls_name}(\n  chunks={block},\n  operator={self.lineage_operator!r},\n)"

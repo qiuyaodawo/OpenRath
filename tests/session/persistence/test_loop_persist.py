@@ -76,6 +76,7 @@ def test_persist_true_writes_jsonl_under_openrath_home(
             executor=executor,
             persist=True,
         )
+        out.synchronize()
 
     restored = load_session(out.id)
     assert restored.closed is True
@@ -99,13 +100,14 @@ def test_persist_path_uses_explicit_file(
 
     with backend.open() as sb:
         user = Session.from_user_message("hi").bind_sandbox(sb)
-        run_session_loop(
+        out = run_session_loop(
             user,
             agent.agent_session,
             agent_provider=agent.provider,
             executor=executor,
             persist_path=custom,
         )
+        out.synchronize()
 
     assert custom.is_file()
     parsed = [
@@ -133,16 +135,21 @@ def test_persist_abandons_file_on_executor_exception(
 
     with backend.open() as sb:
         user = Session.from_user_message("hi").bind_sandbox(sb)
+        out = run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            executor=executor,
+            persist=True,
+        )
         with pytest.raises(RuntimeError, match="boom"):
-            run_session_loop(
-                user,
-                agent.agent_session,
-                agent_provider=agent.provider,
-                executor=executor,
-                persist=True,
-            )
+            out.synchronize()
 
-    matches = list(sessions_dir().glob("*.jsonl"))
-    assert len(matches) == 1
-    text = matches[0].read_text(encoding="utf-8")
+    # WAL: an abandoned writer keeps the in-flight file under the
+    # __partial__ suffix; the final .jsonl is never produced.
+    finals = list(sessions_dir().glob("*.jsonl"))
+    partials = list(sessions_dir().glob("*.jsonl.__partial__"))
+    assert finals == []
+    assert len(partials) == 1
+    text = partials[0].read_text(encoding="utf-8")
     assert "trailer" not in text
