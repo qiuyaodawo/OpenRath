@@ -13,10 +13,14 @@ handling lands in subsequent chunks (fs ops → find → resource → commit).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -185,6 +189,8 @@ class LocalMemoryBackend(MemoryBackend):
                         top_k=op.top_k,
                     ),
                 )
+            if isinstance(op, MemoryOpResource):
+                return self._dispatch_resource(bound, op)
         except PermissionError as exc:
             return MemoryExecutionFailure(
                 kind="unauthorized",
@@ -296,6 +302,63 @@ class LocalMemoryBackend(MemoryBackend):
         flat: list[MemoryEntry] = []
         _walk_tree(resolved, op.uri, max_depth=op.depth, sink=flat)
         return MemoryListResult(entries=tuple(flat))
+
+    # ---------------------------------------------------------------- Resource
+
+    def _dispatch_resource(
+        self, bound: "_LocalHandle", op: MemoryOpResource
+    ) -> MemoryResult:
+        # Resolve destination dir BEFORE fetching — failures up front.
+        target_uri = op.target_uri or "viking://resources"
+        target_path = _resolve_uri(bound.path, target_uri, must_be_dir=True)
+        if isinstance(target_path, MemoryExecutionFailure):
+            return target_path
+
+        try:
+            raw_bytes, original_name, source_label = _fetch_resource(op.source)
+        except FileNotFoundError as exc:
+            return MemoryExecutionFailure(
+                kind="not_found",
+                message=f"resource source not found: {exc}",
+            )
+        except _ResourceFetchError as exc:
+            return MemoryExecutionFailure(
+                kind="transport",
+                message=f"failed to fetch resource: {exc}",
+            )
+
+        sha = hashlib.sha256(raw_bytes).hexdigest()[:16]
+        root = target_path / sha
+        suffix = Path(original_name).suffix or ".bin"
+        blob_path = root / f"source{suffix}"
+        meta_path = root / "meta.md"
+
+        if blob_path.is_file() and blob_path.stat().st_size == len(raw_bytes):
+            # Dedup: identical content already present — short-circuit.
+            return MemoryWriteResult(
+                uri=f"{target_uri.rstrip('/')}/{sha}",
+                bytes_written=len(raw_bytes),
+            )
+
+        root.mkdir(parents=True, exist_ok=True)
+        blob_path.write_bytes(raw_bytes)
+        meta_lines = [
+            f"# Resource {sha}",
+            "",
+            f"- source: {source_label}",
+            f"- original_name: {original_name}",
+            f"- bytes: {len(raw_bytes)}",
+        ]
+        if op.reason:
+            meta_lines.extend(["", "## Reason", op.reason])
+        if op.instruction:
+            meta_lines.extend(["", "## Instruction", op.instruction])
+        meta_path.write_text("\n".join(meta_lines) + "\n", encoding="utf-8")
+
+        return MemoryWriteResult(
+            uri=f"{target_uri.rstrip('/')}/{sha}",
+            bytes_written=len(raw_bytes),
+        )
 
     # ---------------------------------------------------------------- helpers
 
@@ -697,6 +760,40 @@ def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
         )
         bound.embedding_init_failed = True
         return None
+
+
+class _ResourceFetchError(Exception):
+    """Wraps transport errors when fetching a remote resource."""
+
+
+def _fetch_resource(source: str) -> tuple[bytes, str, str]:
+    """Resolve ``source`` to ``(bytes, original_name, source_label)``.
+
+    ``source`` can be a local filesystem path, a ``file://`` URI, or an
+    ``http(s)://`` URL. Anything else is treated as a local path.
+    """
+    parsed = urllib.parse.urlparse(source)
+    scheme = parsed.scheme.lower()
+    # Windows drive letters look like ``c:\foo`` to urlparse — treat as path.
+    if len(scheme) == 1 and scheme.isalpha():
+        scheme = ""
+    if scheme in ("http", "https"):
+        try:
+            with urllib.request.urlopen(source, timeout=30) as resp:  # noqa: S310
+                data = resp.read()
+        except urllib.error.URLError as exc:
+            raise _ResourceFetchError(str(exc)) from exc
+        name = Path(parsed.path).name or "resource"
+        return data, name, source
+    if scheme == "file":
+        local = Path(urllib.request.url2pathname(parsed.path))
+    elif scheme in ("", None):
+        local = Path(source)
+    else:
+        raise _ResourceFetchError(f"unsupported scheme: {scheme!r}")
+    if not local.is_file():
+        raise FileNotFoundError(str(local))
+    return local.read_bytes(), local.name, str(local)
 
 
 def _walk_tree(
