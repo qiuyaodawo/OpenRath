@@ -59,11 +59,16 @@ from rath.memory.results import (
 
 # Local backend ships with the base install — always registered.
 from rath.memory.adapters import local as _local  # noqa: F401
+from rath.memory.registry import set_default as _set_default
 
 try:
     from rath.memory.adapters import openviking as _openviking  # noqa: F401
 except ImportError:  # pragma: no cover -- optional ``openviking`` extra
     pass
+
+# The local backend has zero runtime dependencies; pin it as the default
+# so ``rath.memory.current()`` works out of the box.
+_set_default("local")
 
 __all__ = [
     "MemoryBackend",
