@@ -48,7 +48,9 @@ def main() -> None:
     if provider is None:
         return
 
-    print(f"=== provider_kind={provider.provider_kind or 'openai'} model={provider} ===")
+    print(
+        f"=== provider_kind={provider.provider_kind or 'openai'} model={provider} ==="
+    )
     agent = flow.Agent(
         "You are a concise assistant.",
         provider,
