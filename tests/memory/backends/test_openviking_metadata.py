@@ -7,9 +7,13 @@ module otherwise.
 
 from __future__ import annotations
 
+import pytest
+
 import rath.memory as memory
 from rath.memory import ScopeModel
 from rath.memory.adapters import openviking as ov_mod
+
+pytestmark = pytest.mark.openviking
 
 
 def test_backend_name():

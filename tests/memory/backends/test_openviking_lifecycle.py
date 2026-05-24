@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.openviking
+
 from rath.memory import MemoryStore, MemoryStoreSpec
 from rath.memory.adapters.openviking import OpenVikingBackend
 

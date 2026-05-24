@@ -19,6 +19,8 @@ import uuid
 
 import pytest
 
+pytestmark = pytest.mark.openviking
+
 from rath.memory import (
     MemoryCommitResult,
     MemoryExecutionFailure,

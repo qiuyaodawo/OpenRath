@@ -12,6 +12,8 @@ from typing import Iterator
 
 import pytest
 
+pytestmark = pytest.mark.openviking
+
 from rath.memory import (
     MemoryExecutionFailure,
     MemoryOpFind,
