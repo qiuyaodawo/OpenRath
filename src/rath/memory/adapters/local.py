@@ -14,10 +14,15 @@ handling lands in subsequent chunks (fs ops → find → resource → commit).
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import logging
+import math
+import re
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
@@ -41,6 +46,8 @@ from rath.memory.registry import register
 from rath.memory.results import (
     MemoryEntry,
     MemoryExecutionFailure,
+    MemoryFindResult,
+    MemoryHit,
     MemoryListResult,
     MemoryReadResult,
     MemoryResult,
@@ -94,6 +101,8 @@ class _LocalHandle:
 
     path: Path
     options: dict[str, Any]
+    embedding_client: Any | None = None
+    embedding_init_failed: bool = field(default=False)
 
 
 @register("local")
@@ -164,6 +173,18 @@ class LocalMemoryBackend(MemoryBackend):
                 return self._dispatch_list(bound, op)
             if isinstance(op, MemoryOpTree):
                 return self._dispatch_tree(bound, op)
+            if isinstance(op, MemoryOpFind):
+                return self._dispatch_find(bound, op)
+            if isinstance(op, MemoryOpSearch):
+                # v1: Search piggybacks on Find (intent inference deferred).
+                return self._dispatch_find(
+                    bound,
+                    MemoryOpFind(
+                        query=op.query,
+                        target_uri=op.target_uri,
+                        top_k=op.top_k,
+                    ),
+                )
         except PermissionError as exc:
             return MemoryExecutionFailure(
                 kind="unauthorized",
@@ -238,6 +259,31 @@ class LocalMemoryBackend(MemoryBackend):
         if not resolved.is_dir():
             return MemoryListResult(entries=())
         return MemoryListResult(entries=_list_dir(resolved, op.uri))
+
+    def _dispatch_find(
+        self, bound: "_LocalHandle", op: MemoryOpFind
+    ) -> MemoryResult:
+        scope_path, scope_uri = _find_scope(bound.path, op.target_uri)
+        if isinstance(scope_path, MemoryExecutionFailure):
+            return scope_path
+        docs = _collect_md_docs(scope_path, scope_uri)
+        if not docs:
+            return MemoryFindResult(hits=())
+
+        embed_client = _maybe_embedding_client(bound)
+        if embed_client is not None:
+            try:
+                hits = _embedding_rank(embed_client, docs, op.query, op.top_k)
+                return MemoryFindResult(hits=hits)
+            except Exception:  # noqa: BLE001 -- degrade silently to lexical
+                logger.warning(
+                    "LocalMemoryBackend: embedding rank failed; "
+                    "falling back to BM25",
+                    exc_info=True,
+                )
+
+        hits = _bm25_rank(docs, op.query, op.top_k)
+        return MemoryFindResult(hits=hits)
 
     def _dispatch_tree(
         self, bound: "_LocalHandle", op: MemoryOpTree
@@ -381,6 +427,276 @@ def _list_dir(dir_path: Path, uri_base: str) -> tuple[MemoryEntry, ...]:
         if e is not None:
             entries.append(e)
     return tuple(entries)
+
+
+@dataclass(frozen=True, slots=True)
+class _DocRow:
+    """One memory document considered for ranking."""
+
+    uri: str
+    body: str
+    path: Path
+
+
+def _find_scope(
+    store_root: Path, target_uri: str | None
+) -> tuple[Path, str] | tuple[MemoryExecutionFailure, str]:
+    """Resolve the search scope. ``None``/empty → whole store."""
+    if not target_uri:
+        return store_root.resolve(strict=False), "viking:/"
+    resolved = _resolve_uri(store_root, target_uri, must_be_dir=True)
+    if isinstance(resolved, MemoryExecutionFailure):
+        return resolved, target_uri
+    return resolved, target_uri.rstrip("/")
+
+
+def _collect_md_docs(scope_path: Path, scope_uri: str) -> list[_DocRow]:
+    """Walk every ``.md`` body under ``scope_path``.
+
+    Iterates the whole store when ``scope_path`` is the store root — handlers
+    upstream have already validated that the scope itself is a known one.
+    """
+    if not scope_path.exists():
+        return []
+    # When scope_path is the store root, walk its scope subdirs only — the
+    # root holds ``meta.json`` we must not surface.
+    docs: list[_DocRow] = []
+    if scope_uri.rstrip("/") in ("viking:", "viking://"):
+        for scope in sorted(_VALID_SCOPES):
+            sub = scope_path / scope
+            if sub.is_dir():
+                _walk_md(sub, f"viking://{scope}", docs)
+        return docs
+    if scope_path.is_file():
+        # Caller pointed at a single memory.
+        text = _safe_read(scope_path)
+        if text is not None:
+            docs.append(_DocRow(uri=scope_uri, body=text, path=scope_path))
+        return docs
+    _walk_md(scope_path, scope_uri, docs)
+    return docs
+
+
+def _walk_md(dir_path: Path, uri_base: str, sink: list[_DocRow]) -> None:
+    for child in sorted(dir_path.iterdir()):
+        name = child.name
+        if name == _META_FILENAME or name.endswith(_VEC_SUFFIX) or name.endswith(_META_SUFFIX):
+            continue
+        if child.is_dir():
+            _walk_md(child, f"{uri_base.rstrip('/')}/{name}", sink)
+            continue
+        if not name.endswith(_MD_SUFFIX):
+            continue
+        body = _safe_read(child)
+        if body is None:
+            continue
+        display = name[: -len(_MD_SUFFIX)]
+        sink.append(
+            _DocRow(
+                uri=f"{uri_base.rstrip('/')}/{display}",
+                body=body,
+                path=child,
+            )
+        )
+
+
+def _safe_read(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
+
+
+def _tokenize(text: str) -> list[str]:
+    return [t.lower() for t in _TOKEN_RE.findall(text) if t]
+
+
+def _snippet(body: str, *, max_chars: int = 200) -> str:
+    stripped = body.strip()
+    if len(stripped) <= max_chars:
+        return stripped
+    return stripped[:max_chars].rstrip() + "..."
+
+
+def _bm25_rank(
+    docs: list[_DocRow], query: str, top_k: int
+) -> tuple[MemoryHit, ...]:
+    """Classic BM25 (k1=1.5, b=0.75) over tokenized doc bodies."""
+    query_terms = _tokenize(query)
+    if not query_terms:
+        return ()
+    tokenized = [(d, _tokenize(d.body)) for d in docs]
+    N = len(tokenized)
+    if N == 0:
+        return ()
+    avgdl = sum(len(toks) for _, toks in tokenized) / N if N else 0.0
+    # Document frequency per term.
+    df: dict[str, int] = {}
+    for _, toks in tokenized:
+        for term in set(toks):
+            df[term] = df.get(term, 0) + 1
+    k1 = 1.5
+    b = 0.75
+    scored: list[tuple[float, _DocRow]] = []
+    for doc, toks in tokenized:
+        if not toks:
+            scored.append((0.0, doc))
+            continue
+        dl = len(toks)
+        score = 0.0
+        for term in query_terms:
+            tf = sum(1 for t in toks if t == term)
+            if tf == 0:
+                continue
+            n_qi = df.get(term, 0)
+            idf = math.log(
+                1 + (N - n_qi + 0.5) / (n_qi + 0.5)
+            )
+            denom = tf + k1 * (1 - b + b * (dl / avgdl if avgdl else 1.0))
+            score += idf * (tf * (k1 + 1)) / denom if denom else 0.0
+        scored.append((score, doc))
+    scored.sort(key=lambda row: row[0], reverse=True)
+    top = scored[: max(0, top_k)]
+    return tuple(
+        MemoryHit(
+            uri=doc.uri,
+            score=float(score),
+            snippet=_snippet(doc.body),
+            level=None,
+        )
+        for score, doc in top
+    )
+
+
+def _embedding_rank(
+    client: Any, docs: list[_DocRow], query: str, top_k: int
+) -> tuple[MemoryHit, ...]:
+    """Cosine-similarity ranking using a precomputed ``.vec`` sidecar per doc.
+
+    Sidecars are JSON files holding ``{"model": ..., "vector": [floats...]}``;
+    missing sidecars are recomputed in-place. The query embedding is computed
+    fresh on every call.
+    """
+    if not docs:
+        return ()
+    model = getattr(client.provider, "model", None) or "<embedding>"
+    # Ensure every doc has an up-to-date sidecar.
+    need_embed: list[_DocRow] = []
+    cached: dict[Path, list[float]] = {}
+    for doc in docs:
+        sidecar = doc.path.with_suffix(_VEC_SUFFIX)
+        vec = _load_vec(sidecar, expected_model=model)
+        if vec is None:
+            need_embed.append(doc)
+        else:
+            cached[doc.path] = vec
+    if need_embed:
+        new_vecs = client.embed(tuple(d.body for d in need_embed))
+        for doc, vec in zip(need_embed, new_vecs):
+            _store_vec(doc.path.with_suffix(_VEC_SUFFIX), model, vec)
+            cached[doc.path] = list(vec)
+    query_vec = client.embed_one(query)
+    scored: list[tuple[float, _DocRow]] = []
+    for doc in docs:
+        vec = cached.get(doc.path)
+        if vec is None:
+            continue
+        scored.append((_cosine(query_vec, vec), doc))
+    scored.sort(key=lambda row: row[0], reverse=True)
+    top = scored[: max(0, top_k)]
+    return tuple(
+        MemoryHit(
+            uri=doc.uri,
+            score=float(score),
+            snippet=_snippet(doc.body),
+            level=None,
+        )
+        for score, doc in top
+    )
+
+
+def _load_vec(sidecar: Path, *, expected_model: str) -> list[float] | None:
+    if not sidecar.is_file():
+        return None
+    try:
+        raw = json.loads(sidecar.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("model") != expected_model:
+        return None
+    vec = raw.get("vector")
+    if not isinstance(vec, list):
+        return None
+    try:
+        return [float(x) for x in vec]
+    except (TypeError, ValueError):
+        return None
+
+
+def _store_vec(sidecar: Path, model: str, vec: Any) -> None:
+    payload = {"model": model, "vector": [float(x) for x in vec]}
+    sidecar.parent.mkdir(parents=True, exist_ok=True)
+    sidecar.write_text(
+        json.dumps(payload, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def _cosine(u: Any, v: list[float]) -> float:
+    if u is None or v is None:
+        return 0.0
+    u_list = list(u)
+    if not u_list or not v:
+        return 0.0
+    dot = sum(a * b for a, b in zip(u_list, v))
+    nu = math.sqrt(sum(a * a for a in u_list))
+    nv = math.sqrt(sum(b * b for b in v))
+    if nu == 0.0 or nv == 0.0:
+        return 0.0
+    return dot / (nu * nv)
+
+
+def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
+    """Lazily build an embedding client for ``bound``; ``None`` if not configured.
+
+    Reads ``options.embedding_provider`` first, then falls back to
+    ``options.embedding`` (an already-built client / provider). Failure to
+    initialize is cached so subsequent dispatches degrade silently.
+    """
+    if bound.embedding_init_failed:
+        return None
+    if bound.embedding_client is not None:
+        return bound.embedding_client
+    # Pre-built client passed in spec.options["embedding"].
+    pre = bound.options.get("embedding")
+    if pre is not None and hasattr(pre, "embed") and hasattr(pre, "embed_one"):
+        bound.embedding_client = pre
+        return pre
+
+    name = bound.options.get("embedding_provider")
+    if not name and pre is None:
+        bound.embedding_init_failed = True
+        return None
+    try:
+        from rath.llm.embedding import EmbeddingProvider, RathOpenAIEmbeddingClient
+
+        provider = EmbeddingProvider.from_config(name)
+        client = RathOpenAIEmbeddingClient(provider)
+        bound.embedding_client = client
+        return client
+    except Exception:  # noqa: BLE001 -- degrade to BM25 silently
+        logger.info(
+            "LocalMemoryBackend: embedding provider unavailable, "
+            "using BM25 fallback",
+            exc_info=True,
+        )
+        bound.embedding_init_failed = True
+        return None
 
 
 def _walk_tree(
