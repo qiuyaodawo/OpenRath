@@ -37,6 +37,11 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.12'
+          # setup-uv's post-job "Pruning cache" step has been hanging for
+          # 5+ minutes (timed-out exit 2) on this workflow even though the
+          # test run itself finishes green; skip the prune to keep the
+          # job from failing on cleanup.
+          prune-cache: false
       - name: Install OpenSandbox dependencies
         run: uv sync --extra opensandbox --frozen
       - name: Init OpenSandbox config
