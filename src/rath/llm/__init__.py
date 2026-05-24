@@ -41,6 +41,11 @@ from rath.llm.chat_response import (
     RathLLMToolCallPart,
     add_usage,
 )
+from rath.llm.embedding import (
+    DEFAULT_EMBEDDING_MODEL,
+    EmbeddingProvider,
+    RathOpenAIEmbeddingClient,
+)
 from rath.llm.openai import (
     RathOpenAIChatClient,
     normalize_chat_completion,
@@ -65,6 +70,10 @@ __all__ = [
     # Built-in adapters
     "RathOpenAIChatClient",
     "RathAnthropicChatClient",
+    # Embedding adapter (sync, OpenAI-compatible)
+    "EmbeddingProvider",
+    "RathOpenAIEmbeddingClient",
+    "DEFAULT_EMBEDDING_MODEL",
     # Config + errors
     "Provider",
     "BudgetExceededError",
