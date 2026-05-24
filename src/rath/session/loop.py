@@ -388,7 +388,7 @@ def _summarize_dispatch_result(tool: FlowToolCall, raw: Any) -> str:
 
 def _append_and_persist(
     out: Session,
-    rows_list: list[Any],
+    rows_list: list[ChunkRow],
     row: ChunkRow,
     writer: SessionWriter | None,
 ) -> None:
