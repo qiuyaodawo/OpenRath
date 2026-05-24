@@ -64,13 +64,17 @@ class _FakeBackend(MemoryBackend):
     def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:
         self.ops_seen.append(op)
         if isinstance(op, MemoryOpWrite):
-            return MemoryWriteResult(uri=op.uri, bytes_written=len(op.content.encode("utf-8")))
+            return MemoryWriteResult(
+                uri=op.uri, bytes_written=len(op.content.encode("utf-8"))
+            )
         if isinstance(op, MemoryOpFind):
             return MemoryFindResult(
                 hits=(MemoryHit(uri="viking://user/m/x", score=0.5, snippet="hit"),)
             )
         if isinstance(op, MemoryOpCommit):
-            return MemoryCommitResult(task_id="t", archived_uri="viking://session/s/", extracted_count=-1)
+            return MemoryCommitResult(
+                task_id="t", archived_uri="viking://session/s/", extracted_count=-1
+            )
         raise NotImplementedError
 
 

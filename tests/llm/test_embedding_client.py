@@ -88,7 +88,9 @@ def test_embed_batch_distinguishes_dissimilar_texts(
 
     near = cos(a, b)
     far = cos(a, c)
-    assert near > far, f"semantically near pair must outrank far pair: near={near} far={far}"
+    assert near > far, (
+        f"semantically near pair must outrank far pair: near={near} far={far}"
+    )
 
 
 @_live_only

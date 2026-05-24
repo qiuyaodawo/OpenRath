@@ -22,7 +22,6 @@ from pathlib import Path
 
 import pytest
 
-
 _DEFAULT_URL = "http://127.0.0.1:1933"
 _DEFAULT_CONF = Path.home() / ".openviking" / "ov.conf"
 

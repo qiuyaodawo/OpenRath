@@ -26,8 +26,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
 from rath.memory.errors import MemoryStoreClosed, UnsupportedMemoryOp
@@ -58,6 +56,8 @@ from rath.memory.results import (
     MemoryResult,
     MemoryWriteResult,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["LocalMemoryBackend", "META_SCHEMA_VERSION"]
 
@@ -167,7 +167,7 @@ class LocalMemoryBackend(MemoryBackend):
         if store.closed:
             raise MemoryStoreClosed(store.handle)
         if type(op) not in _SUPPORTED_OPS:
-            raise UnsupportedMemoryOp(op_type=type(op))
+            raise UnsupportedMemoryOp(op_type=type(op), backend_name="local")
         bound = self._handles[store.handle]
         try:
             if isinstance(op, MemoryOpWrite):
@@ -207,17 +207,12 @@ class LocalMemoryBackend(MemoryBackend):
         # Find / Search / Resource / Commit land in later chunks.
         return MemoryExecutionFailure(
             kind="unsupported",
-            message=(
-                f"LocalMemoryBackend does not yet implement "
-                f"{type(op).__name__}"
-            ),
+            message=(f"LocalMemoryBackend does not yet implement {type(op).__name__}"),
         )
 
     # ---------------------------------------------------------------- FS handlers
 
-    def _dispatch_write(
-        self, bound: "_LocalHandle", op: MemoryOpWrite
-    ) -> MemoryResult:
+    def _dispatch_write(self, bound: "_LocalHandle", op: MemoryOpWrite) -> MemoryResult:
         resolved = _resolve_uri(bound.path, op.uri)
         if isinstance(resolved, MemoryExecutionFailure):
             return resolved
@@ -235,13 +230,9 @@ class LocalMemoryBackend(MemoryBackend):
             sidecar = resolved.with_suffix(suffix)
             if sidecar.exists():
                 sidecar.unlink()
-        return MemoryWriteResult(
-            uri=op.uri, bytes_written=len(data.encode("utf-8"))
-        )
+        return MemoryWriteResult(uri=op.uri, bytes_written=len(data.encode("utf-8")))
 
-    def _dispatch_read(
-        self, bound: "_LocalHandle", op: MemoryOpRead
-    ) -> MemoryResult:
+    def _dispatch_read(self, bound: "_LocalHandle", op: MemoryOpRead) -> MemoryResult:
         resolved = _resolve_uri(bound.path, op.uri)
         if isinstance(resolved, MemoryExecutionFailure):
             return resolved
@@ -260,9 +251,7 @@ class LocalMemoryBackend(MemoryBackend):
             data = body
         return MemoryReadResult(uri=op.uri, data=data, level=op.level)
 
-    def _dispatch_list(
-        self, bound: "_LocalHandle", op: MemoryOpList
-    ) -> MemoryResult:
+    def _dispatch_list(self, bound: "_LocalHandle", op: MemoryOpList) -> MemoryResult:
         resolved = _resolve_uri(bound.path, op.uri, must_be_dir=True)
         if isinstance(resolved, MemoryExecutionFailure):
             return resolved
@@ -270,9 +259,7 @@ class LocalMemoryBackend(MemoryBackend):
             return MemoryListResult(entries=())
         return MemoryListResult(entries=_list_dir(resolved, op.uri))
 
-    def _dispatch_find(
-        self, bound: "_LocalHandle", op: MemoryOpFind
-    ) -> MemoryResult:
+    def _dispatch_find(self, bound: "_LocalHandle", op: MemoryOpFind) -> MemoryResult:
         scope_path, scope_uri = _find_scope(bound.path, op.target_uri)
         if isinstance(scope_path, MemoryExecutionFailure):
             return scope_path
@@ -287,17 +274,14 @@ class LocalMemoryBackend(MemoryBackend):
                 return MemoryFindResult(hits=hits)
             except Exception:  # noqa: BLE001 -- degrade silently to lexical
                 logger.warning(
-                    "LocalMemoryBackend: embedding rank failed; "
-                    "falling back to BM25",
+                    "LocalMemoryBackend: embedding rank failed; falling back to BM25",
                     exc_info=True,
                 )
 
         hits = _bm25_rank(docs, op.query, op.top_k)
         return MemoryFindResult(hits=hits)
 
-    def _dispatch_tree(
-        self, bound: "_LocalHandle", op: MemoryOpTree
-    ) -> MemoryResult:
+    def _dispatch_tree(self, bound: "_LocalHandle", op: MemoryOpTree) -> MemoryResult:
         resolved = _resolve_uri(bound.path, op.uri, must_be_dir=True)
         if isinstance(resolved, MemoryExecutionFailure):
             return resolved
@@ -376,13 +360,7 @@ class LocalMemoryBackend(MemoryBackend):
             )
         # Archive messages.json under session/<sid>/commits/<timestamp>/.
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-        commit_root = (
-            bound.path
-            / "session"
-            / op.session_id
-            / "commits"
-            / stamp
-        )
+        commit_root = bound.path / "session" / op.session_id / "commits" / stamp
         commit_root.mkdir(parents=True, exist_ok=True)
         archive_path = commit_root / "messages.json"
         normalized = [_normalize_message(m) for m in op.messages]
@@ -390,9 +368,7 @@ class LocalMemoryBackend(MemoryBackend):
             json.dumps(normalized, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        archived_uri = (
-            f"viking://session/{op.session_id}/commits/{stamp}/messages.json"
-        )
+        archived_uri = f"viking://session/{op.session_id}/commits/{stamp}/messages.json"
 
         if not op.wait:
             return MemoryCommitResult(
@@ -409,9 +385,7 @@ class LocalMemoryBackend(MemoryBackend):
                 extracted_count=0,
             )
 
-        extracted = _extract_memos(
-            chat_client, normalized, op.used_uris
-        )
+        extracted = _extract_memos(chat_client, normalized, op.used_uris)
         for uri, content in extracted:
             sub = _resolve_uri(bound.path, uri)
             if isinstance(sub, MemoryExecutionFailure):
@@ -470,7 +444,7 @@ def _resolve_uri(
             kind="invalid_uri",
             message=f"URI must start with {_VIKING_PREFIX!r}: {uri!r}",
         )
-    tail = uri[len(_VIKING_PREFIX):]
+    tail = uri[len(_VIKING_PREFIX) :]
     if not tail:
         return MemoryExecutionFailure(
             kind="invalid_uri",
@@ -482,8 +456,7 @@ def _resolve_uri(
         return MemoryExecutionFailure(
             kind="invalid_uri",
             message=(
-                f"unknown scope {scope!r}; must be one of "
-                f"{sorted(_VALID_SCOPES)}"
+                f"unknown scope {scope!r}; must be one of {sorted(_VALID_SCOPES)}"
             ),
         )
     rest = parts[1:]
@@ -608,7 +581,11 @@ def _collect_md_docs(scope_path: Path, scope_uri: str) -> list[_DocRow]:
 def _walk_md(dir_path: Path, uri_base: str, sink: list[_DocRow]) -> None:
     for child in sorted(dir_path.iterdir()):
         name = child.name
-        if name == _META_FILENAME or name.endswith(_VEC_SUFFIX) or name.endswith(_META_SUFFIX):
+        if (
+            name == _META_FILENAME
+            or name.endswith(_VEC_SUFFIX)
+            or name.endswith(_META_SUFFIX)
+        ):
             continue
         if child.is_dir():
             _walk_md(child, f"{uri_base.rstrip('/')}/{name}", sink)
@@ -649,9 +626,7 @@ def _snippet(body: str, *, max_chars: int = 200) -> str:
     return stripped[:max_chars].rstrip() + "..."
 
 
-def _bm25_rank(
-    docs: list[_DocRow], query: str, top_k: int
-) -> tuple[MemoryHit, ...]:
+def _bm25_rank(docs: list[_DocRow], query: str, top_k: int) -> tuple[MemoryHit, ...]:
     """Classic BM25 (k1=1.5, b=0.75) over tokenized doc bodies."""
     query_terms = _tokenize(query)
     if not query_terms:
@@ -680,9 +655,7 @@ def _bm25_rank(
             if tf == 0:
                 continue
             n_qi = df.get(term, 0)
-            idf = math.log(
-                1 + (N - n_qi + 0.5) / (n_qi + 0.5)
-            )
+            idf = math.log(1 + (N - n_qi + 0.5) / (n_qi + 0.5))
             denom = tf + k1 * (1 - b + b * (dl / avgdl if avgdl else 1.0))
             score += idf * (tf * (k1 + 1)) / denom if denom else 0.0
         scored.append((score, doc))
@@ -786,7 +759,7 @@ def _cosine(u: Any, v: list[float]) -> float:
     nv = math.sqrt(sum(b * b for b in v))
     if nu == 0.0 or nv == 0.0:
         return 0.0
-    return dot / (nu * nv)
+    return float(dot / (nu * nv))
 
 
 def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
@@ -819,8 +792,7 @@ def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
         return client
     except Exception:  # noqa: BLE001 -- degrade to BM25 silently
         logger.info(
-            "LocalMemoryBackend: embedding provider unavailable, "
-            "using BM25 fallback",
+            "LocalMemoryBackend: embedding provider unavailable, using BM25 fallback",
             exc_info=True,
         )
         bound.embedding_init_failed = True
@@ -888,9 +860,7 @@ def _extract_memos(
     try:
         resp = chat_client.complete(req)
     except Exception:  # noqa: BLE001 -- network/transport surfaced as zero memos
-        logger.warning(
-            "LocalMemoryBackend: chat extraction failed", exc_info=True
-        )
+        logger.warning("LocalMemoryBackend: chat extraction failed", exc_info=True)
         return []
     raw = _extract_response_text(resp)
     payload = _coerce_json_array(raw)

@@ -11,7 +11,6 @@ from rath.memory.errors import MemoryBackendNotFound
 from rath.memory.op_types import MemoryOp
 from rath.memory.results import MemoryResult
 
-
 _CAPS = MemoryCapabilities(
     scope_model=ScopeModel.KV,
     supports_write=False,

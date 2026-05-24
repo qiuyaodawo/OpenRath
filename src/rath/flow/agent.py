@@ -15,7 +15,6 @@ from rath.memory import get as _get_memory_backend
 from rath.memory.abc import MemoryStore, MemoryStoreSpec
 from rath.session import Session, run_session_loop
 
-
 MemoryArg = Union[MemoryStore, MemoryStoreSpec, str, None]
 
 
@@ -87,7 +86,9 @@ class Agent(Workflow):
             provider = replace(provider, model=model)
         self.tools = list(tools or [])
         self._on_event = on_event
-        self._memory_inject: MemoryInjectionPolicy = memory_inject or DefaultRecallInjection()
+        self._memory_inject: MemoryInjectionPolicy = (
+            memory_inject or DefaultRecallInjection()
+        )
         self._commit_on_forward = commit_on_forward
         resolved_memory = _resolve_memory(memory)
         self.memory = resolved_memory
@@ -100,7 +101,9 @@ class Agent(Workflow):
     _executor_override = None  # tests-only seam; production paths leave it None
 
     def forward(self, session: Session) -> Session:
-        effective = self._inject_memory_into(session) if self.memory is not None else session
+        effective = (
+            self._inject_memory_into(session) if self.memory is not None else session
+        )
         loop_kwargs: dict[str, object] = dict(
             user_session=effective,
             agent_session=self.agent.agent_session,
@@ -124,8 +127,10 @@ class Agent(Workflow):
             extras = ()
         if not extras:
             return session
-        from rath.session.chunk import ChunkTable as _CT
         from dataclasses import replace as _dc_replace
+
+        from rath.session.chunk import ChunkTable as _CT
+
         merged = _CT(rows=tuple(extras) + session.chunk_table.rows)
         return _dc_replace(session, chunk_table=merged)
 
@@ -133,12 +138,17 @@ class Agent(Workflow):
         """Best-effort commit of ``session``'s chat history into memory."""
         from rath.memory.op_types import MemoryOpCommit
         from rath.session.chunk import ChunkKind as _CK
+
         messages: list[dict[str, object]] = []
         for row in session.chunk_table.rows:
             if row.kind == _CK.SYSTEM:
-                messages.append({"role": "system", "content": row.payload.get("content", "")})
+                messages.append(
+                    {"role": "system", "content": row.payload.get("content", "")}
+                )
             elif row.kind == _CK.USER:
-                messages.append({"role": "user", "content": row.payload.get("content", "")})
+                messages.append(
+                    {"role": "user", "content": row.payload.get("content", "")}
+                )
             elif row.kind == _CK.ASSISTANT:
                 messages.append(
                     {
@@ -177,6 +187,7 @@ class Agent(Workflow):
         it. See :class:`~rath.memory.adapters.openviking.OpenVikingBackend`.
         """
         from rath.memory.op_types import MemoryOpWrite
+
         store = self._require_memory()
         uri = self._memory_uri(scope=scope, category=category)
         return store.dispatch(MemoryOpWrite(uri=uri, content=content, wait=wait))
@@ -190,6 +201,7 @@ class Agent(Workflow):
     ) -> "object":
         """Issue a ``MemoryOpFind`` against the bound store and return the result."""
         from rath.memory.op_types import MemoryOpFind
+
         store = self._require_memory()
         return store.dispatch(
             MemoryOpFind(query=query, top_k=top_k, target_uri=target_uri)
@@ -199,15 +211,22 @@ class Agent(Workflow):
         """Commit ``session``'s chat transcript into memory for extraction."""
         from rath.memory.op_types import MemoryOpCommit
         from rath.session.chunk import ChunkKind as _CK
+
         store = self._require_memory()
         messages: list[dict[str, object]] = []
         for row in session.chunk_table.rows:
             if row.kind == _CK.SYSTEM:
-                messages.append({"role": "system", "content": row.payload.get("content", "")})
+                messages.append(
+                    {"role": "system", "content": row.payload.get("content", "")}
+                )
             elif row.kind == _CK.USER:
-                messages.append({"role": "user", "content": row.payload.get("content", "")})
+                messages.append(
+                    {"role": "user", "content": row.payload.get("content", "")}
+                )
             elif row.kind == _CK.ASSISTANT:
-                messages.append({"role": "assistant", "content": row.payload.get("content")})
+                messages.append(
+                    {"role": "assistant", "content": row.payload.get("content")}
+                )
         return store.dispatch(
             MemoryOpCommit(
                 session_id=str(session.id),
@@ -224,6 +243,7 @@ class Agent(Workflow):
     @staticmethod
     def _memory_uri(*, scope: str, category: str) -> str:
         import uuid as _uuid
+
         slug = _uuid.uuid4().hex[:8]
         return f"viking://{scope}/memories/{category}/{slug}"
 

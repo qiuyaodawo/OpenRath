@@ -57,6 +57,7 @@ def _build_store_spec() -> tuple[str, MemoryStoreSpec] | None:
 def _build_provider() -> object | None:
     try:
         from _openai_provider import provider_from_env  # type: ignore[import-not-found]
+
         return provider_from_env()
     except Exception as exc:
         print(f"[note] cannot build LLM provider ({exc}); demo will skip forward()")
@@ -65,7 +66,9 @@ def _build_provider() -> object | None:
 
 def main() -> None:
     if not memory.is_available("openviking"):
-        print("[skip] openviking adapter not installed — run `uv pip install openrath[openviking]`")
+        print(
+            "[skip] openviking adapter not installed — run `uv pip install openrath[openviking]`"
+        )
         return
 
     spec_info = _build_store_spec()
@@ -85,13 +88,18 @@ def main() -> None:
         if provider is None:
             print("[note] running memory ops directly on the store")
             from rath.memory.op_types import MemoryOpFind, MemoryOpWrite
+
             # remember
             uri = "viking://user/memories/preferences/demo"
             try:
-                store.dispatch(MemoryOpWrite(uri=uri, content="dark mode preferred", wait=False))
+                store.dispatch(
+                    MemoryOpWrite(uri=uri, content="dark mode preferred", wait=False)
+                )
                 print(f"[ok] wrote a memory at {uri}")
             except Exception as exc:
-                print(f"[note] write failed (likely because the URI does not yet exist): {exc}")
+                print(
+                    f"[note] write failed (likely because the URI does not yet exist): {exc}"
+                )
             # recall
             res = store.dispatch(MemoryOpFind(query="dark mode", top_k=3))
             print(f"[ok] recall returned {len(res.hits)} hit(s)")
@@ -101,7 +109,9 @@ def main() -> None:
             "You are a tidy assistant.",
             provider=provider,
             memory=store,
-            memory_inject=DefaultRecallInjection(top_k=3, target_uri="viking://user/memories/"),
+            memory_inject=DefaultRecallInjection(
+                top_k=3, target_uri="viking://user/memories/"
+            ),
             commit_on_forward=False,
         ) as agent:
             print("[ok] agent bound to memory store")
@@ -118,7 +128,9 @@ def main() -> None:
             # 2) recall
             try:
                 result = agent.recall("dark mode preferences", top_k=3)
-                print(f"[ok] recall returned {len(getattr(result, 'hits', ()) or ())} hit(s)")
+                print(
+                    f"[ok] recall returned {len(getattr(result, 'hits', ()) or ())} hit(s)"
+                )
             except Exception as exc:
                 print(f"[note] recall failed: {exc}")
             # 3) commit a tiny session

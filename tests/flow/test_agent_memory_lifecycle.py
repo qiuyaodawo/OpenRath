@@ -49,7 +49,9 @@ class _FakeBackend(MemoryBackend):
             self.close_calls.append(store.handle)
         store.closed = True
 
-    def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:  # pragma: no cover
+    def dispatch(
+        self, store: MemoryStore, op: MemoryOp
+    ) -> MemoryResult:  # pragma: no cover
         raise NotImplementedError
 
 

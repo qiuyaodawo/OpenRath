@@ -49,17 +49,13 @@ def test_find_lexical_ranks_keyword_match_first(
     backend: LocalMemoryBackend, store: MemoryStore
 ) -> None:
     _seed(backend, store)
-    res = backend.dispatch(
-        store, MemoryOpFind(query="dark mode at night", top_k=3)
-    )
+    res = backend.dispatch(store, MemoryOpFind(query="dark mode at night", top_k=3))
     assert isinstance(res, MemoryFindResult)
     assert len(res.hits) >= 1
     assert res.hits[0].uri == "viking://user/memories/preferences/dark_mode"
 
 
-def test_find_respects_top_k(
-    backend: LocalMemoryBackend, store: MemoryStore
-) -> None:
+def test_find_respects_top_k(backend: LocalMemoryBackend, store: MemoryStore) -> None:
     _seed(backend, store)
     res = backend.dispatch(store, MemoryOpFind(query="user", top_k=2))
     assert isinstance(res, MemoryFindResult)

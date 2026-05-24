@@ -14,7 +14,6 @@ from rath.memory.op_types import (
 )
 from rath.memory.results import MemoryFindResult, MemoryHit
 
-
 _CAPS = MemoryCapabilities(
     scope_model=ScopeModel.KV,
     supports_write=False,
@@ -64,15 +63,11 @@ class TinyBackend(MemoryBackend):
         store.closed = True
         self._closed.append(store)
 
-    def dispatch(
-        self, store: MemoryStore, op: MemoryOp
-    ) -> MemoryFindResult:
+    def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryFindResult:
         if type(op) not in self.supported_ops():
             raise UnsupportedMemoryOp(type(op), self.name)
         assert isinstance(op, MemoryOpFind)
-        return MemoryFindResult(
-            hits=(MemoryHit(uri=f"tiny://{op.query}", score=1.0),)
-        )
+        return MemoryFindResult(hits=(MemoryHit(uri=f"tiny://{op.query}", score=1.0),))
 
 
 def test_abstract_subclass_missing_methods_cannot_instantiate():

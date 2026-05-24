@@ -64,7 +64,8 @@ class DefaultRecallInjection:
         # against the public surface to avoid an import cycle.
         if getattr(store, "closed", True):
             _LOG.warning(
-                "memory injection skipped: store is closed (%r)", getattr(store, "handle", store)
+                "memory injection skipped: store is closed (%r)",
+                getattr(store, "handle", store),
             )
             return ()
 

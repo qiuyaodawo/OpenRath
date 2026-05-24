@@ -32,9 +32,7 @@ def test_read_missing_uri_is_not_found(
     conformant_backend: MemoryBackend, conformant_store: MemoryStore
 ) -> None:
     uri = f"viking://user/default/__nope_{uuid.uuid4().hex}"
-    res = conformant_backend.dispatch(
-        conformant_store, MemoryOpRead(uri=uri)
-    )
+    res = conformant_backend.dispatch(conformant_store, MemoryOpRead(uri=uri))
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "not_found"
 

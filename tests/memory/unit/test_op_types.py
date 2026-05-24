@@ -28,7 +28,6 @@ from rath.memory.op_types import (
     MemoryOpWrite,
 )
 
-
 _OP_SAMPLES = [
     (MemoryOpWrite, {"uri": "viking://user/memories/x", "content": "hi"}),
     (MemoryOpRead, {"uri": "viking://user/memories/x"}),

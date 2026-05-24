@@ -51,14 +51,18 @@ class _NullBackend(MemoryBackend):
 
     def open(self, spec: MemoryStoreSpec | None = None) -> MemoryStore:
         self._n += 1
-        return MemoryStore(backend=self, handle=f"h{self._n}", spec=spec or MemoryStoreSpec())
+        return MemoryStore(
+            backend=self, handle=f"h{self._n}", spec=spec or MemoryStoreSpec()
+        )
 
     def close(self, store: MemoryStore) -> None:
         if not store.closed:
             self._n -= 1
         store.closed = True
 
-    def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:  # pragma: no cover -- unused
+    def dispatch(
+        self, store: MemoryStore, op: MemoryOp
+    ) -> MemoryResult:  # pragma: no cover -- unused
         raise NotImplementedError
 
 

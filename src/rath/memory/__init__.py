@@ -15,6 +15,9 @@ without those extras leaves the registry empty.
 from __future__ import annotations
 
 from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
+
+# Local backend ships with the base install — always registered.
+from rath.memory.adapters import local as _local  # noqa: F401
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
 from rath.memory.errors import (
     MemoryBackendError,
@@ -45,6 +48,7 @@ from rath.memory.registry import (
     register,
     set_default,
 )
+from rath.memory.registry import set_default as _set_default
 from rath.memory.results import (
     MemoryCommitResult,
     MemoryEntry,
@@ -56,10 +60,6 @@ from rath.memory.results import (
     MemoryResult,
     MemoryWriteResult,
 )
-
-# Local backend ships with the base install — always registered.
-from rath.memory.adapters import local as _local  # noqa: F401
-from rath.memory.registry import set_default as _set_default
 
 try:
     from rath.memory.adapters import openviking as _openviking  # noqa: F401

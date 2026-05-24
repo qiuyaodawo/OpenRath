@@ -20,7 +20,6 @@ from rath.memory.errors import MemoryStoreClosed
 from rath.memory.op_types import MemoryOp
 from rath.memory.results import MemoryResult
 
-
 __all__ = ["MemoryStoreSpec", "MemoryStore", "MemoryBackend"]
 
 

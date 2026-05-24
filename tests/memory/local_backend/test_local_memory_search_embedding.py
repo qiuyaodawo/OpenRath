@@ -18,7 +18,6 @@ from rath.memory.adapters.local import LocalMemoryBackend
 from rath.memory.op_types import MemoryOpFind, MemoryOpWrite
 from rath.memory.results import MemoryFindResult
 
-
 _HAS_LIVE_KEY = len(os.environ.get("OPENAI_API_KEY", "").strip()) >= 8
 _live_only = pytest.mark.skipif(
     not _HAS_LIVE_KEY,
@@ -30,10 +29,7 @@ _live_only = pytest.mark.skipif(
 def embedding_client() -> RathOpenAIEmbeddingClient:
     api_key = os.environ["OPENAI_API_KEY"].strip()
     base_url = os.environ.get("OPENAI_BASE_URL", "").strip() or None
-    model = (
-        os.environ.get("OPENAI_EMBEDDING_MODEL", "").strip()
-        or "embedding-3"
-    )
+    model = os.environ.get("OPENAI_EMBEDDING_MODEL", "").strip() or "embedding-3"
     return RathOpenAIEmbeddingClient(
         EmbeddingProvider(api_key=api_key, base_url=base_url, model=model),
     )
@@ -107,11 +103,7 @@ def test_embedding_find_persists_vec_sidecar(
     # Trigger a Find to force sidecar creation.
     backend.dispatch(embed_store, MemoryOpFind(query="body"))
     sidecar = (
-        Path(embed_store.handle)
-        / "user"
-        / "memories"
-        / "preferences"
-        / "persisted.vec"
+        Path(embed_store.handle) / "user" / "memories" / "preferences" / "persisted.vec"
     )
     assert sidecar.is_file(), "first Find must persist a .vec sidecar"
     payload = sidecar.read_text(encoding="utf-8")
@@ -133,11 +125,7 @@ def test_embedding_find_reuses_cached_sidecar(
         MemoryOpWrite(uri=uri, content="Body that survives a second query."),
     )
     sidecar = (
-        Path(embed_store.handle)
-        / "user"
-        / "memories"
-        / "preferences"
-        / "cached.vec"
+        Path(embed_store.handle) / "user" / "memories" / "preferences" / "cached.vec"
     )
 
     backend.dispatch(embed_store, MemoryOpFind(query="something"))

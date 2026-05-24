@@ -33,10 +33,7 @@ _TINY_RED_PNG = base64.b64decode(
 def provider() -> VLMProvider:
     api_key = os.environ["OPENAI_API_KEY"].strip()
     base_url = os.environ.get("OPENAI_BASE_URL", "").strip() or None
-    model = (
-        os.environ.get("OPENAI_VLM_MODEL", "").strip()
-        or "glm-4.6v"
-    )
+    model = os.environ.get("OPENAI_VLM_MODEL", "").strip() or "glm-4.6v"
     return VLMProvider(api_key=api_key, base_url=base_url, model=model)
 
 

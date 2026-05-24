@@ -29,8 +29,7 @@ class UnsupportedMemoryOp(MemoryBackendError):
         self.op_type = op_type
         self.backend_name = backend_name
         super().__init__(
-            f"memory backend {backend_name!r} does not support op "
-            f"{op_type.__name__!r}"
+            f"memory backend {backend_name!r} does not support op {op_type.__name__!r}"
         )
 
     def __reduce__(self) -> tuple[type, tuple[type, str]]:

@@ -77,7 +77,9 @@ class _FakeBackend(MemoryBackend):
         if isinstance(op, MemoryOpFind):
             return MemoryFindResult(hits=self.find_hits)
         if isinstance(op, MemoryOpCommit):
-            return MemoryCommitResult(task_id="task-x", archived_uri="viking://session/s/", extracted_count=-1)
+            return MemoryCommitResult(
+                task_id="task-x", archived_uri="viking://session/s/", extracted_count=-1
+            )
         raise NotImplementedError(f"fake: no handler for {type(op).__name__}")
 
 
@@ -111,7 +113,12 @@ def test_forward_without_memory_is_unchanged() -> None:
 def test_forward_prepends_injected_system_chunks() -> None:
     backend = _FakeBackend(
         find_hits=(
-            MemoryHit(uri="viking://user/m/1", score=0.9, snippet="loves dark mode", level="abstract"),
+            MemoryHit(
+                uri="viking://user/m/1",
+                score=0.9,
+                snippet="loves dark mode",
+                level="abstract",
+            ),
         ),
     )
     store = backend.open()
@@ -120,7 +127,9 @@ def test_forward_prepends_injected_system_chunks() -> None:
         "system",
         model="gpt-5.5",
         memory=store,
-        memory_inject=DefaultRecallInjection(top_k=1, target_uri="viking://user/memories/"),
+        memory_inject=DefaultRecallInjection(
+            top_k=1, target_uri="viking://user/memories/"
+        ),
     )
     agent._executor_override = exec_
     sess = Session.from_user_message("Hello, do you remember me?")
@@ -130,7 +139,9 @@ def test_forward_prepends_injected_system_chunks() -> None:
     assert not any(isinstance(op, MemoryOpCommit) for op in backend.ops_seen)
     # The injected snippet should appear as a system chunk in the output.
     sys_bodies = "\n".join(
-        str(r.payload.get("content", "")) for r in out.chunk_table.rows if r.kind == ChunkKind.SYSTEM
+        str(r.payload.get("content", ""))
+        for r in out.chunk_table.rows
+        if r.kind == ChunkKind.SYSTEM
     )
     assert "loves dark mode" in sys_bodies
 

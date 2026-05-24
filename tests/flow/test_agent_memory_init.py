@@ -22,8 +22,8 @@ from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
 from rath.memory.errors import MemoryBackendNotFound
 from rath.memory.op_types import MemoryOp
-from rath.memory.results import MemoryResult
 from rath.memory.registry import register
+from rath.memory.results import MemoryResult
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +81,9 @@ class _FakeBackend(MemoryBackend):
             self.closed_handles.append(store.handle)
         store.closed = True
 
-    def dispatch(self, store: MemoryStore, op: MemoryOp) -> MemoryResult:  # pragma: no cover
+    def dispatch(
+        self, store: MemoryStore, op: MemoryOp
+    ) -> MemoryResult:  # pragma: no cover
         raise NotImplementedError
 
 

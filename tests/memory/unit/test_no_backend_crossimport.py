@@ -15,7 +15,6 @@ from pathlib import Path
 
 import rath.memory
 
-
 _MEMORY_ROOT = Path(rath.memory.__file__).parent
 
 

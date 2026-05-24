@@ -34,9 +34,7 @@ from rath.memory.adapters.openviking import OpenVikingBackend
 
 
 @pytest.fixture
-def store(
-    openviking_url: str, openviking_root_api_key: str
-) -> MemoryStore:
+def store(openviking_url: str, openviking_root_api_key: str) -> MemoryStore:
     backend = OpenVikingBackend()
     spec = MemoryStoreSpec(
         account_id="default",
@@ -51,9 +49,7 @@ def store(
         backend.close(s)
 
 
-def _seed_writable_memory(
-    openviking_url: str, openviking_root_api_key: str
-) -> str:
+def _seed_writable_memory(openviking_url: str, openviking_root_api_key: str) -> str:
     """Seed a writable memory file via add_resource. Returns the file URI."""
     import openviking as _ov
 
@@ -96,9 +92,7 @@ def test_write_updates_existing_memory_file(
 ) -> None:
     seed_uri = _seed_writable_memory(openviking_url, openviking_root_api_key)
     new_content = "Replaced content: dark mode confirmed."
-    op = MemoryOpWrite(
-        uri=seed_uri, content=new_content, wait=False
-    )
+    op = MemoryOpWrite(uri=seed_uri, content=new_content, wait=False)
     result = store.dispatch(op)
     assert isinstance(result, MemoryWriteResult)
     assert result.uri == seed_uri

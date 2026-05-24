@@ -46,7 +46,6 @@ from rath.llm.embedding import (
     EmbeddingProvider,
     RathOpenAIEmbeddingClient,
 )
-from rath.llm.vlm import RathOpenAIVLMClient, VLMProvider
 from rath.llm.openai import (
     RathOpenAIChatClient,
     normalize_chat_completion,
@@ -59,6 +58,7 @@ from rath.llm.registry import (
     register_chat_client,
     registered_kinds,
 )
+from rath.llm.vlm import RathOpenAIVLMClient, VLMProvider
 
 __all__ = [
     # Protocols & registry

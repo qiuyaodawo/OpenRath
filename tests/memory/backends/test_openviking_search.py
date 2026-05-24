@@ -19,7 +19,6 @@ from rath.memory import (
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
 
-
 _DB_FIXTURE = (
     "OpenRath database migration playbook: ALTER TABLE strategy, rolling "
     "deployments, online schema-change tools, replica catchup."
@@ -71,9 +70,7 @@ def seeded_search_namespace(
 
 
 @pytest.fixture
-def store(
-    openviking_url: str, openviking_root_api_key: str
-) -> MemoryStore:
+def store(openviking_url: str, openviking_root_api_key: str) -> MemoryStore:
     backend = OpenVikingBackend()
     spec = MemoryStoreSpec(
         account_id="default",

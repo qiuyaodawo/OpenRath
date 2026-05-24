@@ -23,8 +23,8 @@ from rath.memory.results import (
     MemoryWriteResult,
 )
 
-
 # ---------------------------------------------------------------- Write
+
 
 def test_write_creates_md_file_under_scope(
     backend: LocalMemoryBackend, store: MemoryStore
@@ -38,13 +38,7 @@ def test_write_creates_md_file_under_scope(
     assert res.uri == op.uri
     assert res.bytes_written == len(op.content.encode("utf-8"))
 
-    expected = (
-        Path(store.handle)
-        / "user"
-        / "memories"
-        / "preferences"
-        / "dark_mode.md"
-    )
+    expected = Path(store.handle) / "user" / "memories" / "preferences" / "dark_mode.md"
     assert expected.is_file()
     assert expected.read_text(encoding="utf-8") == op.content
 
@@ -55,7 +49,7 @@ def test_write_overwrites_existing_content(
     uri = "viking://user/memories/preferences/lang"
     backend.dispatch(store, MemoryOpWrite(uri=uri, content="zh"))
     backend.dispatch(store, MemoryOpWrite(uri=uri, content="en"))
-    body = (Path(store.handle) / "user" / "memories" / "preferences" / "lang.md")
+    body = Path(store.handle) / "user" / "memories" / "preferences" / "lang.md"
     assert body.read_text(encoding="utf-8") == "en"
 
 
@@ -80,15 +74,14 @@ def test_write_rejects_non_viking_scheme(
 def test_write_rejects_parent_traversal(
     backend: LocalMemoryBackend, store: MemoryStore
 ) -> None:
-    op = MemoryOpWrite(
-        uri="viking://user/../../etc/passwd", content="x"
-    )
+    op = MemoryOpWrite(uri="viking://user/../../etc/passwd", content="x")
     res = backend.dispatch(store, op)
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "invalid_uri"
 
 
 # ---------------------------------------------------------------- Read
+
 
 def test_read_returns_written_content(
     backend: LocalMemoryBackend, store: MemoryStore
@@ -133,6 +126,7 @@ def test_read_abstract_level_returns_same_data_in_v1(
 
 
 # ---------------------------------------------------------------- List
+
 
 def test_list_returns_immediate_children_only(
     backend: LocalMemoryBackend, store: MemoryStore
@@ -189,6 +183,7 @@ def test_list_invalid_scope_is_invalid_uri(
 
 
 # ---------------------------------------------------------------- Tree
+
 
 def test_tree_walks_recursively_up_to_depth(
     backend: LocalMemoryBackend, store: MemoryStore

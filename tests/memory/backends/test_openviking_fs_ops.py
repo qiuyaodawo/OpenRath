@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import tempfile
 import uuid
-from pathlib import Path
 
 import pytest
 
@@ -78,9 +77,7 @@ def seeded_resource_namespace(
 
 
 @pytest.fixture
-def store(
-    openviking_url: str, openviking_root_api_key: str
-) -> "MemoryStore":
+def store(openviking_url: str, openviking_root_api_key: str) -> "MemoryStore":
     backend = OpenVikingBackend()
     spec = MemoryStoreSpec(
         account_id="default",

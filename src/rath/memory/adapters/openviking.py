@@ -17,9 +17,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+# Importing ``openviking`` is what gates this adapter; failures here propagate
+# up to ``rath.memory.__init__``'s try/except so the registry stays empty when
+# the optional extra is not installed.
+import openviking as _ov  # noqa: F401  -- the import itself is the availability check
+
 from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
-from rath.memory.errors import MemoryBackendError, MemoryStoreClosed, UnsupportedMemoryOp
+from rath.memory.errors import (
+    MemoryBackendError,
+    MemoryStoreClosed,
+    UnsupportedMemoryOp,
+)
 from rath.memory.op_types import (
     MemoryOp,
     MemoryOpCommit,
@@ -43,12 +52,6 @@ from rath.memory.results import (
     MemoryResult,
     MemoryWriteResult,
 )
-
-# Importing ``openviking`` is what gates this adapter; failures here propagate
-# up to ``rath.memory.__init__``'s try/except so the registry stays empty when
-# the optional extra is not installed.
-import openviking as _ov  # noqa: F401  -- the import itself is the availability check
-
 
 __all__ = ["OpenVikingBackend"]
 
@@ -170,7 +173,7 @@ class OpenVikingBackend(MemoryBackend):
         if store.closed:
             raise MemoryStoreClosed(store.handle)
         if type(op) not in _SUPPORTED_OPS:
-            raise UnsupportedMemoryOp(op_type=type(op))
+            raise UnsupportedMemoryOp(op_type=type(op), backend_name="openviking")
         client = self._handles[store.handle].client
         try:
             if isinstance(op, MemoryOpRead):
@@ -233,11 +236,7 @@ class OpenVikingBackend(MemoryBackend):
         )
         uri = ""
         if isinstance(raw, Mapping):
-            uri = (
-                raw.get("root_uri")
-                or raw.get("uri")
-                or (op.target_uri or "")
-            )
+            uri = raw.get("root_uri") or raw.get("uri") or (op.target_uri or "")
         return MemoryWriteResult(uri=uri or (op.target_uri or ""), bytes_written=0)
 
     # ------------------------------------------------------------------ Commit
@@ -357,7 +356,7 @@ def _valid_viking_uri(uri: str) -> bool:
     prefix = "viking://"
     if not uri.startswith(prefix):
         return False
-    tail = uri[len(prefix):]
+    tail = uri[len(prefix) :]
     head = tail.split("/", 1)[0]
     return head in _VALID_SCOPES
 
@@ -380,7 +379,7 @@ def _hits_from_findresult(raw: Any) -> tuple[MemoryHit, ...]:
     hits: list[MemoryHit] = []
     for m in matches:
         level_raw = getattr(m, "level", None)
-        level: str | None
+        level: Any
         if isinstance(level_raw, int):
             level = _LEVEL_INT_TO_NAME.get(level_raw)
         elif isinstance(level_raw, str):
@@ -505,7 +504,7 @@ def _failure_from(exc: BaseException) -> MemoryExecutionFailure:
     for cls, kind in classes.items():
         if isinstance(exc, cls):
             return MemoryExecutionFailure(
-                kind=kind,
+                kind=kind,  # type: ignore[arg-type]
                 message=str(exc),
                 detail=type(exc).__name__,
             )

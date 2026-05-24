@@ -24,8 +24,8 @@ from rath.memory.results import (
     MemoryWriteResult,
 )
 
-
 # ----------------------------------------------------- Local-file ingestion
+
 
 def test_resource_ingest_local_file_creates_dir(
     backend: LocalMemoryBackend, store: MemoryStore, tmp_path: Path
@@ -65,9 +65,9 @@ def test_resource_ingest_records_reason_and_instruction(
     )
     assert isinstance(res, MemoryWriteResult)
     sha = hashlib.sha256(b"body").hexdigest()[:16]
-    meta_body = (
-        Path(store.handle) / "resources" / sha / "meta.md"
-    ).read_text(encoding="utf-8")
+    meta_body = (Path(store.handle) / "resources" / sha / "meta.md").read_text(
+        encoding="utf-8"
+    )
     assert "why we kept it" in meta_body
     assert "summarise in one line" in meta_body
 
@@ -94,9 +94,7 @@ def test_resource_ingest_is_idempotent_on_same_bytes(
 def test_resource_ingest_missing_local_file_is_not_found(
     backend: LocalMemoryBackend, store: MemoryStore, tmp_path: Path
 ) -> None:
-    res = backend.dispatch(
-        store, MemoryOpResource(source=str(tmp_path / "nope.txt"))
-    )
+    res = backend.dispatch(store, MemoryOpResource(source=str(tmp_path / "nope.txt")))
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "not_found"
 
@@ -136,6 +134,7 @@ def test_resource_ingest_honours_explicit_target_uri(
 
 
 # ----------------------------------------------------- HTTP ingestion
+
 
 class _ServeBody(http.server.BaseHTTPRequestHandler):
     """Tiny in-memory HTTP handler — returns ``BODY`` for any GET."""

@@ -23,7 +23,6 @@ from rath.memory.abc import MemoryBackend
 from rath.memory.registry import get as get_backend
 from rath.memory.registry import list_names
 
-
 _OV_URL = os.environ.get("OPEN_VIKING_URL", "http://127.0.0.1:1933")
 _OV_CONF = Path.home() / ".openviking" / "ov.conf"
 

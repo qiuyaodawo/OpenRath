@@ -134,7 +134,9 @@ def test_reopen_same_path_keeps_data() -> None:
     spec = MemoryStoreSpec(options={"path": str(path)})
     again = backend.open(spec)
     try:
-        assert (Path(again.handle) / "marker.txt").read_text(encoding="utf-8") == "hello"
+        assert (Path(again.handle) / "marker.txt").read_text(
+            encoding="utf-8"
+        ) == "hello"
     finally:
         backend.close(again)
 

@@ -25,7 +25,6 @@ from rath.memory.results import (
     MemoryReadResult,
 )
 
-
 _HAS_LIVE_KEY = len(os.environ.get("OPENAI_API_KEY", "").strip()) >= 8
 _live_only = pytest.mark.skipif(
     not _HAS_LIVE_KEY,
@@ -64,6 +63,7 @@ def chat_store(
 
 # ----------------------------------------------------- Archive (no extraction)
 
+
 def test_commit_writes_messages_archive_under_session(
     backend: LocalMemoryBackend, store: MemoryStore
 ) -> None:
@@ -82,9 +82,7 @@ def test_commit_writes_messages_archive_under_session(
     # extracted_count=-1 when no extraction was attempted.
     assert res.extracted_count == -1
 
-    read = backend.dispatch(
-        store, MemoryOpRead(uri=res.archived_uri, encoding="utf-8")
-    )
+    read = backend.dispatch(store, MemoryOpRead(uri=res.archived_uri, encoding="utf-8"))
     assert isinstance(read, MemoryReadResult)
     payload = json.loads(read.data)
     assert payload == msgs
@@ -133,6 +131,7 @@ def test_commit_with_no_chat_client_skips_extraction(
 
 
 # ----------------------------------------------------- Extraction (wait=True + live chat)
+
 
 @_live_only
 @pytest.mark.live_llm

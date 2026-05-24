@@ -25,9 +25,7 @@ from rath.memory.adapters.openviking import OpenVikingBackend
 
 
 @pytest.fixture
-def store(
-    openviking_url: str, openviking_root_api_key: str
-) -> Iterator[MemoryStore]:
+def store(openviking_url: str, openviking_root_api_key: str) -> Iterator[MemoryStore]:
     backend = OpenVikingBackend()
     spec = MemoryStoreSpec(
         account_id="default",

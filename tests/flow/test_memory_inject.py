@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import replace as _dc_replace
 
 import pytest
 
@@ -17,9 +17,7 @@ from rath.memory.abc import MemoryBackend, MemoryStore, MemoryStoreSpec
 from rath.memory.capabilities import MemoryCapabilities, ScopeModel
 from rath.memory.op_types import MemoryOp, MemoryOpFind
 from rath.memory.results import MemoryFindResult, MemoryHit, MemoryResult
-from dataclasses import replace as _dc_replace
-
-from rath.session.chunk import ChunkKind, ChunkRow, ChunkTable, user_text_chunk
+from rath.session.chunk import ChunkKind, ChunkTable, user_text_chunk
 from rath.session.session import Session
 
 
@@ -80,13 +78,25 @@ def test_default_recall_injection_runtime_checkable() -> None:
 def test_default_recall_emits_one_chunk_per_hit() -> None:
     backend = _FakeBackend(
         hits=(
-            MemoryHit(uri="viking://user/m/a", score=0.9, snippet="dark mode preferred", level="abstract"),
-            MemoryHit(uri="viking://user/m/b", score=0.8, snippet="GMT+8 timezone", level="abstract"),
+            MemoryHit(
+                uri="viking://user/m/a",
+                score=0.9,
+                snippet="dark mode preferred",
+                level="abstract",
+            ),
+            MemoryHit(
+                uri="viking://user/m/b",
+                score=0.8,
+                snippet="GMT+8 timezone",
+                level="abstract",
+            ),
         ),
     )
     store = backend.open()
     sess = _user_session("Do you remember my preferences?")
-    policy = DefaultRecallInjection(top_k=2, target_uri="viking://user/memories/", level="abstract")
+    policy = DefaultRecallInjection(
+        top_k=2, target_uri="viking://user/memories/", level="abstract"
+    )
     chunks = policy.inject(sess, store)
     assert isinstance(chunks, tuple)
     assert len(chunks) == 2

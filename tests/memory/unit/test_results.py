@@ -18,7 +18,6 @@ from rath.memory.results import (
     MemoryWriteResult,
 )
 
-
 _RESULT_SAMPLES = [
     (MemoryHit, {"uri": "viking://user/memories/x", "score": 0.9}),
     (
