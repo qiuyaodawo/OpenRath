@@ -16,6 +16,8 @@ import pytest
 from rath.memory import MemoryStore, MemoryStoreSpec
 from rath.memory.adapters.openviking import OpenVikingBackend
 
+pytestmark = pytest.mark.openviking
+
 
 @pytest.fixture
 def http_spec(openviking_url: str, openviking_root_api_key: str) -> MemoryStoreSpec:

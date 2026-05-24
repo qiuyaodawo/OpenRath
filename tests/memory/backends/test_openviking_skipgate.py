@@ -17,6 +17,10 @@ from __future__ import annotations
 import json
 import urllib.request
 
+import pytest
+
+pytestmark = pytest.mark.openviking
+
 
 def test_openviking_health(openviking_url: str) -> None:
     with urllib.request.urlopen(f"{openviking_url}/health", timeout=2.0) as resp:

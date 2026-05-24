@@ -23,6 +23,8 @@ from rath.memory import (
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
 
+pytestmark = pytest.mark.openviking
+
 
 @pytest.fixture
 def store(openviking_url: str, openviking_root_api_key: str) -> Iterator[MemoryStore]:

@@ -25,6 +25,8 @@ from rath.memory import (
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
 
+pytestmark = pytest.mark.openviking
+
 
 @pytest.fixture(scope="module")
 def seeded_resource_namespace(

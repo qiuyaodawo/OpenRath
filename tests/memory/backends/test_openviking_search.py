@@ -19,6 +19,8 @@ from rath.memory import (
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
 
+pytestmark = pytest.mark.openviking
+
 _DB_FIXTURE = (
     "OpenRath database migration playbook: ALTER TABLE strategy, rolling "
     "deployments, online schema-change tools, replica catchup."

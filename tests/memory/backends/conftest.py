@@ -1,18 +1,25 @@
 """Fixtures for the OpenViking-backed memory-plane tests.
 
 All tests under ``tests/memory/backends/`` run against a real OpenViking
-server (`scripts/launch_openviking.sh`). The autouse ``_openviking_canary``
-fixture skips the entire module when:
+server (``scripts/launch_openviking.sh``). They share three gates:
 
-- the ``openviking`` optional extra is not installed, OR
-- ``$OPEN_VIKING_URL/health`` is unreachable, OR
-- ``OPEN_VIKING_ROOT_API_KEY`` is unset (server is up but credentials are
-  not exported in the shell — running a test without the key would fail
-  the first auth check, which is noise, not a useful signal).
+- **Collection-time SDK gate** — :data:`collect_ignore_glob` below skips
+  every ``test_openviking_*.py`` module when the ``openviking`` optional
+  extra is not installed, so pytest never tries to import those modules
+  (which all do ``from rath.memory.adapters.openviking import
+  OpenVikingBackend`` at the top, raising ``ModuleNotFoundError`` and
+  failing collection without the extra).
+- **Marker** — every test file in this directory is tagged
+  ``pytest.mark.openviking`` via its own ``pytestmark``, so
+  ``pytest -m 'not openviking'`` deselects them by marker alone.
+- **Runtime canary fixture** — the autouse ``_openviking_canary``
+  fixture below also skips the test when ``$OPEN_VIKING_URL/health`` is
+  unreachable or ``OPEN_VIKING_ROOT_API_KEY`` is unset.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import urllib.error
@@ -21,6 +28,17 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+# Without the openviking SDK present, every ``test_openviking_*.py``
+# under this directory would raise ``ModuleNotFoundError`` at collection
+# time (their module top imports
+# :class:`rath.memory.adapters.openviking.OpenVikingBackend`, which in
+# turn imports the ``openviking`` SDK). ``collect_ignore_glob`` is the
+# documented way to opt out of collection for a glob of files under a
+# conftest — see pytest's reference for ``collect_ignore_glob``.
+collect_ignore_glob: list[str] = []
+if importlib.util.find_spec("openviking") is None:
+    collect_ignore_glob.append("test_openviking_*.py")
 
 _DEFAULT_URL = "http://127.0.0.1:1933"
 _DEFAULT_CONF = Path.home() / ".openviking" / "ov.conf"
