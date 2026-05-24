@@ -392,8 +392,14 @@ def _append_and_persist(
     row: ChunkRow,
     writer: SessionWriter | None,
 ) -> None:
+    """Append ``row`` to ``rows_list`` (and JSONL if a writer is set).
+
+    Does **not** rebuild ``out.chunk_table`` per row — the caller materialises
+    once per assistant turn via :func:`_sync_loop_out_rows`, plus one final
+    rebuild after the loop. This keeps the loop O(rounds) rather than the
+    O(rows²) shape that comes from rebuilding the tuple on every append.
+    """
     rows_list.append(row)
-    _sync_loop_out_rows(out, rows_list)
     if writer is not None:
         writer.write_chunk(len(rows_list) - 1, row)
 
@@ -522,6 +528,12 @@ def run_session_loop(
                     assistant_turn_chunk(tool_calls=tcalls, content=msg.content),
                     writer,
                 )
+                # Sync once per assistant turn so any tool that inspects
+                # ``out.chunk_table`` during dispatch sees the message it is
+                # answering. Per-tool-result rows are not synced individually
+                # — the final rebuild at the bottom of the function picks
+                # them up.
+                _sync_loop_out_rows(out, rows_list)
                 for tc in tcalls:
                     tool_name = tc.function.name
                     if (
