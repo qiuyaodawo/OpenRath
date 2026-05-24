@@ -24,6 +24,7 @@ from rath.memory import (
     MemoryStoreSpec,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+from tests.memory.backends.conftest import add_resource_with_retry
 
 pytestmark = pytest.mark.openviking
 
@@ -55,11 +56,10 @@ def seeded_resource_namespace(
             fh.write(content)
             local_path = fh.name
         try:
-            result = client.add_resource(
+            result = add_resource_with_retry(
+                client,
                 local_path,
                 to=f"viking://resources/{ns}/",
-                wait=True,
-                timeout=60.0,
             )
         finally:
             os.unlink(local_path)

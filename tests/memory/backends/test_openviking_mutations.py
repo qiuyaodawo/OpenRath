@@ -31,6 +31,7 @@ from rath.memory import (
     MemoryWriteResult,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+from tests.memory.backends.conftest import add_resource_with_retry
 
 pytestmark = pytest.mark.openviking
 
@@ -71,11 +72,10 @@ def _seed_writable_memory(openviking_url: str, openviking_root_api_key: str) -> 
             fh.write("# seed\nOriginal content.")
             local = fh.name
         try:
-            client.add_resource(
+            add_resource_with_retry(
+                client,
                 local,
                 to=f"viking://resources/{ns}/",
-                wait=True,
-                timeout=60.0,
             )
         finally:
             os.unlink(local)
@@ -127,7 +127,7 @@ def test_resource_ingest_creates_file(store: MemoryStore) -> None:
             source=local,
             target_uri=f"viking://resources/{ns}/",
             wait=True,
-            timeout_seconds=60.0,
+            timeout_seconds=180.0,
         )
         result = store.dispatch(op)
     finally:

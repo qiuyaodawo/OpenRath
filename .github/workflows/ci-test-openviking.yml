@@ -50,4 +50,9 @@ jobs:
           echo "OPEN_VIKING_ROOT_API_KEY=${key}" >> "$GITHUB_ENV"
           echo "OPEN_VIKING_URL=http://127.0.0.1:1933" >> "$GITHUB_ENV"
       - name: Run OpenViking tests
-        run: uv run pytest -m openviking
+        # OpenViking's resource-ingest path hits an external embedding
+        # provider (GLM by default) across the Azure US-East -> Zhipu CN
+        # network; transient queue deadline overruns are normal.
+        # Reruns ride out the flake without masking real adapter bugs
+        # (pytest-rerunfailures is a dev dep).
+        run: uv run pytest -m openviking --reruns 2 --reruns-delay 5

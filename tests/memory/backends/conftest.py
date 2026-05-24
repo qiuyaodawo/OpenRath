@@ -22,10 +22,12 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -82,6 +84,39 @@ def openviking_root_api_key() -> str:
             "read; export the key printed by scripts/launch_openviking.sh."
         )
     return key
+
+
+def add_resource_with_retry(
+    client: Any,
+    local_path: str,
+    to: str,
+    *,
+    timeout: float = 180.0,
+    attempts: int = 3,
+) -> Any:
+    """Call ``client.add_resource`` with retry on transient timeouts.
+
+    OpenViking's resource ingest hits an external embedding provider (GLM
+    by default). From GitHub Actions runners (Azure US-East -> Zhipu CN)
+    that call can transiently exceed the server's queue deadline. We
+    retry a few times with growing patience before surrendering.
+    """
+    from openviking_cli.exceptions import (
+        DeadlineExceededError,
+        OpenVikingError,
+    )
+
+    last_exc: BaseException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return client.add_resource(local_path, to=to, wait=True, timeout=timeout)
+        except (DeadlineExceededError, OpenVikingError) as exc:
+            last_exc = exc
+            if attempt == attempts:
+                break
+            time.sleep(2.0 * attempt)
+    assert last_exc is not None
+    raise last_exc
 
 
 @pytest.fixture(autouse=True)
