@@ -27,7 +27,9 @@ def build_agent() -> flow.Agent:
     satisfy the constructor when no credentials are configured.
     """
     if has_credentials():
-        return flow.Agent("You are a concise assistant.", provider_from_env(), memory="local")
+        return flow.Agent(
+            "You are a concise assistant.", provider_from_env(), memory="local"
+        )
     return flow.Agent("You are a concise assistant.", model="demo", memory="local")
 
 
