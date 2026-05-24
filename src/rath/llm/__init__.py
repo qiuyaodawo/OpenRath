@@ -46,6 +46,7 @@ from rath.llm.embedding import (
     EmbeddingProvider,
     RathOpenAIEmbeddingClient,
 )
+from rath.llm.vlm import RathOpenAIVLMClient, VLMProvider
 from rath.llm.openai import (
     RathOpenAIChatClient,
     normalize_chat_completion,
@@ -74,6 +75,9 @@ __all__ = [
     "EmbeddingProvider",
     "RathOpenAIEmbeddingClient",
     "DEFAULT_EMBEDDING_MODEL",
+    # VLM adapter (sync, OpenAI-compatible vision)
+    "VLMProvider",
+    "RathOpenAIVLMClient",
     # Config + errors
     "Provider",
     "BudgetExceededError",
