@@ -1,8 +1,8 @@
-"""Tiny stdio MCP server used by ``example/mcp_tool_usage.py``.
+"""Tiny stdio MCP server used by ``example/06_mcp_tool.py``.
 
-Exposes one ``echo`` tool. Not a serious deployment - the entire point is
-to give the bridge example something deterministic to talk to without
-external dependencies.
+Exposes one ``echo`` tool. Not a serious deployment — the point is to give
+the MCP bridge example something deterministic to talk to with no external
+dependencies.
 """
 
 from __future__ import annotations
@@ -40,9 +40,7 @@ async def _list_tools() -> list[Tool]:
 @server.call_tool()
 async def _call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     if name == "echo":
-        return [
-            TextContent(type="text", text=str(arguments.get("text", ""))),
-        ]
+        return [TextContent(type="text", text=str(arguments.get("text", "")))]
     return [TextContent(type="text", text=f"unknown tool: {name}")]
 
 
