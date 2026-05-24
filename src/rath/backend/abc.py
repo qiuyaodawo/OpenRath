@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -53,25 +54,32 @@ class BackendSandbox:
     spec: BackendSandboxSpec | None = None
     closed: bool = field(default=False)
     _refcount: int = field(default=0, repr=False)
+    _refcount_lock: threading.Lock = field(
+        default_factory=threading.Lock, repr=False, compare=False
+    )
 
     @property
     def refcount(self) -> int:
         """Current number of live references; read-only mirror of internal state."""
-        return self._refcount
+        with self._refcount_lock:
+            return self._refcount
 
     def acquire(self) -> "BackendSandbox":
         """Add one reference; return ``self`` for chaining."""
-        if self.closed:
-            raise BackendSandboxClosed(self.handle)
-        self._refcount += 1
+        with self._refcount_lock:
+            if self.closed:
+                raise BackendSandboxClosed(self.handle)
+            self._refcount += 1
         return self
 
     def release(self) -> None:
         """Drop one reference; close via the backend when the count hits zero."""
-        if self.closed:
-            return
-        self._refcount -= 1
-        if self._refcount <= 0:
+        with self._refcount_lock:
+            if self.closed:
+                return
+            self._refcount -= 1
+            should_close = self._refcount <= 0
+        if should_close:
             self.backend.close(self)
 
     def __enter__(self) -> "BackendSandbox":
