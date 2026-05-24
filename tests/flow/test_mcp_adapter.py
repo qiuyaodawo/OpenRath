@@ -1,7 +1,7 @@
 """MCP stdio adapter tests.
 
 ``mcp`` is now a core dependency, so the full subprocess round-trip via
-the in-tree ``example/_demo_echo_server.py`` runs unconditionally.
+the in-tree ``example/_shared/echo_mcp_server.py`` runs unconditionally.
 """
 
 from __future__ import annotations
@@ -14,7 +14,9 @@ from rath.flow.tool.mcp_adapter import (
     _flatten_call_result,
 )
 
-_DEMO_SERVER = Path(__file__).resolve().parents[2] / "example" / "_demo_echo_server.py"
+_DEMO_SERVER = (
+    Path(__file__).resolve().parents[2] / "example" / "_shared" / "echo_mcp_server.py"
+)
 
 
 def test_coerce_input_schema_passes_dict_through() -> None:

@@ -96,7 +96,7 @@ You need a running OpenSandbox server (typically Docker). At the repo root, use 
 
 Export `OPEN_SANDBOX_DOMAIN` (default if unset in check scripts: `127.0.0.1:8080`) and any API keys your deployment requires. Run `scripts/check_opensandbox.sh` or `check_opensandbox.bat` to verify imports and `GET /health`.
 
-Set the backend to `opensandbox` in-session with a spec; see `example/sandbox_backend_opensandbox.py` and the user guide chapter on sandbox backends.
+Set the backend to `opensandbox` in-session with a spec; see `example/03_sandbox_backend.py` and the user guide chapter on sandbox backends.
 
 ---
 
@@ -117,21 +117,20 @@ The HTML output is under `docs/_build/html/`.
 
 ## Examples
 
-Sample OpenRath entry points:
+A numbered learning ladder under [`example/`](example/) — each script teaches
+one concept and builds on the previous. See [`example/README.md`](example/README.md)
+for setup and the full table.
 
-1. [`session_usage.py`](example/session_usage.py): fork and detach, session loop with a local workspace binding, plus session compression at the main entry.
-2. [`sandbox_backend_local.py`](example/sandbox_backend_local.py): session loop on the local subprocess sandbox; compares unbound workspace vs binding the repository root as the workspace.
-3. [`sandbox_backend_opensandbox.py`](example/sandbox_backend_opensandbox.py): same shape on the OpenSandbox backend; requires an OpenSandbox stack.
-4. [`custom_tool_usage.py`](example/custom_tool_usage.py): FlowToolCall subclass and tool mode wiring on the model side.
-5. [`trading_agents/`](example/trading_agents/): an OpenRath reimplementation of [TradingAgents](https://github.com/TauricResearch/TradingAgents) (Tauric Research, multi-agent LLM finance stack). Roles stay in a workflow; sessions and tools follow this framework; CLI entry is `main.py`.
-6. [`engineering_agents/`](example/engineering_agents/): an OpenRath reimplementation of one scenario from [ClawTeam](https://github.com/HKUDS/ClawTeam) (HKUDS, multi-agent software-engineering automation). Nested workflows (e.g. Lead, FeatureSquad, backend pairs, QA) live in the subfolder.
-7. [`research_transformer/`](example/research_transformer/): a **Transformer-metaphor** academic pipeline (literature vs reproduction branches over N layers, optional figure tool, final polish) demonstrating story-first composition on `Session`/`Workflow`; default sandbox root is `example/research_transformer/.workspace/`.
-
-<div align="center">
-  <img src="assets/readme/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
-</div>
-
-The folders above that reimplement or storyboard upstream scenarios (`trading_agents`, `engineering_agents`, and similar) are for demonstrating complex orchestration only; they are not guarantees about upstream behavior. Using upstream names still means following those repositories’ licenses and terms.
+1. [`01_hello_agent.py`](example/01_hello_agent.py): the smallest program — build a `flow.Agent` and call it on a `Session`.
+2. [`02_session_lineage.py`](example/02_session_lineage.py): `fork` / `detach`, the session graph, and JSONL export (no API key).
+3. [`03_sandbox_backend.py`](example/03_sandbox_backend.py): `.to(backend, spec=...)` — the same agent on the local vs OpenSandbox backend.
+4. [`04_tools_builtin.py`](example/04_tools_builtin.py): the built-in filesystem / shell tools every loop already exposes.
+5. [`05_custom_tool.py`](example/05_custom_tool.py): implement your own `FlowToolCall` (a local, key-free calculator).
+6. [`06_mcp_tool.py`](example/06_mcp_tool.py): borrow tools from an MCP stdio server (no API key).
+7. [`07_streaming.py`](example/07_streaming.py): read streaming deltas and cumulative token usage.
+8. [`08_compress.py`](example/08_compress.py): shrink a session's context with `flow.Compressor`.
+9. [`09_memory.py`](example/09_memory.py): the ergonomic `flow.Agent(memory=...)` remember / recall / commit API.
+10. [`10_provider_variation.py`](example/10_provider_variation.py): swap the LLM vendor by changing only the `Provider`.
 
 ---
 

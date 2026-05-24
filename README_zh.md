@@ -96,7 +96,7 @@ pip install "openrath[opensandbox]"
 
 设置环境变量 `OPEN_SANDBOX_DOMAIN`（检查脚本中的默认值：`127.0.0.1:8080`）以及部署所需的 API 密钥。运行 `scripts/check_opensandbox.sh` 或 `check_opensandbox.bat` 来验证导入和 `GET /health` 接口。
 
-在 Session 中通过 spec 将后端设置为 `opensandbox`；参考 `example/sandbox_backend_opensandbox.py` 以及用户指南中关于沙箱后端的章节。
+在 Session 中通过 spec 将后端设置为 `opensandbox`；参考 `example/03_sandbox_backend.py` 以及用户指南中关于沙箱后端的章节。
 
 ---
 
@@ -117,21 +117,20 @@ HTML 输出位于 `docs/_build/html/` 目录下。
 
 ## 示例
 
-以下是 OpenRath 的示例入口点：
+[`example/`](example/) 下提供了一组编号递进的学习路径 — 每个脚本聚焦一个概念，
+并在前一个的基础上展开。详细的环境配置与完整表格见
+[`example/README.md`](example/README.md)。
 
-1. [`session_usage.py`](example/session_usage.py)：fork 和 detach 用法、绑定本地工作区的会话循环，以及主入口处的会话压缩。
-2. [`sandbox_backend_local.py`](example/sandbox_backend_local.py)：基于本地子进程沙箱的会话循环；对比无绑定工作区与将仓库根目录绑定为工作区的区别。
-3. [`sandbox_backend_opensandbox.py`](example/sandbox_backend_opensandbox.py)：在 OpenSandbox 后端上的相同形态；需要部署 OpenSandbox 服务。
-4. [`custom_tool_usage.py`](example/custom_tool_usage.py)：FlowToolCall 子类定义和模型侧工具模式的接入方式。
-5. [`trading_agents/`](example/trading_agents/)：对 [TradingAgents](https://github.com/TauricResearch/TradingAgents)（Tauric Research 的多智能体 LLM 金融栈）的 OpenRath 重实现。角色保留在工作流中；会话和工具由本框架接管；CLI 入口为 `main.py`。
-6. [`engineering_agents/`](example/engineering_agents/)：对 [ClawTeam](https://github.com/HKUDS/ClawTeam)（HKUDS 的多智能体软件工程自动化）某一场景的 OpenRath 重实现。嵌套的工作流（如 Lead、FeatureSquad、后端对、QA）位于子目录中。
-7. [`research_transformer/`](example/research_transformer/)：一个 **Transformer 隐喻** 的学术流水线（文献 vs 复现分支经过 N 层、可选的绘图工具、最终润色），展示了基于 `Session`/`Workflow` 的故事优先组合方式；默认沙箱根目录为 `example/research_transformer/.workspace/`。
-
-<div align="center">
-  <img src="assets/readme/research_transformer.png" alt="Research Transformer" style="width: 360px; height: auto;" />
-</div>
-
-以上重实现或剧本化上游场景的目录（`trading_agents`、`engineering_agents` 及类似目录）仅用于演示复杂编排能力；它们不代表上游项目的行为或效果。使用上游项目名称仍须遵守其仓库的许可证和条款。
+1. [`01_hello_agent.py`](example/01_hello_agent.py)：最小程序 — 构造一个 `flow.Agent` 并在 `Session` 上调用。
+2. [`02_session_lineage.py`](example/02_session_lineage.py)：`fork` / `detach`、会话图与 JSONL 导出（无需 API key）。
+3. [`03_sandbox_backend.py`](example/03_sandbox_backend.py)：`.to(backend, spec=...)` — 同一 agent 在 local 与 OpenSandbox 后端上的形态。
+4. [`04_tools_builtin.py`](example/04_tools_builtin.py)：每个 loop 默认暴露的内置文件系统 / shell 工具。
+5. [`05_custom_tool.py`](example/05_custom_tool.py)：实现你自己的 `FlowToolCall`（本地、无 key 的计算器）。
+6. [`06_mcp_tool.py`](example/06_mcp_tool.py)：从 MCP stdio 服务器借用工具（无需 API key）。
+7. [`07_streaming.py`](example/07_streaming.py)：读取流式增量和累计 token 用量。
+8. [`08_compress.py`](example/08_compress.py)：用 `flow.Compressor` 压缩会话上下文。
+9. [`09_memory.py`](example/09_memory.py)：`flow.Agent(memory=...)` 的 remember / recall / commit 易用 API。
+10. [`10_provider_variation.py`](example/10_provider_variation.py)：只改 `Provider` 即可切换 LLM 厂商。
 
 ---
 
