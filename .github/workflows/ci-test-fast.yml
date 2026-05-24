@@ -26,7 +26,29 @@ permissions:
   contents: read
 
 jobs:
-  test-fast:
+  # PR path: only the lifecycle boundary versions (lowest supported + highest
+  # supported). Cuts PR CI minutes ~50% while still catching syntax/typing
+  # divergence at both ends; the full matrix runs on push-to-main below.
+  test-fast-pr:
+    if: github.event_name == 'pull_request'
+    name: pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --dev --frozen
+      - run: uv run pytest -n auto -m 'not opensandbox and not openviking and not live_llm'
+
+  # main path: full matrix on every push, so regressions in the middle
+  # versions still get caught before the next release cycle.
+  test-fast-main:
+    if: github.event_name == 'push'
     name: pytest (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
@@ -39,4 +61,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --dev --frozen
-      - run: uv run pytest -m 'not opensandbox and not openviking and not live_llm'
+      - run: uv run pytest -n auto -m 'not opensandbox and not openviking and not live_llm'
