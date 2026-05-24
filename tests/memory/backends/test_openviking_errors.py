@@ -12,8 +12,6 @@ from typing import Iterator
 
 import pytest
 
-pytestmark = pytest.mark.openviking
-
 from rath.memory import (
     MemoryExecutionFailure,
     MemoryOpFind,
@@ -24,6 +22,8 @@ from rath.memory import (
     MemoryStoreSpec,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+
+pytestmark = pytest.mark.openviking
 
 
 @pytest.fixture

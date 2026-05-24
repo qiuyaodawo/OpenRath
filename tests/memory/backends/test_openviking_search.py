@@ -8,8 +8,6 @@ import uuid
 
 import pytest
 
-pytestmark = pytest.mark.openviking
-
 from rath.memory import (
     MemoryExecutionFailure,
     MemoryFindResult,
@@ -20,6 +18,8 @@ from rath.memory import (
     MemoryStoreSpec,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+
+pytestmark = pytest.mark.openviking
 
 _DB_FIXTURE = (
     "OpenRath database migration playbook: ALTER TABLE strategy, rolling "

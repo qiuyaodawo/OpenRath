@@ -19,8 +19,6 @@ import uuid
 
 import pytest
 
-pytestmark = pytest.mark.openviking
-
 from rath.memory import (
     MemoryCommitResult,
     MemoryExecutionFailure,
@@ -33,6 +31,8 @@ from rath.memory import (
     MemoryWriteResult,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+
+pytestmark = pytest.mark.openviking
 
 
 @pytest.fixture
