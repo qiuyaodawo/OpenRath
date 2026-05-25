@@ -1,4 +1,4 @@
-"""pytest root: asyncio anyio backend, OpenSandbox TCP gate."""
+"""pytest root: asyncio anyio backend, OpenSandbox TCP gate, marker-based timeouts."""
 
 from __future__ import annotations
 
@@ -6,6 +6,34 @@ import os
 import socket
 
 import pytest
+
+# Per-marker timeout overrides. The global default lives in pytest.ini
+# (``timeout = 30``); slow paths (live backends, real LLM, full-stack
+# integration, perf benchmarks) need more headroom. Anything not listed here
+# inherits the 30 s default.
+_MARKER_TIMEOUT_S: dict[str, int] = {
+    "opensandbox": 300,
+    "opensandbox_real": 300,
+    "openviking": 300,
+    "live_llm": 180,
+    "integration": 600,
+    "bench": 600,
+}
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Boost ``@pytest.mark.timeout`` for slow-path markers."""
+    for item in items:
+        if item.get_closest_marker("timeout") is not None:
+            continue
+        boost = 0
+        for name, secs in _MARKER_TIMEOUT_S.items():
+            if item.get_closest_marker(name) is not None and secs > boost:
+                boost = secs
+        if boost:
+            item.add_marker(pytest.mark.timeout(boost))
 
 
 @pytest.fixture
