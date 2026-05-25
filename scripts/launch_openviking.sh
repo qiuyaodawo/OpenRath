@@ -51,12 +51,18 @@ CONFIG_PATH="${DATA_DIR}/ov.conf"
 mkdir -p "${DATA_DIR}"
 
 _load_openviking_provider_env() {
-  local line key val
+  local line key val tmp
+  tmp="$(mktemp)"
+  if ! uv run python "${SCRIPT_DIR}/resolve_openviking_provider_env.py" >"${tmp}"; then
+    rm -f "${tmp}"
+    return 1
+  fi
   while IFS= read -r line; do
     key="${line%%=*}"
     val="${line#*=}"
     export "${key}=${val}"
-  done < <(uv run python "${SCRIPT_DIR}/resolve_openviking_provider_env.py")
+  done <"${tmp}"
+  rm -f "${tmp}"
 }
 
 if [[ ! -f "${CONFIG_PATH}" ]]; then

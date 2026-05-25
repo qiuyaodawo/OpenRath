@@ -681,8 +681,6 @@ class _ScriptedStreamingClient:
 
 def test_on_event_refuses_non_streaming_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """``on_event`` requires the resolved client to implement complete_stream(req)."""
-    from rath.llm import RathLLMChatRequest, RathLLMChatResponse
-
     class _SyncOnlyClient:
         """Chat client stub without streaming support."""
 
