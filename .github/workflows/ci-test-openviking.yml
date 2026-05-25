@@ -11,6 +11,7 @@ on:
       - 'src/rath/flow/memory_inject.py'
       - 'tests/memory/**'
       - 'scripts/launch_openviking.sh'
+      - 'scripts/resolve_openviking_provider_env.py'
       - 'pyproject.toml'
       - 'uv.lock'
   pull_request:
@@ -22,6 +23,7 @@ on:
       - 'src/rath/flow/memory_inject.py'
       - 'tests/memory/**'
       - 'scripts/launch_openviking.sh'
+      - 'scripts/resolve_openviking_provider_env.py'
       - 'pyproject.toml'
       - 'uv.lock'
 
@@ -33,31 +35,52 @@ jobs:
     name: pytest (openviking)
     runs-on: ubuntu-latest
     # OpenViking tests require a running server with reachable embedding +
-    # VLM providers (GLM by default); allow failure until the CI
-    # environment is verified stable (mirrors the opensandbox job).
+    # VLM providers; allow failure in PRs until the CI environment is stable.
     continue-on-error: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.12'
+      - name: Check OpenViking credentials
+        id: creds
+        env:
+          OPEN_VIKING_EMBEDDING_API_KEY: ${{ secrets.OPEN_VIKING_EMBEDDING_API_KEY }}
+          OPEN_VIKING_VLM_API_KEY: ${{ secrets.OPEN_VIKING_VLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [[ -n "${OPEN_VIKING_EMBEDDING_API_KEY}" && -n "${OPEN_VIKING_VLM_API_KEY}" ]] \
+            || [[ -n "${OPENAI_API_KEY}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Install OpenViking SDK
+        if: steps.creds.outputs.available == 'true'
         run: uv sync --extra openviking --frozen
       - name: Start OpenViking server
+        if: steps.creds.outputs.available == 'true'
         env:
           OPEN_VIKING_EMBEDDING_API_KEY: ${{ secrets.OPEN_VIKING_EMBEDDING_API_KEY }}
           OPEN_VIKING_VLM_API_KEY: ${{ secrets.OPEN_VIKING_VLM_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: bash scripts/launch_openviking.sh
       - name: Export OPEN_VIKING_ROOT_API_KEY
+        if: steps.creds.outputs.available == 'true'
         run: |
           key="$(python -c 'import json, pathlib; print(json.loads(pathlib.Path.home().joinpath(".openviking/ov.conf").read_text())["server"]["root_api_key"])')"
           echo "OPEN_VIKING_ROOT_API_KEY=${key}" >> "$GITHUB_ENV"
           echo "OPEN_VIKING_URL=http://127.0.0.1:1933" >> "$GITHUB_ENV"
+      - name: Skip OpenViking (no repository secrets)
+        if: steps.creds.outputs.available != 'true'
+        run: |
+          echo "Skipping OpenViking integration tests."
+          echo "Configure repository secrets OPEN_VIKING_EMBEDDING_API_KEY + OPEN_VIKING_VLM_API_KEY,"
+          echo "or OPENAI_API_KEY, to run the live server job."
       - name: Run OpenViking tests
+        if: steps.creds.outputs.available == 'true'
         # OpenViking's resource-ingest path hits an external embedding
-        # provider (GLM by default) across the Azure US-East -> Zhipu CN
-        # network; transient queue deadline overruns are normal.
-        # Reruns ride out the flake without masking real adapter bugs
-        # (pytest-rerunfailures is a dev dep).
+        # provider across long network paths; transient queue deadline
+        # overruns are normal. Reruns ride out the flake without masking
+        # real adapter bugs (pytest-rerunfailures is a dev dep).
         run: uv run pytest -m openviking --reruns 2 --reruns-delay 5

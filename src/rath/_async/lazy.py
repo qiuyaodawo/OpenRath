@@ -1,7 +1,7 @@
 """Lazy materialization handle for :class:`~rath.session.Session`.
 
 When the public :func:`~rath.session.loop.run_session_loop` returns, the
-work is still running on :class:`~rath.\_async.runtime.OpenRathRuntime`.
+work is still running on :class:`~rath._async.runtime.OpenRathRuntime`.
 The returned :class:`Session` carries a :class:`LazyValue` in
 ``_pending``; reading :attr:`Session.chunk_table` /
 :attr:`Session.cumulative_usage` calls :meth:`Session.synchronize` which

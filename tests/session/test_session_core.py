@@ -15,7 +15,7 @@ import pytest
 from rath.session import (
     LineageKind,
     Session,
-    create_leaf_user,
+    create_user_session,
     detach_session,
     fork_session,
     session_registry,
@@ -23,16 +23,16 @@ from rath.session import (
 from rath.session.chunk import ChunkKind
 
 
-def test_create_leaf_user_sets_lineage_when_mode_on() -> None:
-    s = create_leaf_user("hi")
+def test_create_user_session_sets_lineage_when_mode_on() -> None:
+    s = create_user_session("hi")
     assert s.chunk_table.rows[-1].kind == ChunkKind.USER
     assert s.parent_session_ids == ()
     assert s.lineage_kind == LineageKind.LEAF_USER
-    assert dict(s.lineage_extras).get("source") == "create_leaf_user"
+    assert dict(s.lineage_extras).get("source") == "create_user_session"
 
 
 def test_fork_preserves_rows_and_parents() -> None:
-    base = create_leaf_user("x")
+    base = create_user_session("x")
     f = base.fork()
     assert f.chunk_table.rows == base.chunk_table.rows
     assert f.parent_session_ids == (base.id,)
@@ -43,7 +43,7 @@ def test_fork_preserves_rows_and_parents() -> None:
 
 
 def test_detach_copies_chunks_without_graph_parents() -> None:
-    base = create_leaf_user("u")
+    base = create_user_session("u")
     d = base.detach()
     assert d.chunk_table.rows == base.chunk_table.rows
     assert d.parent_session_ids == ()

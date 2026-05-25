@@ -50,16 +50,34 @@ CONFIG_PATH="${DATA_DIR}/ov.conf"
 
 mkdir -p "${DATA_DIR}"
 
+_load_openviking_provider_env() {
+  local line key val
+  while IFS= read -r line; do
+    key="${line%%=*}"
+    val="${line#*=}"
+    export "${key}=${val}"
+  done < <(uv run python "${SCRIPT_DIR}/resolve_openviking_provider_env.py")
+}
+
 if [[ ! -f "${CONFIG_PATH}" ]]; then
-  # shellcheck disable=SC2046
-  eval "$(uv run python "${SCRIPT_DIR}/resolve_openviking_provider_env.py" | sed 's/^/export /')"
-  EMB_API_KEY="${OPEN_VIKING_EMBEDDING_API_KEY}"
-  EMB_API_BASE="${OPEN_VIKING_EMBEDDING_API_BASE}"
-  EMB_MODEL="${OPEN_VIKING_EMBEDDING_MODEL}"
-  EMB_DIM="${OPEN_VIKING_EMBEDDING_DIMENSION}"
-  VLM_API_KEY="${OPEN_VIKING_VLM_API_KEY}"
-  VLM_API_BASE="${OPEN_VIKING_VLM_API_BASE}"
-  VLM_MODEL="${OPEN_VIKING_VLM_MODEL}"
+  _load_openviking_provider_env
+fi
+
+EMB_API_KEY="${OPEN_VIKING_EMBEDDING_API_KEY:-}"
+EMB_API_BASE="${OPEN_VIKING_EMBEDDING_API_BASE:-}"
+EMB_MODEL="${OPEN_VIKING_EMBEDDING_MODEL:-embedding-3}"
+EMB_DIM="${OPEN_VIKING_EMBEDDING_DIMENSION:-2048}"
+VLM_API_KEY="${OPEN_VIKING_VLM_API_KEY:-}"
+VLM_API_BASE="${OPEN_VIKING_VLM_API_BASE:-}"
+VLM_MODEL="${OPEN_VIKING_VLM_MODEL:-glm-4.6v}"
+
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  if [[ -z "${EMB_API_KEY}" || -z "${VLM_API_KEY}" ]]; then
+    echo "error: OpenViking needs embedding and VLM API keys." >&2
+    echo "  export OPEN_VIKING_EMBEDDING_API_KEY and OPEN_VIKING_VLM_API_KEY, or" >&2
+    echo "  configure ~/.openrath/config.json, or export OPENAI_API_KEY." >&2
+    exit 1
+  fi
 else
   echo "using existing config: ${CONFIG_PATH}"
 fi

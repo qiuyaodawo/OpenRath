@@ -681,8 +681,25 @@ class _ScriptedStreamingClient:
 
 def test_on_event_refuses_non_streaming_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """``on_event`` requires the resolved client to implement complete_stream(req)."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
-    monkeypatch.delenv("OPENRATH_HOME", raising=False)
+    from rath.llm import RathLLMChatRequest, RathLLMChatResponse
+
+    class _SyncOnlyClient:
+        """Chat client stub without streaming support."""
+
+        def __init__(self, provider: Provider) -> None:
+            self._provider = provider
+
+        @property
+        def provider(self) -> Provider:
+            return self._provider
+
+        def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
+            raise NotImplementedError("sync-only test stub")
+
+    monkeypatch.setattr(
+        "rath._async.aloop.chat_client_for",
+        lambda provider: _SyncOnlyClient(provider),
+    )
     agent = AgentParam(
         Session.from_agent_prompt("sys"),
         Provider(provider_kind="anthropic", model="claude-opus-4-7"),
