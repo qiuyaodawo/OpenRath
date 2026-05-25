@@ -6,363 +6,302 @@
   <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/v/openrath.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/openrath/"><img src="https://img.shields.io/pypi/pyversions/openrath.svg" alt="Python"></a>
   <a href="https://github.com/Rath-Team/OpenRath/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License"></a>
-  <a href="https://linux.do"><img src="https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyLS4wNTYiIHN0eWxlPSJzdHJva2U6bm9uZTtmaWxsLXJ1bGU6ZXZlbm9kZDtmaWxsOiNlY2VjZWM7ZmlsbC1vcGFjaXR5OjEiLz48cGF0aCBkPSJNNDcuMjY2IDIuOTU3cTIyLjUzLS42NSAzNy43NzcgMTUuNzM4YTQ5LjcgNDkuNyAwIDAgMSA2Ljg2NyAxMC4xNTdxLTQxLjk2NC4yMjItODMuOTMgMCA5Ljc1LTE4LjYxNiAzMC4wMjQtMjQuMzg3YTYxIDYxIDAgMCAxIDkuMjYyLTEuNTA4IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojMTkxOTE5O2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTcuOTggNzAuOTI2YzI3Ljk3Ny0uMDM1IDU1Ljk1NCAwIDgzLjkzLjExM1E4My40MjYgODcuNDczIDY2LjEzIDk0LjA4NnEtMTguODEgNi41NDQtMzYuODMyLTEuODk4LTE0LjIwMy03LjA5LTIxLjMxNy0yMS4yNjIiIHN0eWxlPSJzdHJva2U6bm9uZTtmaWxsLXJ1bGU6ZXZlbm9kZDtmaWxsOiNmOWFmMDA7ZmlsbC1vcGFjaXR5OjEiLz48L3N2Zz4=" alt="LINUX DO"></a>
+  <a href="https://docs.openrath.com"><img src="https://img.shields.io/badge/docs-openrath.com-blue" alt="Docs"></a>
 </p>
-
----
 
 <div align="center">
 
-[English](README.md) · 简体中文
+[English](README.md) | 简体中文
 
 </div>
 
 ---
 
-**OpenRath** 是一个开源的多智能体框架。你可以使用类似 PyTorch 的编程风格来组合 API：会话生命周期、工作流编排、工具分发以及沙箱后端，在由智能体和会话编织的会话图上协同演进。
+**OpenRath 是一个类似 PyTorch 的多智能体 & 多会话框架。**
 
-## 近期动态
+它把 Agent 运行时状态拆成明确的、可灵活组合的 Python 对象：
 
-- 2026-05-25：准备发布 `v1.2.0` — 本地 memory 后端、Anthropic 流式、`memory://` URI 与 Agent memory API 整理。
-- 2026-05-12：发布 `v1.0.0`，面向社区开放代码和文档。
-
-> 如需了解更多关于 OpenRath 的信息，请访问我们的文档 [https://docs.openrath.com/](https://docs.openrath.com/)。
-
----
-
-## 核心亮点
-
-许多技术栈将会话状态、编排逻辑和执行环境割裂开来：每个智能体维护自己的消息列表或内部循环，外层使用图或手写步骤协调，沙箱或 Shell 则在后期接入。这种方式用于演示尚可，但在跨智能体边界时会完整拷贝整段历史，执行环境与会话指向的工作区逐渐漂移，在集群规模下也难以判断某轮交互属于哪个分支和上下文。OpenRath 将 **会话（Session）** 作为贯穿一次运行的核心载体（类似于张量在计算中传递，但并不替代 PyTorch 本身）。具体差异体现在以下五个方面。
-
-### 沙箱作为会话的执行后端
-
-消息记录与命令实际执行的位置通常各自独立维护，仅靠手动同步。在机器或目录变更、或隔离要求更严格的情况下，工具的落地位置与会话隐含的工作区容易偏离，损害可复现性和审计能力。在 OpenRath 中，沙箱后端的选择从同一个对象链式加载，类似于将数据放到指定设备上。经过一轮对话和工具调用后，活动沙箱的所有权会写回返回的 Session 中，后续的调度仍指向相同的工作流结果。
-
-![沙箱作为会话后端](assets/readme/backend.png)
-
-### 通过分块表管理上下文，提升多智能体协作中的复用能力
-
-扁平的消息列表鼓励全量历史拷贝和系统提示、工具结果的反复拼接，在上下文长度和流量增长时很难高效地抽取语义片段。本项目维护一个有序的分块表，涵盖系统、用户、助手、工具反馈等类型的行；智能体侧的指令在循环中作为用户分块的前置部分，实现结构化的共享和组合。Session 的 fork 和 merge 操作详见用户指南中的 Session 章节。
-
-### 以会话为中心的循环（Session-first），而非以智能体为中心的循环（Agent-first），适配稀疏智能体集群
-
-常见模式是每个智能体维护一个小型内部循环（读取、模型调用、工具执行），由外部编排层包裹。当存在多个角色时，这会产生嵌套循环，且以固定频率触发不必要的补全。OpenRath 的默认路径以会话为中心：补全和工具轮次交替作用于一个不断演进的会话上；智能体主要作为提示词和采样配置接入工作流，而非各自封闭的执行器。在只需要部分角色激活的稀疏集群中，这种方式更为合适。
-
-![会话中心循环](assets/readme/session.png)
-
-### 动态多智能体集群：自动追踪会话图
-
-当拓扑结构由手写代码或外部 DAG 串联时，谱系追踪往往依赖临时 ID 和日志片段。规模扩大后很难说清是哪个 fork 或 merge 产生了某个输出。开启会话图追踪后，新建的 Session 会携带谱系元数据，并集中注册到一个可查询的会话图中，用于追踪对话和工具轨迹；这与自动求导（autograd）无关，仅记录执行和对话过程。
-
-### 模块化工作流：清晰的组合与编排
-
-如果一个智能体类型同时管理提示词、网络 I/O、工具和循环，继承关系和回调会不断堆叠，哪怕只是修改系统提示词或采样字段也会牵连整个类。OpenRath 的工作流暴露一个 `forward` 方法，接收一个 Session 并返回更新后的 Session；智能体侧的设置存放在类似参数的对象中；网络通信和沙箱调度归入循环执行器，使模块边界更加清晰，便于嵌套和复用。
-
-![工作流组合](assets/readme/workflow.png)
+- **Session** 承载对话状态与 Agent 间协作谱系。
+- **Sandbox** 决定工具到底在哪里运行。
+- **Memory** 持久化跨运行保留的 Agent 记忆状态。
+- **Tool** 是暴露给模型的“算子调用”。
+- **Agent** 是可复用、可组合的 Session 变换层。
+- **Workflow** 把多个 Agent/Workflow 组合成更大的系统。
 
 ---
 
-## 快速开始
+## OpenRath 在 PyTorch 中的照应
 
-### 从 PyPI 安装
+| PyTorch 概念 | OpenRath 概念 | 含义 |
+| --- | --- | --- |
+| `Tensor` | `Session` | 流动的运行时值：有序 chunks、placement、lineage、usage。 |
+| `Device` | `Sandbox` / `Backend` | 工具运行的执行环境：local process、OpenSandbox 或其他 backend。 |
+| `Parameter` | `Memory` | 绑定到 Agent 或 store 的持久状态，可 recall、commit、跨运行保留。 |
+| `Function` | `Tool` | 带模型可见 schema 和运行时行为的 callable operation。 |
+| `nn.Linear` | `Agent` | 用 prompt、provider、tools、memory 把一个 Session 映射成另一个 Session 的可复用层。 |
+| `nn.Module` | `Workflow` | 组合 Agent、Tool、Session transform 和嵌套 Workflow 的容器。 |
+
+大多数 Agent 框架从 agent loop 开始。OpenRath 从 **Session** 开始。当一个应用同时需要多个 Agent、多个分支、持久记忆、沙箱执行和可追踪谱系时，这个差异会变得很关键。
+
+OpenRath 面向的是：多个 Agent 在多个可分支 Session 上协作，仍能同时追踪每个角色、工作区、memory 写入和最终输出。
+
+| 范式 | 典型形态 | 案例 |
+| --- | --- | --- |
+| Single agent, single session | 一个模型处理一条对话 | ChatGPT 式聊天 |
+| Multi-agent, single session | 多个角色读写同一份共享状态 | 子代理式多 Agent 协作 |
+| Single agent, multi-session | 一个 Agent 管理多个 Session 分支 | OpenClaw 式 session fanout |
+| Multi-agent, multi-session | 多个 Agent 共享多个 Session，且通过 Session 进行协作/自我进化 | **OpenRath** |
+
+---
+
+## 为什么使用 Multi-Agent-Multi-Session 范式
+
+Agent 其实是 Session 的变换层，因此真正需要被 fork、merge、复用和追踪的是 Session 这条数据流，而不是每个 Agent 各自维护的一段 message history。
+
+OpenRath 的设计针对的是 Agent 系统从单个助手走向大规模集群时出现的问题：
+
+- **以 Session 作为数据流动核心。** 上下文以结构化 chunk 保存，而不是反复复制 message 字符串。Workflow 可以直接复用、fork、compress、传递上下文，从而极大提高上下文复用率，减少 token 消耗。
+- **面向超大规模 Agent Cluster 的 Session Graph。** 大型运行需要解释哪个角色、哪个分支、哪个工具调用、哪个 workspace 产生了某个答案。Session lineage 给运行时提供图状 provenance，而不是一堆事后日志。
+- **Session 与 Agent Memory 的长短期记忆机制。** 短期 Session 状态和长期 Memory 协作：Agent 可以在运行前 recall 事实，在运行后 commit 新知识，让 Agent Cluster 在使用中持续进化。
+- **模块化 Workflow。** 管理成百上千个 Agent 会变成组合问题，而不是 prompt spaghetti。Agent 是小层，Workflow 是可嵌套、可复用、可检查的模块，让大规模 Agent 管理不再困难。
+- **Sandbox 作为 Backend。** 执行环境不硬编码到某一个 shell。Local、OpenSandbox 或未来第三方 backend 都可以接到同一个 Session placement 模型后面，灵活接入第三方执行后端。
+- **Memory 作为 Backend。** Recall 不硬编码到某一个数据库。Local memory、OpenViking 或未来第三方 memory 系统可以共享同一条 memory plane，灵活接入第三方记忆后端。
+
+结果是一个状态、执行、记忆、编排彼此解耦但又通过同一个流动值连接起来的运行时：`Session`。
+
+---
+
+## 一个极小但组件完整的 OpenRath Workflow
+
+```python
+from collections.abc import Mapping
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from rath import flow
+from rath.flow.tool import FlowToolCall
+from rath.session import Session
+
+
+class WordCountInput(BaseModel):
+    text: str = Field(description="Text to count.")
+
+
+# OpenRath Tool
+class WordCountTool(FlowToolCall):
+    @property
+    def name(self) -> str:
+        return "word_count"
+
+    @property
+    def description(self) -> str:
+        return "Count words in a short text."
+
+    @property
+    def parameters(self) -> Mapping[str, Any]:
+        return WordCountInput.model_json_schema()
+
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> dict[str, int]:
+        data = WordCountInput.model_validate(dict(arguments))
+        return {"words": len(data.text.split())}
+
+
+# OpenRath Workflow
+class ReadmeWorkflow(flow.Workflow):
+    def __init__(self) -> None:
+        # OpenRath Provider
+        provider = flow.Provider(model="gpt-5.5")
+
+        # OpenRath Agent
+        self.agent = flow.Agent(
+            "Use the `word_count` tool, then answer briefly.",
+            provider,
+            tools=[WordCountTool()],
+            memory="local",
+        )
+
+        # OpenRath Compressor
+        self.compressor = flow.Compressor(
+            "Compress the run into one concise assistant message.",
+            provider,
+        )
+
+    def forward(self, session: Session) -> Session:
+        # OpenRath Memory
+        self.agent.remember_memory("The user likes compact technical summaries.")
+        session = self.agent(session)
+        self.agent.commit_memory(session)
+        return self.compressor(session)
+
+
+workflow = ReadmeWorkflow()
+
+# OpenRath Session
+user_session = Session.from_user_message(
+    "Count the words in: OpenRath makes agent clusters traceable."
+)
+
+# OpenRath Sandbox
+user_session = user_session.to("local", spec="./")
+out = workflow(user_session)
+```
+
+这个小程序在很短篇幅里展示了完整形状：`Session` 承载数据，`Sandbox` 放置执行，`Tool` 注册到 `Agent`，`Memory` 跨运行持久化，`Workflow` 组合路径，`Compressor` 压缩最终上下文。
+
+---
+
+## 运行时组件
+
+### Session — 流动的状态载体
+
+`Session` 是 OpenRath 的中心运行时值。它持有一个有序 chunk table，包含 system、user、assistant、tool-result 等行，同时记录 sandbox placement、lineage、token usage 和 pending lazy work。
+
+这也是 OpenRath 能表达「不止一条聊天记录」的原因。Session 可以 fork 出新分支，可以 detach 切断父链，可以与兼容分支 merge，可以序列化为 JSONL，也可以交给另一个 workflow。Agent 侧指令同样表示为自己的 session chunks，由 loop prepend，而不是反复拼接进不透明 prompt。
+
+常用入口：
+
+- `Session.from_user_message(...)` 创建用户侧 Session。
+- `Session.from_agent_prompt(...)` 创建 Agent/system prompt Session。
+- `session.to("local", spec="./")` 绑定 sandbox backend 和 workspace。
+- `session.fork()` 创建可追踪分支。
+- `session.detach()` 创建不带父链的新 Session。
+- `session.merge(...)` 合并兼容分支并记录 merge lineage。
+
+### Sandbox — 工具真正落地的位置
+
+Sandbox 是 Session 的执行 placement，类似决定计算落在哪个 device 上。工具不是在抽象 prompt 里运行，而是在当前 Session 绑定的 sandbox 中执行。
+
+```python
+session = Session.from_user_message("List files").to("local", spec="./")
+```
+
+`local` backend 始终可用，会在宿主工作区中运行文件、命令和代码工具。可选的 `opensandbox` backend 会把同一套 tool layer 接到容器化的 OpenSandbox runtime。返回的 Session 会保留 active sandbox ownership，因此后续工具调用仍从同一执行上下文继续，而不会悄悄漂移到另一个目录或机器。
+
+### Memory — 跨运行保留的记忆
+
+Memory 是与 sandbox 执行平行的持久平面。它不是 tool result，也不只是 prompt 文本；它是可绑定到 Agent、可在运行前 recall、可在运行后 commit 的状态。
+
+基础安装自带零依赖的 local memory backend。它把数据存到 `.openrath/memory/`，无需 LLM 即可用 BM25 做 lexical recall；如果配置了 embedding provider，也可以使用 embedding 排序。需要更丰富外部 memory 服务的用户可以选择 OpenViking backend。
+
+```python
+with flow.Agent("You remember useful facts.", model="gpt-5.5", memory="local") as agent:
+    agent.remember_memory("The user works mostly in Python.")
+    hits = agent.recall_memory("preferred programming language")
+```
+
+Agent memory API 刻意做得容易发现：
+
+- `memory=` 在构造时绑定 store。
+- `remember_memory(...)` 写入明确事实。
+- `recall_memory(...)` 检索相关条目。
+- `commit_memory(...)` 在运行后保存 transcript。
+- `commit_on_forward=True` 可以自动 commit。
+
+### Tool — 模型可见的函数面
+
+`FlowToolCall` 是模型可见的工具抽象。它同时拥有工具的两侧：展示给 LLM 的 name、description、JSON schema，以及针对 `Session` 执行的 Python call。
+
+这样 tool schema 和 tool behavior 会保持在一起。内置工具覆盖常见文件系统、shell 和代码执行路径；自定义 Python 工具可以实现同一接口；stdio MCP 工具也可以被适配成普通 `FlowToolCall` 加入 loop。
+
+关键分层是：
+
+- `FlowToolCall` 是 flow layer 中模型可见的 function。
+- `BackendTool*` 是 sandbox backend 消费的底层 payload。
+
+### Agent — 可复用的一层变换
+
+`flow.Agent` 是大多数用户首先接触的小型可复用层。它更像 `nn.Linear`，而不是完整应用：它有 prompt、provider、可选 tools、可选 memory，以及一条 `forward(session) -> session` 路径。
+
+Agent 不拥有整个世界。Session loop 仍然是引擎，sandbox 仍然是 Session placement，memory 仍然是独立 store。这样既让单 Agent 场景足够简单，也允许同一个 Agent 被放进更大的 workflow。
+
+### Workflow — 从容组合大规模 Agent
+
+`flow.Workflow` 是组合面。子类实现：
+
+```python
+def forward(self, session: Session) -> Session:
+    ...
+```
+
+一个 Workflow 可以串联多个 Agent、fork Session、压缩上下文、调用工具、分发到子 Workflow，并返回新的 Session。因为输入和输出都是 `Session`，嵌套 Workflow 时不需要为每一层发明新的 state format。
+
+---
+
+## 快速安装
 
 ```bash
 pip install openrath
 ```
 
-可选的 OpenSandbox 依赖：
+可选的 sandbox 与 memory 集成：
 
 ```bash
 pip install "openrath[opensandbox]"
+pip install "openrath[openviking]"
 ```
 
-### 从源码安装
-
-通过克隆仓库并本地安装的方式主要面向 **开发者**，**不保证**与从 PyPI 安装的 **发行版本**具有同等稳定性。
+源码开发：
 
 ```bash
 git clone https://github.com/Rath-Team/OpenRath.git
 cd OpenRath
-pip install .
-```
-
-### 配置 OpenSandbox 后端（可选）
-
-```bash
-pip install "openrath[opensandbox]"
-# 或者：pip install ".[opensandbox]"
-```
-
-你需要运行一个 OpenSandbox 服务器（通常使用 Docker）。在仓库根目录下，使用 `scripts/launch_opensandbox.sh` 或 `launch_opensandbox.bat` 来同步可选依赖、生成 `.sandbox.toml` 并启动 `opensandbox-server`；详见脚本注释。
-
-设置环境变量 `OPEN_SANDBOX_DOMAIN`（检查脚本中的默认值：`127.0.0.1:8080`）以及部署所需的 API 密钥。运行 `scripts/check_opensandbox.sh` 或 `check_opensandbox.bat` 来验证导入和 `GET /health` 接口。
-
-在 Session 中通过 spec 将后端设置为 `opensandbox`；参考 `example/03_sandbox_backend.py` 以及用户指南中关于沙箱后端的章节。
-
----
-
-## 文档
-
-本地构建 Sphinx 文档：
-
-```bash
-git clone --recurse-submodules https://github.com/Rath-Team/OpenRath.git
-cd OpenRath
 uv sync --group dev --group docs
+```
+
+大多数 LLM 示例使用 OpenAI-compatible 环境变量：
+
+```bash
+export OPENAI_API_KEY=sk-...
+export OPENAI_BASE_URL=https://your-gateway/v1
+export OPENAI_DEFAULT_MODEL=your-model-name
+```
+
+也可以在 `~/.openrath/config.json` 中配置 provider。环境变量优先级更高。
+
+---
+
+## 跑起来理解
+
+`example/` 目录是一组编号递进的学习阶梯。每个脚本只介绍一个概念，把样板代码放进 `_shared/`，重点展示核心对象如何配合。
+
+运行第一层：
+
+```bash
+python example/01_hello_agent.py
+```
+
+| # | 文件 | 概念 | 需要 key? |
+| --- | --- | --- | :---: |
+| 01 | [`01_hello_agent.py`](example/01_hello_agent.py) | 最小 OpenRath 程序：构造 `flow.Agent`，在 `Session` 上调用，并流式输出。 | 是 |
+| 02 | [`02_session_lineage.py`](example/02_session_lineage.py) | 用 `fork` 创建分支，用 `detach` 切断 lineage，查看 session graph 并导出 JSONL。 | 否 |
+| 03 | [`03_sandbox_backend.py`](example/03_sandbox_backend.py) | 将同一个 Session 放到 `local` 或 `opensandbox`，观察工具在哪里执行。 | 是 |
+| 04 | [`04_tools_builtin.py`](example/04_tools_builtin.py) | 使用每个 loop 可以暴露的内置文件系统和 shell 工具。 | 是 |
+| 05 | [`05_custom_tool.py`](example/05_custom_tool.py) | 实现带 JSON schema 和 Python runtime behavior 的自定义 `FlowToolCall`。 | 是 |
+| 06 | [`06_mcp_tool.py`](example/06_mcp_tool.py) | 包装一个极小的 stdio MCP server，不写新 tool class 也能借用工具。 | 否 |
+| 07 | [`07_streaming.py`](example/07_streaming.py) | 接收 streaming deltas，并在运行后查看累计 token usage。 | 是 |
+| 08 | [`08_compress.py`](example/08_compress.py) | 用 `flow.Compressor` 把长 Session 压缩成更小的上下文 Session。 | 是 |
+| 09 | [`09_memory.py`](example/09_memory.py) | 使用 local memory backend 进行 remember、recall，并可选 commit 一次真实对话。 | 否 |
+| 10 | [`10_provider_variation.py`](example/10_provider_variation.py) | 通过修改 `Provider` 切换模型厂商，同时保持 Session 和 Workflow 代码稳定。 | 是 |
+
+更多设置和 shared helpers 见 [`example/README.md`](example/README.md)。
+
+---
+
+## 文档与链接
+
+- 文档：[https://docs.openrath.com](https://docs.openrath.com)
+- 仓库：[https://github.com/Rath-Team/OpenRath](https://github.com/Rath-Team/OpenRath)
+- Issues：[https://github.com/Rath-Team/OpenRath/issues](https://github.com/Rath-Team/OpenRath/issues)
+
+本地构建文档：
+
+```bash
 uv run sphinx-build -M html docs/source docs/_build
-```
-
-HTML 输出位于 `docs/_build/html/` 目录下。
-
----
-
-## 示例
-
-[`example/`](example/) 下提供了一组编号递进的学习路径 — 每个脚本聚焦一个概念，
-并在前一个的基础上展开。详细的环境配置与完整表格见
-[`example/README.md`](example/README.md)。
-
-1. [`01_hello_agent.py`](example/01_hello_agent.py)：最小程序 — 构造一个 `flow.Agent` 并在 `Session` 上调用。
-2. [`02_session_lineage.py`](example/02_session_lineage.py)：`fork` / `detach`、会话图与 JSONL 导出（无需 API key）。
-3. [`03_sandbox_backend.py`](example/03_sandbox_backend.py)：`.to(backend, spec=...)` — 同一 agent 在 local 与 OpenSandbox 后端上的形态。
-4. [`04_tools_builtin.py`](example/04_tools_builtin.py)：每个 loop 默认暴露的内置文件系统 / shell 工具。
-5. [`05_custom_tool.py`](example/05_custom_tool.py)：实现你自己的 `FlowToolCall`（本地、无 key 的计算器）。
-6. [`06_mcp_tool.py`](example/06_mcp_tool.py)：从 MCP stdio 服务器借用工具（无需 API key）。
-7. [`07_streaming.py`](example/07_streaming.py)：读取流式增量和累计 token 用量。
-8. [`08_compress.py`](example/08_compress.py)：用 `flow.Compressor` 压缩会话上下文。
-9. [`09_memory.py`](example/09_memory.py)：`flow.Agent(memory=...)` 的 remember / recall / commit 易用 API。
-10. [`10_provider_variation.py`](example/10_provider_variation.py)：只改 `Provider` 即可切换 LLM 厂商。
-
----
-
-## OpenRath 与 PyTorch 的映射关系
-
-| 层次 | PyTorch | OpenRath | 简要对照 |
-| ----- | ------- | -------- | -------------- |
-| 流动载体 | Tensor | Session | 沿计算或对话推进；状态可被再次读取和追加。 |
-| 执行结构 | 计算图 | Session Graph | 图表达依赖关系；Session 承载多智能体对话和工具轨迹。 |
-| 执行后端 | GPU / CPU | Sandbox | 计算落地的位置对应命令和工具实际执行的隔离环境。 |
-| 调用面 | Kernel / op | Tool | 后端实际执行的最小调用单元。 |
-| 状态 / 超参 | `nn.Parameter` | `flow.AgentParam` | 智能体并非经典执行器；该对象更接近类型化的配置或参数。 |
-| 模块化 | `nn.Module` | `flow.Workflow` | 子模块的递归组合。 |
-
-### 1. Session / Tensor
-
-在 OpenRath 中，一个 Session 携带的是有序的语义分块，而非数值数组。与 PyTorch 中 Tensor 处于数据流和执行的核心位置一样，fork 和 detach 的命名也沿用了 PyTorch 的习惯。
-
-在 OpenRath 中：
-
-```python
-from rath.session import Session
-
-a = Session.from_user_message(
-    "请实现一个带认证、数据库和 React 前端的完整待办应用。"
-)
-b = a.fork()  # 类似 clone()
-c = a.detach()
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-
-a = torch.ones(3, requires_grad=True)
-b = a.clone()
-c = a.detach()
-```
-
-### 2. Session Graph / Compute Graph
-
-在 PyTorch 中，一个乘法操作会将新 Tensor 附加到计算图上，`grad_fn` 指向前向节点；在叶节点执行 `detach` 后 `grad_fn` 为 None。在 OpenRath 中，Session 追踪身份和 fork 元数据：每个 Session 拥有稳定的 id，fork 产物记录父 Session id，detach 产物不再声明父链。
-
-在 OpenRath 中：
-
-```python
-from rath.session import Session
-
-a = Session.from_user_message("Hello, how are you?")
-b = a.fork()
-c = a.detach()
-
-print(a.id)
-print(b.parent_session_ids)
-print(c.parent_session_ids)
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-
-a = torch.tensor([1.0], requires_grad=True)
-b = a * 2
-c = a.detach()
-
-print("a:", a)
-print("b grad_fn:", b.grad_fn)
-print("c.grad_fn:", c.grad_fn)
-```
-
-### 3. Sandbox / Device
-
-OpenRath 以类似 device 的方式建模沙箱后端：Session 绑定到执行环境和工作目录；重新绑定时分块内容不会被自动重写。API 镜像了 PyTorch 的 `to(device)` 模式：先构建对象，再声明其运行位置。
-
-在 OpenRath 中：
-
-```python
-from rath.session import Session
-
-a = Session.from_user_message(
-    "请实现一个带认证、数据库和 React 前端的完整待办应用。"
-)
-a = a.to("local", spec="./")  # spec: 宿主机工作区路径
-a = a.to("opensandbox", spec="./")
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-
-a = torch.ones(2, 3)
-a = a.to("cuda:0")
-```
-
-### 4. Kernel / Tool
-
-在 PyTorch 中，内核或高级操作接收已放置的 Tensor，在该设备上执行数值运算，并返回 Tensor。在 OpenRath 中，工具路径接收结构化载荷；当前沙箱在隔离边界内解释它们，并将命令或文件反馈返回到 Session 分块中。
-
-调用形态一致：准备输入、调用薄 API、让运行时完成繁重工作。
-
-在 OpenRath 中：
-
-```python
-from rath.flow.tool import flow_tool_files_list
-from rath.session import Session
-
-a = Session.from_user_message(
-    "请实现一个带认证、数据库和 React 前端的完整待办应用。"
-)
-a = a.to("local", spec="./")
-
-tool_result = flow_tool_files_list(a, path="./")
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-import torch.nn.functional as F
-
-logits = torch.tensor(
-    [
-        [2.0, 1.0, 0.1, -1.0, 0.3],
-        [0.2, 3.1, 0.5, 0.1, -0.4],
-        [1.2, 0.7, 2.5, 0.3, 0.1],
-    ]
-)
-target = torch.tensor([0, 1, 2])
-
-loss = F.cross_entropy(logits, target)
-```
-
-### 5. Agent 状态 / 参数
-
-PyTorch 中的 Module 参数注册在模块字典上，优化器按名称收集 Tensor。OpenRath 中的 `AgentParam` 将两部分绑定在一起：从智能体提示词填充的 Session 分块（每次补全前的稳定前缀），以及携带模型名称和采样请求字段的 `Provider`。
-
-在 OpenRath 中：
-
-```python
-from rath import flow
-from rath.session import Session
-
-agent = flow.AgentParam(
-    agent_session=Session.from_agent_prompt("You are a helpful assistant."),
-    provider=flow.Provider(api_key="sk-...", model="glm-5.1"),
-)
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-from torch import nn
-
-weight = nn.Parameter(torch.randn(1024, 4096))
-```
-
-### 6. Workflow / Module
-
-工作流代码保持模块化和可组合性，类似于 PyTorch 的 `Module`。由于 Session 和分块由框架维护，实现者主要关注工作流的组合结构和业务逻辑。
-
-在 OpenRath 中：
-
-```python
-from rath import flow
-from rath.flow.tool import FlowToolCall
-from rath.session import Session, run_session_loop
-
-
-class Agent(flow.Workflow):
-    def __init__(
-        self,
-        system_prompt: str,
-        provider: flow.Provider,
-        tools: list[FlowToolCall] | None = None,
-    ) -> None:
-        super().__init__()
-        self.tools = list(tools or [])
-        self.agent = flow.AgentParam(
-            agent_session=Session.from_agent_prompt(system_prompt),
-            provider=provider,
-        )
-
-    def forward(self, session: Session) -> Session:
-        return run_session_loop(
-            user_session=session,
-            agent_session=self.agent.agent_session,
-            agent_provider=self.agent.provider,
-            tools=self.tools,
-        )
-
-
-agent_model = Agent(
-    system_prompt="You are a helpful assistant.",
-    provider=flow.Provider(api_key="sk-...", model="glm-5.1"),
-)
-
-user_session = Session.from_user_message(
-    "列出当前目录下的所有文件，并总结你的发现。"
-)
-user_session = user_session.to("local", spec="./")
-out_session = agent_model(user_session)
-```
-
-在 PyTorch 中：
-
-```python
-import torch
-import torch.nn as nn
-
-
-class Linear(nn.Module):
-    def __init__(self, in_features: int, out_features: int) -> None:
-        super().__init__()
-        self.weight = nn.Parameter(torch.randn(out_features, in_features))
-        self.bias = nn.Parameter(torch.zeros(out_features))
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x @ self.weight.T + self.bias
-
-
-model = Linear(4, 2)
-x = torch.randn(3, 4)
-y = model(x)
 ```
 
 ---
 
 ## License
 
-OpenRath 使用 BSD 风格的许可证；详见仓库根目录的 [LICENSE](LICENSE)。
+OpenRath 使用 BSD 风格许可证。详见 [LICENSE](LICENSE)。
