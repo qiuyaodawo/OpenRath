@@ -1,7 +1,7 @@
-"""MCP stdio adapter tests.
+"""Tests for :mod:`rath.flow.tool` MCP stdio adapter.
 
-``mcp`` is now a core dependency, so the full subprocess round-trip via
-the in-tree ``example/_shared/echo_mcp_server.py`` runs unconditionally.
+Uses the in-tree ``example/_shared/echo_mcp_server.py`` for a real subprocess
+round-trip (no mocks).
 """
 
 from __future__ import annotations
@@ -9,10 +9,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from rath.flow.tool.mcp_adapter import (
-    _coerce_input_schema,
-    _flatten_call_result,
-)
+from rath.flow.tool import MCPClient, mcp_tools_from_server
+from rath.flow.tool.mcp_adapter import _coerce_input_schema, _flatten_call_result
+from rath.session import Session
 
 _DEMO_SERVER = (
     Path(__file__).resolve().parents[2] / "example" / "_shared" / "echo_mcp_server.py"
@@ -49,8 +48,6 @@ def test_flatten_call_result_empty_content_uses_structured() -> None:
 
 
 def test_list_tools_against_demo_echo_server() -> None:
-    from rath.flow.tool.mcp_adapter import MCPClient
-
     client = MCPClient([sys.executable, str(_DEMO_SERVER)])
     tools = client.list_tools()
     names = [t.name for t in tools]
@@ -58,9 +55,6 @@ def test_list_tools_against_demo_echo_server() -> None:
 
 
 def test_call_tool_round_trips_text() -> None:
-    from rath.flow.tool.mcp_adapter import mcp_tools_from_server
-    from rath.session import Session
-
     tools = mcp_tools_from_server([sys.executable, str(_DEMO_SERVER)])
     echo = next(t for t in tools if t.name == "echo")
     result = echo(Session.from_user_message("dummy"), {"text": "ping"})
@@ -69,8 +63,6 @@ def test_call_tool_round_trips_text() -> None:
 
 def test_mcp_tool_call_exposes_openai_style_schema() -> None:
     """``parameters`` must be a JSON-schema object suitable for OpenAI tools[]."""
-    from rath.flow.tool.mcp_adapter import mcp_tools_from_server
-
     tools = mcp_tools_from_server([sys.executable, str(_DEMO_SERVER)])
     echo = next(t for t in tools if t.name == "echo")
     assert echo.parameters.get("type") == "object"

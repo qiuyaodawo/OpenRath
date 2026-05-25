@@ -45,8 +45,8 @@ from rath.session.persistence import (
     prune_sessions,
 )
 from rath.session.primitives import (
-    create_leaf_system,
-    create_leaf_user,
+    create_system_session,
+    create_user_session,
     detach_session,
     fork_session,
 )
@@ -60,8 +60,8 @@ __all__ = [
     "ChunkKind",
     "ChunkRow",
     "ChunkTable",
-    "create_leaf_system",
-    "create_leaf_user",
+    "create_system_session",
+    "create_user_session",
     "DefaultSessionLoopExecutor",
     "descendants_dfs_preorder",
     "detach_session",

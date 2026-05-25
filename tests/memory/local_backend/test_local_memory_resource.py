@@ -34,7 +34,7 @@ def test_resource_ingest_local_file_creates_dir(
     src.write_text("hello resource", encoding="utf-8")
     res = backend.dispatch(store, MemoryOpResource(source=str(src)))
     assert isinstance(res, MemoryWriteResult)
-    assert res.uri.startswith("viking://resources/")
+    assert res.uri.startswith("memory://resources/")
     assert res.bytes_written == len("hello resource".encode("utf-8"))
 
     sha = hashlib.sha256(b"hello resource").hexdigest()[:16]
@@ -106,7 +106,7 @@ def test_resource_ingest_rejects_unknown_target_scope(
     src.write_text("z", encoding="utf-8")
     res = backend.dispatch(
         store,
-        MemoryOpResource(source=str(src), target_uri="viking://bogus"),
+        MemoryOpResource(source=str(src), target_uri="memory://bogus"),
     )
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "invalid_uri"
@@ -121,11 +121,11 @@ def test_resource_ingest_honours_explicit_target_uri(
         store,
         MemoryOpResource(
             source=str(src),
-            target_uri="viking://user/memories/inbox",
+            target_uri="memory://user/memories/inbox",
         ),
     )
     assert isinstance(res, MemoryWriteResult)
-    assert res.uri.startswith("viking://user/memories/inbox/")
+    assert res.uri.startswith("memory://user/memories/inbox/")
     sha = hashlib.sha256(b"\x00\x01\x02hello").hexdigest()[:16]
     assert res.uri.endswith(sha)
     root = Path(store.handle) / "user" / "memories" / "inbox" / sha

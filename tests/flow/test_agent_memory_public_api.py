@@ -1,4 +1,4 @@
-"""``Agent.remember`` / ``Agent.recall`` / ``Agent.commit`` public methods."""
+"""``Agent.remember_memory`` / ``recall_memory`` / ``commit_memory`` public methods."""
 
 from __future__ import annotations
 
@@ -69,11 +69,11 @@ class _FakeBackend(MemoryBackend):
             )
         if isinstance(op, MemoryOpFind):
             return MemoryFindResult(
-                hits=(MemoryHit(uri="viking://user/m/x", score=0.5, snippet="hit"),)
+                hits=(MemoryHit(uri="memory://user/m/x", score=0.5, snippet="hit"),)
             )
         if isinstance(op, MemoryOpCommit):
             return MemoryCommitResult(
-                task_id="t", archived_uri="viking://session/s/", extracted_count=-1
+                task_id="t", archived_uri="memory://session/s/", extracted_count=-1
             )
         raise NotImplementedError
 
@@ -85,35 +85,35 @@ def _agent_with_memory() -> tuple[Agent, _FakeBackend]:
     return agent, backend
 
 
-def test_remember_dispatches_write_under_user_memories() -> None:
+def test_remember_memory_dispatches_write_under_user_memories() -> None:
     agent, backend = _agent_with_memory()
-    result = agent.remember("I prefer dark mode")
+    result = agent.remember_memory("I prefer dark mode")
     assert isinstance(result, MemoryWriteResult)
     write = next(op for op in backend.ops_seen if isinstance(op, MemoryOpWrite))
-    assert write.uri.startswith("viking://user/memories/")
+    assert write.uri.startswith("memory://user/memories/")
     assert write.content == "I prefer dark mode"
 
 
-def test_remember_with_agent_scope_uses_agent_namespace() -> None:
+def test_remember_memory_with_agent_scope_uses_agent_namespace() -> None:
     agent, backend = _agent_with_memory()
-    agent.remember("call tool first", scope="agent", category="tools")
+    agent.remember_memory("call tool first", scope="agent", category="tools")
     write = next(op for op in backend.ops_seen if isinstance(op, MemoryOpWrite))
-    assert write.uri.startswith("viking://agent/memories/tools/")
+    assert write.uri.startswith("memory://agent/memories/tools/")
 
 
-def test_recall_dispatches_find() -> None:
+def test_recall_memory_dispatches_find() -> None:
     agent, backend = _agent_with_memory()
-    result = agent.recall("dark mode", top_k=3)
+    result = agent.recall_memory("dark mode", top_k=3)
     assert isinstance(result, MemoryFindResult)
     find = next(op for op in backend.ops_seen if isinstance(op, MemoryOpFind))
     assert find.query == "dark mode"
     assert find.top_k == 3
 
 
-def test_commit_dispatches_with_session_id_and_messages() -> None:
+def test_commit_memory_dispatches_with_session_id_and_messages() -> None:
     agent, backend = _agent_with_memory()
     sess = Session.from_user_message("hello")
-    result = agent.commit(sess, wait=True)
+    result = agent.commit_memory(sess, wait=True)
     assert isinstance(result, MemoryCommitResult)
     commit = next(op for op in backend.ops_seen if isinstance(op, MemoryOpCommit))
     assert commit.session_id == str(sess.id)
@@ -125,8 +125,8 @@ def test_public_api_raises_when_no_memory_store() -> None:
     agent = Agent("system", model="gpt-5.5")
     sess = Session.from_user_message("hello")
     with pytest.raises(RuntimeError, match="no memory"):
-        agent.remember("x")
+        agent.remember_memory("x")
     with pytest.raises(RuntimeError, match="no memory"):
-        agent.recall("x")
+        agent.recall_memory("x")
     with pytest.raises(RuntimeError, match="no memory"):
-        agent.commit(sess)
+        agent.commit_memory(sess)

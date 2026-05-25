@@ -3,6 +3,9 @@
 ``flow_tool_*`` functions build the matching :class:`~rath.backend.tool_types.BackendTool`
 payload and run :meth:`~rath.session.session.Session.require_sandbox`'s
 ``dispatch``; they return the backend result object(s).
+
+Each :class:`FlowToolCall` subclass mirrors one helper and is registered in
+:func:`global_system_tools` for the session loop.
 """
 
 from __future__ import annotations
@@ -24,8 +27,12 @@ from rath.flow.tool.base import FlowToolCall
 from rath.session.session import Session
 
 __all__ = [
-    "RunShellCommandTool",
-    "WriteWorkspaceFileTool",
+    "FlowToolCodeRun",
+    "FlowToolCommandRun",
+    "FlowToolFilesExists",
+    "FlowToolFilesList",
+    "FlowToolFilesRead",
+    "FlowToolFilesWrite",
     "flow_tool_code_run",
     "flow_tool_command_run",
     "flow_tool_files_exists",
@@ -90,7 +97,16 @@ def flow_tool_code_run(
     return session.require_sandbox().dispatch(call)
 
 
-class RunShellCommandTool(FlowToolCall):
+def _path_resource_key(prefix: str, arguments: Mapping[str, Any]) -> tuple[str, ...]:
+    try:
+        return (prefix, str(arguments["path"]))
+    except KeyError:
+        return (prefix, "<unknown>")
+
+
+class FlowToolCommandRun(FlowToolCall):
+    """Built-in LLM tool: run one shell command in the active sandbox."""
+
     parallel_safe = False
 
     def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
@@ -129,19 +145,16 @@ class RunShellCommandTool(FlowToolCall):
             raise ValueError("multiline commands are rejected")
         if len(cmd) > 2048:
             raise ValueError("command too long")
-        call = BackendToolCommandRun(cmd=cmd)
-        return session.require_sandbox().dispatch(call)
+        return flow_tool_command_run(session, cmd)
 
 
-class WriteWorkspaceFileTool(FlowToolCall):
+class FlowToolFilesWrite(FlowToolCall):
+    """Built-in LLM tool: write UTF-8 text into the sandbox workspace."""
+
     parallel_safe = True
 
     def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
-        try:
-            path = str(arguments["path"])
-        except KeyError:
-            return ("fs:write", "<unknown>")
-        return ("fs:write", path)
+        return _path_resource_key("fs:write", arguments)
 
     @property
     def name(self) -> str:
@@ -166,11 +179,171 @@ class WriteWorkspaceFileTool(FlowToolCall):
     def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
         path = str(arguments["path"])
         raw = arguments["content"]
-        if isinstance(raw, str):
-            call = BackendToolFilesWrite(path=path, data=raw)
-            return session.require_sandbox().dispatch(call)
-        raise TypeError("content must be text for write_workspace_file")
+        if not isinstance(raw, str):
+            raise TypeError("content must be text for write_workspace_file")
+        return flow_tool_files_write(session, path, raw)
 
+
+class FlowToolFilesRead(FlowToolCall):
+    """Built-in LLM tool: read a file from the sandbox workspace."""
+
+    parallel_safe = True
+
+    def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
+        return _path_resource_key("fs:read", arguments)
+
+    @property
+    def name(self) -> str:
+        return "read_workspace_file"
+
+    @property
+    def description(self) -> str | None:
+        return (
+            "Read a file from the sandbox workspace. "
+            "Omit encoding or set null to return raw bytes."
+        )
+
+    @property
+    def parameters(self) -> Mapping[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "encoding": {
+                    "type": ["string", "null"],
+                    "description": "Text encoding; null for binary",
+                    "default": "utf-8",
+                },
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        }
+
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
+        path = str(arguments["path"])
+        enc = arguments.get("encoding", "utf-8")
+        if enc is not None and not isinstance(enc, str):
+            enc = str(enc)
+        return flow_tool_files_read(session, path, encoding=enc)
+
+
+class FlowToolFilesList(FlowToolCall):
+    """Built-in LLM tool: list directory entries under a sandbox path."""
+
+    parallel_safe = True
+
+    def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
+        return _path_resource_key("fs:list", arguments)
+
+    @property
+    def name(self) -> str:
+        return "list_workspace_files"
+
+    @property
+    def description(self) -> str | None:
+        return "List non-recursive directory entries under a sandbox path."
+
+    @property
+    def parameters(self) -> Mapping[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        }
+
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
+        return flow_tool_files_list(session, str(arguments["path"]))
+
+
+class FlowToolFilesExists(FlowToolCall):
+    """Built-in LLM tool: check whether a sandbox path exists."""
+
+    parallel_safe = True
+
+    def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
+        return _path_resource_key("fs:stat", arguments)
+
+    @property
+    def name(self) -> str:
+        return "workspace_path_exists"
+
+    @property
+    def description(self) -> str | None:
+        return "Return whether a path exists inside the sandbox workspace."
+
+    @property
+    def parameters(self) -> Mapping[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        }
+
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
+        return flow_tool_files_exists(session, str(arguments["path"]))
+
+
+class FlowToolCodeRun(FlowToolCall):
+    """Built-in LLM tool: execute code in the sandbox interpreter."""
+
+    parallel_safe = False
+
+    def resource_key(self, arguments: Mapping[str, Any]) -> tuple[str, ...]:
+        return ("code",)
+
+    @property
+    def name(self) -> str:
+        return "run_code"
+
+    @property
+    def description(self) -> str | None:
+        return (
+            "Execute a code snippet inside the sandbox code interpreter "
+            "(default language: python)."
+        )
+
+    @property
+    def parameters(self) -> Mapping[str, Any]:
+        return {
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+                "language": {
+                    "type": "string",
+                    "description": "Interpreter language",
+                    "default": "python",
+                },
+                "timeout": {
+                    "type": ["number", "null"],
+                    "description": "Optional timeout in seconds",
+                },
+            },
+            "required": ["code"],
+            "additionalProperties": False,
+        }
+
+    def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
+        code = str(arguments["code"])
+        language = str(arguments.get("language", "python"))
+        timeout_raw = arguments.get("timeout")
+        timeout = float(timeout_raw) if timeout_raw is not None else None
+        return flow_tool_code_run(session, code, language=language, timeout=timeout)
+
+
+_BUILTIN_TOOL_CLASSES: tuple[type[FlowToolCall], ...] = (
+    FlowToolCommandRun,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
+    FlowToolFilesList,
+    FlowToolFilesExists,
+    FlowToolCodeRun,
+)
 
 _SYSTEM: dict[str, FlowToolCall] | None = None
 _SYSTEM_LOCK = Lock()
@@ -189,7 +362,6 @@ def global_system_tools() -> Mapping[str, FlowToolCall]:
     global _SYSTEM
     with _SYSTEM_LOCK:
         if _SYSTEM is None:
-            shell = RunShellCommandTool()
-            write = WriteWorkspaceFileTool()
-            _SYSTEM = {shell.name: shell, write.name: write}
+            instances = [cls() for cls in _BUILTIN_TOOL_CLASSES]
+            _SYSTEM = {tool.name: tool for tool in instances}
         return _types.MappingProxyType(_SYSTEM)

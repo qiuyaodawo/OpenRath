@@ -1,10 +1,11 @@
 """09 · Memory — the ergonomic `flow.Agent` memory API.
 
 `flow.Agent(memory="local")` binds a memory store to the agent and exposes
-`remember()` / `recall()` / `commit()`. The local backend ships with the base
-install and needs no API key: `recall` falls back to BM25 lexical search when
-no embedding client is configured. (Set ``OPENAI_API_KEY`` to enable embedding
-rank and the optional final commit-after-a-turn step.)
+`remember_memory()` / `recall_memory()` / `commit_memory()`. The local backend
+ships with the base install and needs no API key: `recall_memory` falls back to
+BM25 lexical search when no embedding client is configured. (Set
+``OPENAI_API_KEY`` to enable embedding rank and the optional final
+commit-after-a-turn step.)
 
 Run:
     python example/09_memory.py
@@ -23,8 +24,8 @@ from rath.session import Session
 def build_agent() -> flow.Agent:
     """A real provider when a key is present; a placeholder model otherwise.
 
-    remember/recall never call the LLM, so a bare ``model="demo"`` is enough to
-    satisfy the constructor when no credentials are configured.
+    remember_memory/recall_memory never call the LLM, so a bare ``model="demo"``
+    is enough to satisfy the constructor when no credentials are configured.
     """
     if has_credentials():
         return flow.Agent(
@@ -35,11 +36,11 @@ def build_agent() -> flow.Agent:
 
 def main() -> None:
     with build_agent() as agent:
-        agent.remember("The user prefers a dark colour theme at night.")
-        agent.remember("The user reads English and writes Python.")
+        agent.remember_memory("The user prefers a dark colour theme at night.")
+        agent.remember_memory("The user reads English and writes Python.")
         print("[ok] wrote two preference notes")
 
-        found = agent.recall("reading code at night", top_k=3)
+        found = agent.recall_memory("reading code at night", top_k=3)
         print(f"[ok] recall returned {len(found.hits)} hit(s):")
         for hit in found.hits:
             print(f"      {hit.score:6.3f}  {hit.uri}")
@@ -49,7 +50,7 @@ def main() -> None:
             return
 
         out = agent(Session.from_user_message("Say hello in one word.").to("local"))
-        agent.commit(out)
+        agent.commit_memory(out)
         print("[ok] committed the turn transcript into memory")
 
 

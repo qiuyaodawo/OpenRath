@@ -25,6 +25,7 @@ from rath.config.schema import (
     SCHEMA_VERSION,
     LLMProviderConfig,
     MCPServerConfig,
+    MemoryProviderConfig,
     RathConfig,
 )
 from rath.config.secrets import (
@@ -221,6 +222,30 @@ class ConfigStore:
             if entry.provider_kind == kind:
                 return entry
         return None
+
+    # --- Memory helpers (local presets) -----------------------------------
+
+    def get_memory_provider(self, name: str | None) -> MemoryProviderConfig:
+        """Return the named memory provider entry.
+
+        ``name=None`` falls back to :attr:`MemoryConfig.default_provider`.
+        Raises :class:`KeyError` with the available names when the lookup
+        fails.
+        """
+        target = name or self._data.memory.default_provider
+        if target is None:
+            raise KeyError(
+                "no memory provider name given and no memory.default_provider set "
+                f"in {self.path}",
+            )
+        try:
+            return self._data.memory.providers[target]
+        except KeyError as e:
+            available = sorted(self._data.memory.providers)
+            raise KeyError(
+                f"memory provider {target!r} not found in {self.path}; "
+                f"available: {available}",
+            ) from e
 
     # --- MCP helpers ------------------------------------------------------
 

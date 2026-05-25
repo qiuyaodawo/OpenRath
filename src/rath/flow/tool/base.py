@@ -20,9 +20,9 @@ class FlowToolCall(ABC):
       ``await`` this tool concurrently with other ``parallel_safe`` tools
       sharing a *different* :meth:`resource_key`. ``False`` means the
       runtime must run this tool serially with respect to every other tool
-      in the same round. Built-in writes/exec tools default to ``False``;
-      pure reads default to ``True``; user tools default to ``False`` and
-      must opt-in explicitly.
+      in the same round. Built-in exec/code tools default to ``False``;
+      filesystem reads and writes default to ``True``; user tools default
+      to ``False`` and must opt in explicitly.
     - :meth:`resource_key`: keys the runtime uses to serialize tools that
       touch the same resource. Same key → serial; different key → parallel.
       Default returns ``("global",)`` for non-parallel-safe tools so they

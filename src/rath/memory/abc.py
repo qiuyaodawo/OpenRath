@@ -11,9 +11,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from types import TracebackType
-from typing import Any, ClassVar
+from dataclasses import dataclass, field, replace
+from types import MappingProxyType, TracebackType
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from rath.config.store import ConfigStore
 
 from rath.memory.capabilities import MemoryCapabilities
 from rath.memory.errors import MemoryStoreClosed
@@ -37,6 +40,44 @@ class MemoryStoreSpec:
     agent_id: str | None = None
     options: Mapping[str, Any] | None = None
 
+    @classmethod
+    def from_config(
+        cls,
+        name: str | None = None,
+        *,
+        store: "ConfigStore | None" = None,
+        **overrides: Any,
+    ) -> "MemoryStoreSpec":
+        """Build a :class:`MemoryStoreSpec` from ``~/.openrath/config.json``.
+
+        Looks up ``name`` (or ``memory.default_provider`` when ``name=None``)
+        under ``memory.providers``. Only **local** presets are modeled in
+        config today; OpenViking stores should be built explicitly via
+        :class:`MemoryStoreSpec` kwargs / ``options``.
+
+        Lazy-imports :mod:`rath.config` so ``import rath.memory`` never
+        touches the filesystem.
+
+        Raises :class:`KeyError` when the named provider is missing.
+        """
+        from rath.config.store import ConfigStore  # local import — see docstring
+
+        s = store or ConfigStore.load()
+        entry = s.get_memory_provider(name)
+        options: dict[str, Any] = {}
+        if entry.path is not None:
+            options["path"] = entry.path
+        if entry.embedding_provider is not None:
+            options["embedding_provider"] = entry.embedding_provider
+        if entry.chat_provider is not None:
+            options["chat_provider"] = entry.chat_provider
+        base = cls(
+            options=MappingProxyType(options) if options else None,
+        )
+        if not overrides:
+            return base
+        return replace(base, **overrides)
+
 
 @dataclass
 class MemoryStore:
@@ -46,7 +87,7 @@ class MemoryStore:
     :class:`~rath.flow.Agent` slot, each ``with store:`` block, and any
     explicit :meth:`acquire` counts as one reference. :meth:`release`
     decrements and, when the count reaches zero, calls
-    ``backend.close(self)``. There is no "force close" path -- callers that
+    ``backend.close(self)``. There is no "force close" path — callers that
     want immediate teardown must drop all references.
 
     :func:`MemoryBackend.open` returns a store with ``_refcount == 0``. The

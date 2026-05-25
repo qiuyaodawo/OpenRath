@@ -43,8 +43,8 @@ class StreamingChatClient(ChatClient, Protocol):
     """A :class:`ChatClient` that also supports streaming completions.
 
     :func:`~rath.session.loop.run_session_loop` accepts any object satisfying
-    this Protocol when ``on_event`` is provided. The OpenAI adapter implements
-    it; the Anthropic adapter currently does not.
+    this Protocol when ``on_event`` is provided. Both OpenAI and Anthropic
+    adapters implement it.
     """
 
     def complete_stream(

@@ -52,6 +52,7 @@ from rath.memory.results import (
     MemoryResult,
     MemoryWriteResult,
 )
+from rath.memory.uri import to_public_uri, to_wire_uri, valid_memory_uri
 
 __all__ = ["OpenVikingBackend"]
 
@@ -203,14 +204,15 @@ class OpenVikingBackend(MemoryBackend):
     # ------------------------------------------------------------------ Write
     @staticmethod
     def _dispatch_write(client: Any, op: "MemoryOpWrite") -> MemoryResult:
-        if not _valid_viking_uri(op.uri):
+        if not valid_memory_uri(op.uri):
             return MemoryExecutionFailure(
                 kind="invalid_uri",
                 message=f"unsupported URI scope: {op.uri!r}",
                 detail="MemoryOpWrite",
             )
+        wire_uri = to_wire_uri(op.uri)
         raw = client.write(
-            op.uri,
+            wire_uri,
             op.content,
             mode=op.mode,
             wait=op.wait,
@@ -221,14 +223,15 @@ class OpenVikingBackend(MemoryBackend):
             if isinstance(raw, Mapping) and raw.get("written_bytes") is not None
             else len(op.content.encode("utf-8"))
         )
-        return MemoryWriteResult(uri=op.uri, bytes_written=written)
+        return MemoryWriteResult(uri=to_public_uri(op.uri), bytes_written=written)
 
     # ------------------------------------------------------------------ Resource
     @staticmethod
     def _dispatch_resource(client: Any, op: "MemoryOpResource") -> MemoryResult:
+        wire_target = to_wire_uri(op.target_uri) if op.target_uri else None
         raw = client.add_resource(
             op.source,
-            to=op.target_uri or None,
+            to=wire_target,
             reason=op.reason or "",
             instruction=op.instruction or "",
             wait=op.wait,
@@ -237,7 +240,8 @@ class OpenVikingBackend(MemoryBackend):
         uri = ""
         if isinstance(raw, Mapping):
             uri = raw.get("root_uri") or raw.get("uri") or (op.target_uri or "")
-        return MemoryWriteResult(uri=uri or (op.target_uri or ""), bytes_written=0)
+        public = to_public_uri(uri) if uri else to_public_uri(op.target_uri or "")
+        return MemoryWriteResult(uri=public, bytes_written=0)
 
     # ------------------------------------------------------------------ Commit
     @staticmethod
@@ -285,50 +289,53 @@ class OpenVikingBackend(MemoryBackend):
                     pass
         return MemoryCommitResult(
             task_id=task_id,
-            archived_uri=archived_uri,
+            archived_uri=to_public_uri(archived_uri) if archived_uri else None,
             extracted_count=extracted,
         )
 
     # ------------------------------------------------------------------ Read
     @staticmethod
     def _dispatch_read(client: Any, op: "MemoryOpRead") -> MemoryReadResult:
+        wire_uri = to_wire_uri(op.uri)
         if op.level == "detail":
-            text = client.read(op.uri)
+            text = client.read(wire_uri)
         elif op.level == "abstract":
-            text = client.abstract(op.uri)
+            text = client.abstract(wire_uri)
         elif op.level == "overview":
-            text = client.overview(op.uri)
-        else:  # pragma: no cover -- Literal protects this branch at type-check time
+            text = client.overview(wire_uri)
+        else:  # pragma: no cover — Literal protects this branch at type-check time
             raise ValueError(f"unknown read level: {op.level!r}")
         data: str | bytes
         if op.encoding is None:
             data = (text or "").encode("utf-8")
         else:
             data = text or ""
-        return MemoryReadResult(uri=op.uri, data=data, level=op.level)
+        return MemoryReadResult(uri=to_public_uri(op.uri), data=data, level=op.level)
 
     # ------------------------------------------------------------------ List
     @staticmethod
     def _dispatch_list(client: Any, op: "MemoryOpList") -> MemoryListResult:
-        raw = client.ls(op.uri)
+        raw = client.ls(to_wire_uri(op.uri))
         entries = tuple(_entry_from_raw(item) for item in raw)
         return MemoryListResult(entries=entries)
 
     # ------------------------------------------------------------------ Find/Search
     @staticmethod
     def _dispatch_find(client: Any, op: "MemoryOpFind") -> MemoryFindResult:
+        wire_target = to_wire_uri(op.target_uri) if op.target_uri else ""
         raw = client.find(
             op.query,
-            target_uri=op.target_uri or "",
+            target_uri=wire_target,
             limit=op.top_k,
         )
         return MemoryFindResult(hits=_hits_from_findresult(raw))
 
     @staticmethod
     def _dispatch_search(client: Any, op: "MemoryOpSearch") -> MemoryFindResult:
+        wire_target = to_wire_uri(op.target_uri) if op.target_uri else ""
         raw = client.search(
             op.query,
-            target_uri=op.target_uri or "",
+            target_uri=wire_target,
             session_id=op.session_id,
             limit=op.top_k,
         )
@@ -337,28 +344,13 @@ class OpenVikingBackend(MemoryBackend):
     # ------------------------------------------------------------------ Tree
     @staticmethod
     def _dispatch_tree(client: Any, op: "MemoryOpTree") -> MemoryListResult:
-        raw = client.tree(op.uri)
+        wire_uri = to_wire_uri(op.uri)
+        raw = client.tree(wire_uri)
         flattened: list[MemoryEntry] = []
-        _flatten_tree(raw, flattened, base_depth=op.uri.count("/"), max_depth=op.depth)
+        _flatten_tree(
+            raw, flattened, base_depth=wire_uri.count("/"), max_depth=op.depth
+        )
         return MemoryListResult(entries=tuple(flattened))
-
-
-_VALID_SCOPES: frozenset[str] = frozenset({"user", "agent", "session", "resources"})
-
-
-def _valid_viking_uri(uri: str) -> bool:
-    """Check that ``uri`` looks like ``viking://{user|agent|session|resources}/...``.
-
-    The server enforces this too (InvalidURIError), but doing a cheap
-    client-side check lets us surface a clean ``invalid_uri`` failure
-    without burning an HTTP roundtrip on obviously-wrong inputs.
-    """
-    prefix = "viking://"
-    if not uri.startswith(prefix):
-        return False
-    tail = uri[len(prefix) :]
-    head = tail.split("/", 1)[0]
-    return head in _VALID_SCOPES
 
 
 _LEVEL_INT_TO_NAME: dict[int, str] = {0: "abstract", 1: "overview", 2: "detail"}
@@ -367,8 +359,8 @@ _LEVEL_INT_TO_NAME: dict[int, str] = {0: "abstract", 1: "overview", 2: "detail"}
 def _hits_from_findresult(raw: Any) -> tuple[MemoryHit, ...]:
     """Walk an ``openviking.FindResult`` into typed :class:`MemoryHit` tuples.
 
-    The SDK exposes two parallel lists -- ``raw.memories`` and ``raw.resources``
-    -- each carrying ``MatchedContext`` objects with ``uri``, ``score``,
+    The SDK exposes two parallel lists — ``raw.memories`` and ``raw.resources``
+    — each carrying ``MatchedContext`` objects with ``uri``, ``score``,
     ``abstract``, ``overview``, ``level`` (int 0/1/2).
     """
     matches: list[Any] = []
@@ -389,7 +381,7 @@ def _hits_from_findresult(raw: Any) -> tuple[MemoryHit, ...]:
         snippet = getattr(m, "abstract", None) or getattr(m, "overview", None)
         hits.append(
             MemoryHit(
-                uri=str(getattr(m, "uri", "")),
+                uri=to_public_uri(str(getattr(m, "uri", ""))),
                 score=float(getattr(m, "score", 0.0)),
                 snippet=snippet,
                 level=level,
@@ -401,7 +393,7 @@ def _hits_from_findresult(raw: Any) -> tuple[MemoryHit, ...]:
 def _entry_from_raw(item: Mapping[str, Any]) -> MemoryEntry:
     return MemoryEntry(
         name=str(item.get("name", "")),
-        uri=str(item.get("uri", "")),
+        uri=to_public_uri(str(item.get("uri", ""))),
         is_dir=bool(item.get("isDir", False)),
         size=int(item["size"]) if item.get("size") is not None else None,
     )

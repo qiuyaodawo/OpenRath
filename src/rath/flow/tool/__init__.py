@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from rath.backend.tool_types import (
-    BackendTool,
-    BackendToolCodeRun,
-    BackendToolCommandRun,
-    BackendToolFilesExists,
-    BackendToolFilesList,
-    BackendToolFilesRead,
-    BackendToolFilesWrite,
-)
 from rath.flow.tool.base import FlowToolCall
+from rath.flow.tool.mcp_adapter import (
+    MCPClient,
+    MCPToolCall,
+    mcp_tools_from_config,
+    mcp_tools_from_server,
+    shared_mcp_loop,
+)
 from rath.flow.tool.system_tool import (
-    RunShellCommandTool,
-    WriteWorkspaceFileTool,
+    FlowToolCodeRun,
+    FlowToolCommandRun,
+    FlowToolFilesExists,
+    FlowToolFilesList,
+    FlowToolFilesRead,
+    FlowToolFilesWrite,
     flow_tool_code_run,
     flow_tool_command_run,
     flow_tool_files_exists,
@@ -33,17 +35,16 @@ from rath.flow.tool.tool_table import (
 global_system_tools()
 
 __all__ = [
-    "BackendTool",
-    "BackendToolCodeRun",
-    "BackendToolCommandRun",
-    "BackendToolFilesExists",
-    "BackendToolFilesList",
-    "BackendToolFilesRead",
-    "BackendToolFilesWrite",
     "FlowToolCall",
-    "RunShellCommandTool",
+    "FlowToolCodeRun",
+    "FlowToolCommandRun",
+    "FlowToolFilesExists",
+    "FlowToolFilesList",
+    "FlowToolFilesRead",
+    "FlowToolFilesWrite",
+    "MCPClient",
+    "MCPToolCall",
     "ToolNameConflictError",
-    "WriteWorkspaceFileTool",
     "flow_tool_code_run",
     "flow_tool_command_run",
     "flow_tool_files_exists",
@@ -52,5 +53,8 @@ __all__ = [
     "flow_tool_files_write",
     "global_system_tools",
     "merge_tools_for_loop",
+    "mcp_tools_from_config",
+    "mcp_tools_from_server",
+    "shared_mcp_loop",
     "tools_dict_to_schemas",
 ]

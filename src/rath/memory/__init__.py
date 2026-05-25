@@ -3,7 +3,7 @@
 The memory plane is parallel to :mod:`rath.backend`: every concept here mirrors
 a sibling there (``MemoryBackend`` <-> ``Backend``, ``MemoryStore`` <->
 ``BackendSandbox``, ``MemoryOp*`` <-> ``BackendTool*``, ``MemoryResult`` <->
-``ToolResult``). The two planes never cross-import -- :class:`rath.flow.Agent`
+``ToolResult``). The two planes never cross-import — :class:`rath.flow.Agent`
 holds both.
 
 Optional adapters (e.g. ``OpenVikingBackend``) live in
@@ -63,7 +63,7 @@ from rath.memory.results import (
 
 try:
     from rath.memory.adapters import openviking as _openviking  # noqa: F401
-except ImportError:  # pragma: no cover -- optional ``openviking`` extra
+except ImportError:  # pragma: no cover — optional ``openviking`` extra
     pass
 
 # The local backend has zero runtime dependencies; pin it as the default

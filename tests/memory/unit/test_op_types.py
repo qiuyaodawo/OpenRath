@@ -29,10 +29,10 @@ from rath.memory.op_types import (
 )
 
 _OP_SAMPLES = [
-    (MemoryOpWrite, {"uri": "viking://user/memories/x", "content": "hi"}),
-    (MemoryOpRead, {"uri": "viking://user/memories/x"}),
-    (MemoryOpList, {"uri": "viking://user/memories/"}),
-    (MemoryOpTree, {"uri": "viking://user/memories/"}),
+    (MemoryOpWrite, {"uri": "memory://user/memories/x", "content": "hi"}),
+    (MemoryOpRead, {"uri": "memory://user/memories/x"}),
+    (MemoryOpList, {"uri": "memory://user/memories/"}),
+    (MemoryOpTree, {"uri": "memory://user/memories/"}),
     (MemoryOpFind, {"query": "dark mode"}),
     (
         MemoryOpSearch,
@@ -83,7 +83,7 @@ def test_op_marker_has_slots_and_no_fields():
 
 
 def test_memory_op_read_level_default_is_detail():
-    op = MemoryOpRead(uri="viking://user/memories/x")
+    op = MemoryOpRead(uri="memory://user/memories/x")
     assert op.level == "detail"
 
 
@@ -99,7 +99,7 @@ def test_memory_op_find_defaults():
 
 
 def test_memory_op_tree_default_depth():
-    op = MemoryOpTree(uri="viking://resources/")
+    op = MemoryOpTree(uri="memory://resources/")
     assert op.depth == 2
 
 

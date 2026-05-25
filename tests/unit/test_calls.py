@@ -1,4 +1,9 @@
-"""Value-object semantics for every concrete :class:`~rath.backend.tool_types.BackendTool` payload."""
+"""Value-object semantics for :class:`~rath.backend.tool_types.BackendTool` payloads.
+
+These dataclasses are constructed by :mod:`rath.flow.tool` helpers and
+dispatched through :mod:`rath.backend`; tests live here because they define
+the sandbox payload contract shared with the tool layer.
+"""
 
 from __future__ import annotations
 

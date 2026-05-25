@@ -23,6 +23,7 @@ English · [简体中文](README_zh.md)
 
 ## Recent updates
 
+- 2026-05-25: Preparing `v1.2.0` — local memory backend, Anthropic streaming, `memory://` URIs, and Agent memory API polish.
 - 2026-05-12: Released `v1.0.0` and opened the codebase and docs to the community.
 
 > For more info on OpenRath, head over to our docs [https://docs.openrath.com](https://docs.openrath.com).

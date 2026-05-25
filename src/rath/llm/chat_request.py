@@ -41,11 +41,10 @@ class RathLLMFunctionTool:
 
 @dataclass(frozen=True, kw_only=True, slots=True)
 class RathLLMChatRequest:
-    """Maps to keyword arguments passed to ``client.chat.completions.create``.
+    """Maps to keyword arguments passed to the vendor chat API.
 
-    ``model=None`` falls back to :attr:`~rath.llm.provider.Provider.model` on the
-    client :class:`~rath.llm.provider.Provider` passed to
-    :class:`~rath.llm.client.RathOpenAIChatClient`.
+    ``model=None`` falls back to :attr:`~rath.llm.provider.Provider.model` on
+    the :class:`~rath.llm.provider.Provider` held by the chat client.
     """
 
     messages: tuple[RathLLMMessage, ...]

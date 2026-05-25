@@ -17,11 +17,15 @@ from typing import Any
 from rath.llm.chat_request import RathLLMChatRequest
 from rath.llm.tool_args import parse_tool_arguments
 
-__all__ = ["build_anthropic_kwargs", "DEFAULT_MAX_TOKENS"]
+__all__ = [
+    "build_anthropic_kwargs",
+    "build_anthropic_stream_kwargs",
+    "DEFAULT_MAX_TOKENS",
+]
 
 
 # Fallback ``max_tokens`` for Anthropic's required field when neither the
-# request nor the provider set one. Deliberately conservative - current Claude
+# request nor the provider set one. Deliberately conservative — current Claude
 # models accept far more, but a low default avoids accidentally racking up
 # token bills on a stray call. Callers that need long outputs should set
 # ``RathLLMChatRequest.max_tokens`` (or ``max_completion_tokens``) explicitly.
@@ -31,8 +35,8 @@ DEFAULT_MAX_TOKENS = 4096
 def _coerce_text(content: Any) -> str:
     """Anthropic ``user`` / ``system`` content must be plain string for our use.
 
-    OpenAI allows content lists (multi-part); to keep the adapter simple this
-    PR only handles ``str`` and joins anything else with ``str()``.
+    OpenAI allows content lists (multi-part); this adapter accepts ``str`` and
+    joins list parts with ``str()``.
     """
     if content is None:
         return ""
@@ -166,6 +170,20 @@ def build_anthropic_kwargs(
         kwargs["tool_choice"] = tool_choice
 
     extra = dict(req.extra_create_args)
-    extra.pop("stream", None)  # streaming is a separate path
+    extra.pop("stream", None)  # streaming uses messages.stream() — separate client path
     kwargs.update(extra)
     return kwargs
+
+
+def build_anthropic_stream_kwargs(
+    req: RathLLMChatRequest,
+    *,
+    default_model: str | None,
+) -> dict[str, Any]:
+    """Same kwargs as :func:`build_anthropic_kwargs` for ``messages.stream``.
+
+    Anthropic's ``messages.stream(**kwargs)`` uses the same shape as
+    ``messages.create``; there is no ``stream=True`` flag. Named entrypoint
+    parallel to :func:`rath.llm.openai.create_kwargs.to_create_kwargs_stream`.
+    """
+    return build_anthropic_kwargs(req, default_model=default_model)

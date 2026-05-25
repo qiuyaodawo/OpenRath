@@ -1,4 +1,4 @@
-"""OpenAI- and Anthropic-compatible LLM access (synchronous chat completions).
+"""OpenAI- and Anthropic-compatible LLM access (sync chat + streaming).
 
 Public surface:
 
@@ -20,6 +20,7 @@ Public surface:
 from rath.llm.anthropic import (
     RathAnthropicChatClient,
     build_anthropic_kwargs,
+    build_anthropic_stream_kwargs,
     normalize_anthropic_response,
 )
 from rath.llm.base import ChatClient, StreamingChatClient
@@ -86,6 +87,7 @@ __all__ = [
     "normalize_chat_completion",
     # Pure helpers (Anthropic)
     "build_anthropic_kwargs",
+    "build_anthropic_stream_kwargs",
     "normalize_anthropic_response",
     # Token accounting
     "add_usage",

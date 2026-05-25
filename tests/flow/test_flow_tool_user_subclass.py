@@ -50,6 +50,7 @@ class AddOneTool(FlowToolCall):
 
 
 def test_user_flow_tool_result_in_tool_chunk() -> None:
+    """A user ``FlowToolCall`` return value is JSON-encoded in a tool chunk."""
     body = {"x": 41}
     part = RathLLMToolCallPart(
         id="a1",

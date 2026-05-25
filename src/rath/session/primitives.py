@@ -16,30 +16,30 @@ from rath.session.graph import LineageKind, LineageRecorder
 from rath.session.session import Session
 
 
-def create_leaf_user(text: str) -> Session:
+def create_user_session(message: str) -> Session:
     """Leaf user transcript; stamps ``LEAF_USER`` when lineage mode is on."""
 
-    s = Session.from_user_message(text)
+    s = Session.from_user_message(message)
     LineageRecorder.stamp_new_session(
         s,
         parent_session_ids=(),
-        lineage_operator="create_leaf_user",
+        lineage_operator="create_user_session",
         lineage_kind=LineageKind.LEAF_USER,
-        lineage_extras=(("source", "create_leaf_user"),),
+        lineage_extras=(("source", "create_user_session"),),
     )
     return s
 
 
-def create_leaf_system(prompt: str) -> Session:
+def create_system_session(prompt: str) -> Session:
     """Leaf system transcript; stamps ``LEAF_SYSTEM`` when lineage mode is on."""
 
     s = Session.from_agent_prompt(prompt)
     LineageRecorder.stamp_new_session(
         s,
         parent_session_ids=(),
-        lineage_operator="create_leaf_system",
+        lineage_operator="create_system_session",
         lineage_kind=LineageKind.LEAF_SYSTEM,
-        lineage_extras=(("source", "create_leaf_system"),),
+        lineage_extras=(("source", "create_system_session"),),
     )
     return s
 
@@ -57,8 +57,8 @@ def detach_session(from_session: Session) -> Session:
 
 
 __all__ = [
-    "create_leaf_system",
-    "create_leaf_user",
+    "create_system_session",
+    "create_user_session",
     "detach_session",
     "fork_session",
 ]

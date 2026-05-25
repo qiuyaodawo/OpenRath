@@ -3,17 +3,15 @@
 Validates the post-migration ``OpenSandboxBackend``:
 
 - Concurrent ``commands.run`` on the same sandbox serialise behind the
-  per-sandbox exec lock (总则 1).
+  per-sandbox exec lock.
 - Concurrent ``files.write`` to the *same* path serialise behind the
-  per-path fs lock (总则 2 — last-writer-wins is deterministic, no torn
-  payloads).
+  per-path fs lock (last-writer-wins is deterministic; no torn payloads).
 - Concurrent ``files.write`` to *distinct* paths run in parallel.
 - Concurrent reads do not serialise behind any lock.
 
 These tests require a reachable opensandbox-server (see ``conftest.py``'s
-``opensandbox_real`` marker). Per ``[[feedback-testing-realonly]]``, there is
-no ``FakeSandbox`` fallback — the suite is skipped, not faked, when the
-server is unreachable.
+``opensandbox_real`` marker). There is no ``FakeSandbox`` fallback — the suite
+is skipped, not faked, when the server is unreachable.
 """
 
 from __future__ import annotations

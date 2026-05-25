@@ -16,14 +16,14 @@
 #   OPEN_VIKING_ROOT_API_KEY required to bring up the server (auto-generated on first run if absent)
 #
 # OpenViking needs an embedding provider AND a VLM provider before it will boot.
-# On first run we write a working ov.conf using GLM (Zhipu / open.bigmodel.cn) as both,
-# because that is what Rath ships with in .openrath/config.json. Overrides:
-#   OPEN_VIKING_EMBEDDING_API_KEY   embedding provider api key (defaults to GLM key)
-#   OPEN_VIKING_EMBEDDING_API_BASE  embedding api base       (default: GLM OpenAI-compat)
+# On first run we write ov.conf using credentials from env vars or
+# ~/.openrath/config.json (see scripts/resolve_openviking_provider_env.py).
+#   OPEN_VIKING_EMBEDDING_API_KEY   embedding provider api key
+#   OPEN_VIKING_EMBEDDING_API_BASE  embedding api base
 #   OPEN_VIKING_EMBEDDING_MODEL     embedding model name     (default: embedding-3)
 #   OPEN_VIKING_EMBEDDING_DIMENSION embedding dim            (default: 2048)
-#   OPEN_VIKING_VLM_API_KEY         vlm api key              (defaults to GLM key)
-#   OPEN_VIKING_VLM_API_BASE        vlm api base             (default: GLM OpenAI-compat)
+#   OPEN_VIKING_VLM_API_KEY         vlm api key
+#   OPEN_VIKING_VLM_API_BASE        vlm api base
 #   OPEN_VIKING_VLM_MODEL           vlm model name           (default: glm-4.6v)
 
 set -euo pipefail
@@ -50,18 +50,19 @@ CONFIG_PATH="${DATA_DIR}/ov.conf"
 
 mkdir -p "${DATA_DIR}"
 
-# Defaults for the GLM (Zhipu / open.bigmodel.cn) OpenAI-compatible API. The
-# hard-coded fallback key matches OpenRath/.openrath/config.json so first-run
-# works without extra env vars; override via OPEN_VIKING_*_API_KEY for prod.
-GLM_DEFAULT_KEY="b07306ec6bb24dfb93c6a4da4c78e85b.TIM4UBLavr8vz5yG"
-GLM_DEFAULT_BASE="https://open.bigmodel.cn/api/paas/v4"
-EMB_API_KEY="${OPEN_VIKING_EMBEDDING_API_KEY:-${GLM_DEFAULT_KEY}}"
-EMB_API_BASE="${OPEN_VIKING_EMBEDDING_API_BASE:-${GLM_DEFAULT_BASE}}"
-EMB_MODEL="${OPEN_VIKING_EMBEDDING_MODEL:-embedding-3}"
-EMB_DIM="${OPEN_VIKING_EMBEDDING_DIMENSION:-2048}"
-VLM_API_KEY="${OPEN_VIKING_VLM_API_KEY:-${GLM_DEFAULT_KEY}}"
-VLM_API_BASE="${OPEN_VIKING_VLM_API_BASE:-${GLM_DEFAULT_BASE}}"
-VLM_MODEL="${OPEN_VIKING_VLM_MODEL:-glm-4.6v}"
+if [[ ! -f "${CONFIG_PATH}" ]]; then
+  # shellcheck disable=SC2046
+  eval "$(uv run python "${SCRIPT_DIR}/resolve_openviking_provider_env.py" | sed 's/^/export /')"
+  EMB_API_KEY="${OPEN_VIKING_EMBEDDING_API_KEY}"
+  EMB_API_BASE="${OPEN_VIKING_EMBEDDING_API_BASE}"
+  EMB_MODEL="${OPEN_VIKING_EMBEDDING_MODEL}"
+  EMB_DIM="${OPEN_VIKING_EMBEDDING_DIMENSION}"
+  VLM_API_KEY="${OPEN_VIKING_VLM_API_KEY}"
+  VLM_API_BASE="${OPEN_VIKING_VLM_API_BASE}"
+  VLM_MODEL="${OPEN_VIKING_VLM_MODEL}"
+else
+  echo "using existing config: ${CONFIG_PATH}"
+fi
 
 # Generate ov.conf on first run. Server needs server.root_api_key + a working
 # embedding.dense provider + a vlm provider, otherwise startup fails inside
@@ -74,7 +75,7 @@ if [[ ! -f "${CONFIG_PATH}" ]]; then
       OPEN_VIKING_ROOT_API_KEY="dev-root-$(python -c 'import secrets; print(secrets.token_hex(12))')"
     fi
   fi
-  echo "creating ${CONFIG_PATH} with auto-generated root key + GLM embedding/vlm config"
+  echo "creating ${CONFIG_PATH} with auto-generated root key + embedding/vlm config"
   cat > "${CONFIG_PATH}" <<EOF
 {
   "server": {

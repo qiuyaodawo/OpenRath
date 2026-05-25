@@ -44,7 +44,7 @@ def store(openviking_url: str, openviking_root_api_key: str) -> Iterator[MemoryS
 
 def test_not_found_for_unknown_uri(store: MemoryStore) -> None:
     op = MemoryOpRead(
-        uri=f"viking://user/default/__does_not_exist_{uuid.uuid4().hex}",
+        uri=f"memory://user/default/__does_not_exist_{uuid.uuid4().hex}",
         level="detail",
     )
     result = store.dispatch(op)
@@ -53,7 +53,7 @@ def test_not_found_for_unknown_uri(store: MemoryStore) -> None:
 
 
 def test_invalid_uri_for_bogus_scope(store: MemoryStore) -> None:
-    op = MemoryOpWrite(uri="viking://bogus_scope_xyz/x.txt", content="x")
+    op = MemoryOpWrite(uri="memory://bogus_scope_xyz/x.txt", content="x")
     result = store.dispatch(op)
     assert isinstance(result, MemoryExecutionFailure)
     assert result.kind == "invalid_uri"
@@ -62,7 +62,7 @@ def test_invalid_uri_for_bogus_scope(store: MemoryStore) -> None:
 def test_invalid_uri_for_list_against_unknown_scope(store: MemoryStore) -> None:
     """The SDK's ls() against an unknown scope raises InvalidURIError
     (not NotFoundError) -- this test pins that mapping."""
-    op = MemoryOpList(uri="viking://bogus_scope_xyz/")
+    op = MemoryOpList(uri="memory://bogus_scope_xyz/")
     result = store.dispatch(op)
     assert isinstance(result, MemoryExecutionFailure)
     assert result.kind == "invalid_uri"

@@ -1,6 +1,6 @@
 """Pure-function tests for Anthropic <-> OpenRath translation.
 
-No network calls and no Anthropic SDK runtime objects - the request builder
+No network calls and no Anthropic SDK runtime objects — the request builder
 and response normalizer both operate on plain dicts, so we can drive them
 with fixtures.
 """

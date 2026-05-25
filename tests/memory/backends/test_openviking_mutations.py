@@ -4,9 +4,9 @@ The OpenViking SDK splits memory creation across three calls:
 
 - ``write`` *updates* an existing memory file (created via session commit
   or seeded via ``add_resource``);
-- ``add_resource`` *ingests* an external file/URL into ``viking://resources/``;
+- ``add_resource`` *ingests* an external file/URL into ``memory://resources/``;
 - ``commit_session`` archives a session's messages and triggers async
-  memory extraction into ``viking://user/...``.
+  memory extraction into ``memory://user/...``.
 
 These tests exercise each path end-to-end against the live container.
 """
@@ -31,6 +31,7 @@ from rath.memory import (
     MemoryWriteResult,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+from rath.memory.uri import to_public_uri
 from tests.memory.backends.conftest import add_resource_with_retry
 
 pytestmark = pytest.mark.openviking
@@ -82,7 +83,7 @@ def _seed_writable_memory(openviking_url: str, openviking_root_api_key: str) -> 
         listing = client.ls(f"viking://resources/{ns}")
         files = [e for e in listing if not e.get("isDir")]
         assert files, "seed failed"
-        return files[0]["uri"]
+        return to_public_uri(files[0]["uri"])
     finally:
         client.close()
 
@@ -107,7 +108,7 @@ def test_write_updates_existing_memory_file(
 
 def test_write_to_invalid_scope_returns_failure(store: MemoryStore) -> None:
     op = MemoryOpWrite(
-        uri="viking://bogus_scope_xyz/x.txt",
+        uri="memory://bogus_scope_xyz/x.txt",
         content="x",
     )
     result = store.dispatch(op)
@@ -125,7 +126,7 @@ def test_resource_ingest_creates_file(store: MemoryStore) -> None:
     try:
         op = MemoryOpResource(
             source=local,
-            target_uri=f"viking://resources/{ns}/",
+            target_uri=f"memory://resources/{ns}/",
             wait=True,
             timeout_seconds=180.0,
         )
@@ -158,5 +159,5 @@ def test_commit_archives_session_and_returns_task_id(
     assert isinstance(result, MemoryCommitResult)
     assert result.task_id and isinstance(result.task_id, str)
     assert result.archived_uri and result.archived_uri.startswith(
-        f"viking://session/{sid}/"
+        f"memory://session/{sid}/"
     )

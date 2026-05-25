@@ -67,14 +67,14 @@ def test_memory_backend_not_found_lists_available():
 
 
 def test_memory_not_found_carries_uri():
-    exc = MemoryNotFound("viking://x")
-    assert exc.uri == "viking://x"
-    assert "viking://x" in str(exc)
+    exc = MemoryNotFound("memory://x")
+    assert exc.uri == "memory://x"
+    assert "memory://x" in str(exc)
 
 
 def test_memory_conflict_carries_uri():
-    exc = MemoryConflict("viking://x")
-    assert exc.uri == "viking://x"
+    exc = MemoryConflict("memory://x")
+    assert exc.uri == "memory://x"
 
 
 def test_unsupported_memory_op_rejects_non_op_type():

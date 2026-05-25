@@ -19,25 +19,25 @@ from rath.memory.results import (
 )
 
 _RESULT_SAMPLES = [
-    (MemoryHit, {"uri": "viking://user/memories/x", "score": 0.9}),
+    (MemoryHit, {"uri": "memory://user/memories/x", "score": 0.9}),
     (
         MemoryFindResult,
-        {"hits": (MemoryHit(uri="viking://user/memories/x", score=0.9),)},
+        {"hits": (MemoryHit(uri="memory://user/memories/x", score=0.9),)},
     ),
     (
         MemoryReadResult,
-        {"uri": "viking://user/memories/x", "data": "hi", "level": "detail"},
+        {"uri": "memory://user/memories/x", "data": "hi", "level": "detail"},
     ),
-    (MemoryEntry, {"name": "x", "uri": "viking://user/memories/x", "is_dir": False}),
+    (MemoryEntry, {"name": "x", "uri": "memory://user/memories/x", "is_dir": False}),
     (
         MemoryListResult,
         {
             "entries": (
-                MemoryEntry(name="x", uri="viking://user/memories/x", is_dir=False),
+                MemoryEntry(name="x", uri="memory://user/memories/x", is_dir=False),
             )
         },
     ),
-    (MemoryWriteResult, {"uri": "viking://user/memories/x", "bytes_written": 3}),
+    (MemoryWriteResult, {"uri": "memory://user/memories/x", "bytes_written": 3}),
     (
         MemoryCommitResult,
         {"task_id": "t1", "archived_uri": None, "extracted_count": 0},
@@ -104,13 +104,13 @@ def test_execution_failure_kind_rejects_unknown():
 
 
 def test_memory_hit_optional_fields_default_to_none():
-    hit = MemoryHit(uri="viking://u", score=0.5)
+    hit = MemoryHit(uri="memory://u", score=0.5)
     assert hit.snippet is None
     assert hit.level is None
 
 
 def test_memory_entry_size_default_none():
-    e = MemoryEntry(name="x", uri="viking://u", is_dir=False)
+    e = MemoryEntry(name="x", uri="memory://u", is_dir=False)
     assert e.size is None
 
 

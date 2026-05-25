@@ -22,7 +22,7 @@ def test_invalid_scope_is_rejected_uniformly(
 ) -> None:
     res = conformant_backend.dispatch(
         conformant_store,
-        MemoryOpWrite(uri="viking://bogus_scope_xyz/x", content="x"),
+        MemoryOpWrite(uri="memory://bogus_scope_xyz/x", content="x"),
     )
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "invalid_uri"
@@ -31,7 +31,7 @@ def test_invalid_scope_is_rejected_uniformly(
 def test_read_missing_uri_is_not_found(
     conformant_backend: MemoryBackend, conformant_store: MemoryStore
 ) -> None:
-    uri = f"viking://user/default/__nope_{uuid.uuid4().hex}"
+    uri = f"memory://user/default/__nope_{uuid.uuid4().hex}"
     res = conformant_backend.dispatch(conformant_store, MemoryOpRead(uri=uri))
     assert isinstance(res, MemoryExecutionFailure)
     assert res.kind == "not_found"

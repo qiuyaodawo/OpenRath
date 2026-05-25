@@ -1,8 +1,7 @@
 """Embedding-backed Find tests for :class:`LocalMemoryBackend`.
 
 Real GLM embedding calls via :class:`RathOpenAIEmbeddingClient`. Gated by
-``OPENAI_API_KEY`` (the project ``.env`` ships one for GLM); skip cleanly
-when no key is configured.
+``OPENAI_API_KEY``; skip cleanly when no key is configured.
 """
 
 from __future__ import annotations
@@ -60,21 +59,21 @@ def test_embedding_find_ranks_semantically_nearest_first(
     backend.dispatch(
         embed_store,
         MemoryOpWrite(
-            uri="viking://user/memories/preferences/dark_theme",
+            uri="memory://user/memories/preferences/dark_theme",
             content="The user enables a dark colour theme so screens are easy on the eyes after sunset.",
         ),
     )
     backend.dispatch(
         embed_store,
         MemoryOpWrite(
-            uri="viking://user/memories/preferences/coffee",
+            uri="memory://user/memories/preferences/coffee",
             content="The user drinks espresso every morning before standup.",
         ),
     )
     backend.dispatch(
         embed_store,
         MemoryOpWrite(
-            uri="viking://user/memories/notes/paris",
+            uri="memory://user/memories/notes/paris",
             content="In April the user is travelling to Paris for a weekend trip.",
         ),
     )
@@ -85,7 +84,7 @@ def test_embedding_find_ranks_semantically_nearest_first(
     )
     assert isinstance(res, MemoryFindResult)
     assert len(res.hits) >= 1
-    assert res.hits[0].uri == "viking://user/memories/preferences/dark_theme"
+    assert res.hits[0].uri == "memory://user/memories/preferences/dark_theme"
 
 
 @_live_only
@@ -95,7 +94,7 @@ def test_embedding_find_persists_vec_sidecar(
 ) -> None:
     from pathlib import Path
 
-    uri = "viking://user/memories/preferences/persisted"
+    uri = "memory://user/memories/preferences/persisted"
     backend.dispatch(
         embed_store,
         MemoryOpWrite(uri=uri, content="A short body that gets embedded."),
@@ -119,7 +118,7 @@ def test_embedding_find_reuses_cached_sidecar(
     """Second call must not rewrite the sidecar (mtime stays put)."""
     from pathlib import Path
 
-    uri = "viking://user/memories/preferences/cached"
+    uri = "memory://user/memories/preferences/cached"
     backend.dispatch(
         embed_store,
         MemoryOpWrite(uri=uri, content="Body that survives a second query."),

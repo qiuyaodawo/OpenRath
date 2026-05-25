@@ -14,9 +14,9 @@ Run modes:
 
 The demo exercises four code paths:
 
-1. ``agent.remember`` writes a freeform memory file;
-2. ``agent.recall`` searches for it;
-3. ``agent.commit`` archives a tiny scripted session for extraction;
+1. ``agent.remember_memory`` writes a freeform memory file;
+2. ``agent.recall_memory`` searches for it;
+3. ``agent.commit_memory`` archives a tiny scripted session for extraction;
 4. ``agent.close`` releases the store reference (also via ``with`` block).
 
 No ``assert`` — the demo prints ``[ok]`` / ``[note]`` markers so a
@@ -90,7 +90,7 @@ def main() -> None:
             from rath.memory.op_types import MemoryOpFind, MemoryOpWrite
 
             # remember
-            uri = "viking://user/memories/preferences/demo"
+            uri = "memory://user/memories/preferences/demo"
             try:
                 store.dispatch(
                     MemoryOpWrite(uri=uri, content="dark mode preferred", wait=False)
@@ -110,36 +110,36 @@ def main() -> None:
             provider=provider,
             memory=store,
             memory_inject=DefaultRecallInjection(
-                top_k=3, target_uri="viking://user/memories/"
+                top_k=3, target_uri="memory://user/memories/"
             ),
             commit_on_forward=False,
         ) as agent:
             print("[ok] agent bound to memory store")
-            # 1) remember
+            # 1) remember_memory
             try:
-                agent.remember(
+                agent.remember_memory(
                     "User prefers dark mode and concise responses.",
                     scope="user",
                     category="preferences",
                 )
-                print("[ok] remember dispatched")
+                print("[ok] remember_memory dispatched")
             except Exception as exc:
-                print(f"[note] remember failed: {exc}")
-            # 2) recall
+                print(f"[note] remember_memory failed: {exc}")
+            # 2) recall_memory
             try:
-                result = agent.recall("dark mode preferences", top_k=3)
+                result = agent.recall_memory("dark mode preferences", top_k=3)
                 print(
-                    f"[ok] recall returned {len(getattr(result, 'hits', ()) or ())} hit(s)"
+                    f"[ok] recall_memory returned {len(getattr(result, 'hits', ()) or ())} hit(s)"
                 )
             except Exception as exc:
-                print(f"[note] recall failed: {exc}")
-            # 3) commit a tiny session
+                print(f"[note] recall_memory failed: {exc}")
+            # 3) commit_memory a tiny session
             try:
                 sess = Session.from_user_message("Remember: I like dark mode.")
-                agent.commit(sess, wait=False)
-                print("[ok] commit dispatched (extraction is async)")
+                agent.commit_memory(sess, wait=False)
+                print("[ok] commit_memory dispatched (extraction is async)")
             except Exception as exc:
-                print(f"[note] commit failed: {exc}")
+                print(f"[note] commit_memory failed: {exc}")
     finally:
         if not store.closed:
             backend.close(store)

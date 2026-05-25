@@ -29,22 +29,29 @@ set "CONFIG_PATH=%OPEN_VIKING_DATA_DIR%\ov.conf"
 
 if not exist "%OPEN_VIKING_DATA_DIR%" mkdir "%OPEN_VIKING_DATA_DIR%"
 
-rem GLM (Zhipu / open.bigmodel.cn) OpenAI-compatible defaults — match OpenRath/.openrath/config.json.
-set "GLM_DEFAULT_KEY=b07306ec6bb24dfb93c6a4da4c78e85b.TIM4UBLavr8vz5yG"
-set "GLM_DEFAULT_BASE=https://open.bigmodel.cn/api/paas/v4"
-if "%OPEN_VIKING_EMBEDDING_API_KEY%"=="" set "OPEN_VIKING_EMBEDDING_API_KEY=%GLM_DEFAULT_KEY%"
-if "%OPEN_VIKING_EMBEDDING_API_BASE%"=="" set "OPEN_VIKING_EMBEDDING_API_BASE=%GLM_DEFAULT_BASE%"
-if "%OPEN_VIKING_EMBEDDING_MODEL%"=="" set "OPEN_VIKING_EMBEDDING_MODEL=embedding-3"
-if "%OPEN_VIKING_EMBEDDING_DIMENSION%"=="" set "OPEN_VIKING_EMBEDDING_DIMENSION=2048"
-if "%OPEN_VIKING_VLM_API_KEY%"=="" set "OPEN_VIKING_VLM_API_KEY=%GLM_DEFAULT_KEY%"
-if "%OPEN_VIKING_VLM_API_BASE%"=="" set "OPEN_VIKING_VLM_API_BASE=%GLM_DEFAULT_BASE%"
-if "%OPEN_VIKING_VLM_MODEL%"=="" set "OPEN_VIKING_VLM_MODEL=glm-4.6v"
+if not exist "%CONFIG_PATH%" (
+    for /f "usebackq tokens=1,* delims==" %%A in (`uv run python "%SCRIPT_DIR%resolve_openviking_provider_env.py"`) do set "%%A=%%B"
+    if errorlevel 1 (
+        echo error: could not resolve OpenViking embedding/VLM credentials 1>&2
+        popd
+        exit /b 1
+    )
+    set "EMB_API_KEY=!OPEN_VIKING_EMBEDDING_API_KEY!"
+    set "EMB_API_BASE=!OPEN_VIKING_EMBEDDING_API_BASE!"
+    set "EMB_MODEL=!OPEN_VIKING_EMBEDDING_MODEL!"
+    set "EMB_DIM=!OPEN_VIKING_EMBEDDING_DIMENSION!"
+    set "VLM_API_KEY=!OPEN_VIKING_VLM_API_KEY!"
+    set "VLM_API_BASE=!OPEN_VIKING_VLM_API_BASE!"
+    set "VLM_MODEL=!OPEN_VIKING_VLM_MODEL!"
+) else (
+    echo using existing config: %CONFIG_PATH%
+)
 
 if not exist "%CONFIG_PATH%" (
     if "%OPEN_VIKING_ROOT_API_KEY%"=="" (
         for /f "delims=" %%K in ('python -c "import secrets; print('dev-root-' + secrets.token_hex(12))"') do set "OPEN_VIKING_ROOT_API_KEY=%%K"
     )
-    echo creating %CONFIG_PATH% with auto-generated root key + GLM embedding/vlm config
+    echo creating %CONFIG_PATH% with auto-generated root key + embedding/vlm config
     > "%CONFIG_PATH%" echo {
     >>"%CONFIG_PATH%" echo   "server": {
     >>"%CONFIG_PATH%" echo     "host": "0.0.0.0",

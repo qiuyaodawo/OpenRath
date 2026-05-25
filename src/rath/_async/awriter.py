@@ -20,7 +20,7 @@ Properties relied on by the runtime:
 - ``aclose()`` — drains the queue, writes the trailer, atomically
   renames the ``__partial__`` file to its final ``.jsonl`` name.
 - ``abandon()`` — cancels the drain task, releases the handle, and
-  leaves the ``__partial__`` file in place (concurrency invariant 8).
+  leaves the ``__partial__`` file in place (crash / drain-timeout signal).
 """
 
 from __future__ import annotations
@@ -140,8 +140,8 @@ class _AsyncSessionWriter:
     async def abandon(self) -> None:
         """Cancel the drain task and leave ``__partial__`` on disk as a crash signal.
 
-        Used when the runtime's :meth:`drain` budget is exhausted
-        (concurrency invariant 8) — no trailer, no rename.
+        Used when the runtime's :meth:`drain` budget is exhausted — no
+        trailer, no rename.
         """
         if self._closed:
             return

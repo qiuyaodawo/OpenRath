@@ -79,13 +79,13 @@ def test_default_recall_emits_one_chunk_per_hit() -> None:
     backend = _FakeBackend(
         hits=(
             MemoryHit(
-                uri="viking://user/m/a",
+                uri="memory://user/m/a",
                 score=0.9,
                 snippet="dark mode preferred",
                 level="abstract",
             ),
             MemoryHit(
-                uri="viking://user/m/b",
+                uri="memory://user/m/b",
                 score=0.8,
                 snippet="GMT+8 timezone",
                 level="abstract",
@@ -95,7 +95,7 @@ def test_default_recall_emits_one_chunk_per_hit() -> None:
     store = backend.open()
     sess = _user_session("Do you remember my preferences?")
     policy = DefaultRecallInjection(
-        top_k=2, target_uri="viking://user/memories/", level="abstract"
+        top_k=2, target_uri="memory://user/memories/", level="abstract"
     )
     chunks = policy.inject(sess, store)
     assert isinstance(chunks, tuple)
@@ -111,7 +111,7 @@ def test_default_recall_emits_one_chunk_per_hit() -> None:
     op = backend.ops_seen[-1]
     assert isinstance(op, MemoryOpFind)
     assert op.top_k == 2
-    assert op.target_uri == "viking://user/memories/"
+    assert op.target_uri == "memory://user/memories/"
 
 
 def test_default_recall_returns_empty_when_no_user_messages() -> None:

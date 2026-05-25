@@ -44,6 +44,6 @@ def test_anthropic_client_is_chat_client() -> None:
     assert isinstance(client, ChatClient)
 
 
-def test_anthropic_client_is_not_streaming() -> None:
+def test_anthropic_client_is_streaming() -> None:
     client = RathAnthropicChatClient(Provider(provider_kind="anthropic"))
-    assert not isinstance(client, StreamingChatClient)
+    assert isinstance(client, StreamingChatClient)

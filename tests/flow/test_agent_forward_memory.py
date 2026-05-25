@@ -78,7 +78,7 @@ class _FakeBackend(MemoryBackend):
             return MemoryFindResult(hits=self.find_hits)
         if isinstance(op, MemoryOpCommit):
             return MemoryCommitResult(
-                task_id="task-x", archived_uri="viking://session/s/", extracted_count=-1
+                task_id="task-x", archived_uri="memory://session/s/", extracted_count=-1
             )
         raise NotImplementedError(f"fake: no handler for {type(op).__name__}")
 
@@ -114,7 +114,7 @@ def test_forward_prepends_injected_system_chunks() -> None:
     backend = _FakeBackend(
         find_hits=(
             MemoryHit(
-                uri="viking://user/m/1",
+                uri="memory://user/m/1",
                 score=0.9,
                 snippet="loves dark mode",
                 level="abstract",
@@ -128,7 +128,7 @@ def test_forward_prepends_injected_system_chunks() -> None:
         model="gpt-5.5",
         memory=store,
         memory_inject=DefaultRecallInjection(
-            top_k=1, target_uri="viking://user/memories/"
+            top_k=1, target_uri="memory://user/memories/"
         ),
     )
     agent._executor_override = exec_

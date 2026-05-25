@@ -23,6 +23,7 @@
 
 ## 近期动态
 
+- 2026-05-25：准备发布 `v1.2.0` — 本地 memory 后端、Anthropic 流式、`memory://` URI 与 Agent memory API 整理。
 - 2026-05-12：发布 `v1.0.0`，面向社区开放代码和文档。
 
 > 如需了解更多关于 OpenRath 的信息，请访问我们的文档 [https://docs.openrath.com/](https://docs.openrath.com/)。

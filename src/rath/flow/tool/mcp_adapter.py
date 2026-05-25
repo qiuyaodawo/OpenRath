@@ -7,7 +7,7 @@ later without changing the public surface.
 
 Minimal use::
 
-    from rath.flow.tool.mcp_adapter import mcp_tools_from_server
+    from rath.flow.tool import mcp_tools_from_server
 
     tools = mcp_tools_from_server(["python", "-m", "mcp_server_filesystem"])
     agent = flow.Agent("Use mcp tools", Provider(model="gpt-5.5"), tools=list(tools))
@@ -21,14 +21,13 @@ optimization.
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Mapping
 from typing import Any, cast
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from rath.backend.dedicated_loop import DedicatedEventLoopThread
+from rath._async.runtime import OpenRathRuntime, runtime
 from rath.flow.tool.base import FlowToolCall
 from rath.session.session import Session
 
@@ -41,18 +40,15 @@ __all__ = [
 ]
 
 
-_MCP_LOOP: DedicatedEventLoopThread | None = None
-_MCP_LOOP_LOCK = threading.Lock()
+def shared_mcp_loop() -> OpenRathRuntime:
+    """Return the process-wide :class:`~rath._async.runtime.OpenRathRuntime`.
 
+    :class:`MCPClient` uses this loop to run async MCP stdio sessions from
+    synchronous call sites (``list_tools`` / ``call_tool``). It is the same
+    shared background loop that backs backend ``dispatch`` sync facades.
+    """
 
-def shared_mcp_loop() -> DedicatedEventLoopThread:
-    """Process-wide dedicated asyncio loop used by :class:`MCPClient`."""
-
-    global _MCP_LOOP
-    with _MCP_LOOP_LOCK:
-        if _MCP_LOOP is None:
-            _MCP_LOOP = DedicatedEventLoopThread()
-        return _MCP_LOOP
+    return runtime()
 
 
 class MCPClient:
@@ -182,7 +178,7 @@ class MCPToolCall(FlowToolCall):
         return self._parameters
 
     def __call__(self, session: Session, arguments: Mapping[str, Any]) -> Any:
-        del session  # MCP tools don't get the OpenRath session
+        del session  # MCP tools do not use the OpenRath session handle.
         result = self._client.call_tool(self._name, arguments)
         return _flatten_call_result(result)
 
@@ -228,7 +224,7 @@ def mcp_tools_from_config(
     or call this function once per server.
 
     The :class:`rath.config.ConfigStore` is loaded lazily so a plain
-    ``import rath.flow.tool.mcp_adapter`` does not touch the filesystem.
+    ``import rath.flow.tool`` does not touch the filesystem.
     """
     from rath.config.store import ConfigStore
 

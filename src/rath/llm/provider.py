@@ -14,13 +14,14 @@ if TYPE_CHECKING:
 class Provider:
     """LLM routing for ``run_session_loop`` (no ``messages`` / ``tools``).
 
-    ``base_url``, ``api_key``, and ``model`` configure the OpenAI-compatible HTTP
-    client when using :class:`~rath.llm.client.RathOpenAIChatClient`. Other
-    fields mirror :class:`~rath.llm.chat_request.RathLLMChatRequest` (excluding
-    what the loop fills in).
+    ``base_url``, ``api_key``, and ``model`` configure the HTTP client built
+    from :attr:`provider_kind` (OpenAI-compatible or Anthropic). Other fields
+    mirror :class:`~rath.llm.chat_request.RathLLMChatRequest` (excluding what
+    the loop fills in).
 
     ``api_key`` may be omitted when callers supply a custom ``executor`` that
-    never instantiates :class:`~rath.llm.client.RathOpenAIChatClient`.
+    never instantiates a default :class:`~rath.llm.RathOpenAIChatClient` or
+    :class:`~rath.llm.RathAnthropicChatClient`.
     """
 
     base_url: str | None = None
@@ -50,8 +51,8 @@ class Provider:
     extra_create_args: Mapping[str, Any] = field(
         default_factory=lambda: MappingProxyType({})
     )
-    # Retry policy for transient OpenAI-compatible errors. ``None`` means use
-    # the built-in defaults in :mod:`rath.llm._retry`.
+    # Retry policy for transient vendor errors. ``None`` uses built-in defaults
+    # in :mod:`rath.llm.retry`.
     retry_max_attempts: int | None = None
     retry_base_seconds: float | None = None
     # Token budget guardrail. When non-None, the **first** completion in a
@@ -64,10 +65,9 @@ class Provider:
     # :class:`BudgetExceededError` from the callback on that first call.
     budget_total_tokens: int | None = None
     on_budget_exceeded: Callable[..., None] | None = None
-    # Which adapter the default loop should construct when no executor is
-    # passed. ``None`` (default) means OpenAI-compatible. Setting to
-    # ``"anthropic"`` selects
-    # :class:`~rath.llm.anthropic_client.RathAnthropicChatClient`.
+    # Which adapter :func:`~rath.llm.registry.chat_client_for` constructs when
+    # no custom executor is passed. ``None`` (default) selects OpenAI-compatible;
+    # ``"anthropic"`` selects :class:`~rath.llm.RathAnthropicChatClient`.
     provider_kind: Literal["openai", "anthropic"] | None = None
 
     def __str__(self) -> str:

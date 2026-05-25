@@ -13,17 +13,16 @@ The implementation is async-native: ``_aopen`` / ``_aclose`` / ``_adispatch``
 run on :class:`rath._async.runtime.OpenRathRuntime`'s shared loop. The
 historic ``DedicatedEventLoopThread`` indirection is gone.
 
-Per-sandbox concurrency controls (阶段 0 of the upgrade plan):
+Per-sandbox concurrency controls:
 
 - ``_exec_locks[handle]`` — an :class:`asyncio.Lock` serialises
   ``commands.run`` / ``code.run`` on the same sandbox (the SDK does not
   guarantee safety for overlapping interactive sessions).
 - ``_fs_locks[handle][resolved_path]`` — per-path locks serialise concurrent
   writes to the same file inside one sandbox. Reads do not lock.
-- Both lock dicts are created lazily inside ``_adispatch`` so the locks
-  are bound to the runtime loop (总则 1). The path-keyed dict carries an
-  insertion-ordered LRU of at most ``_FS_LOCK_LRU`` entries; eviction
-  skips entries whose lock is currently held (总则 2).
+- Both lock dicts are created lazily inside ``_adispatch`` so locks bind to
+  the runtime loop. The path-keyed dict is an insertion-ordered LRU capped at
+  ``_FS_LOCK_LRU`` entries; eviction skips entries whose lock is currently held.
 """
 
 from __future__ import annotations
@@ -250,8 +249,8 @@ class OpenSandboxBackend(Backend):
 
     def __init__(self) -> None:
         self._natives: dict[str, Any] = {}
-        # Locks are populated lazily inside ``_adispatch`` so they bind to
-        # the runtime loop (总则 1). Empty dict construction here is safe.
+        # Locks bind to the runtime loop when first created inside ``_adispatch``.
+        # Empty dict construction in ``__init__`` is safe.
         self._exec_locks: dict[str, asyncio.Lock] = {}
         self._fs_locks: dict[str, OrderedDict[str, asyncio.Lock]] = {}
 
@@ -382,7 +381,7 @@ class OpenSandboxBackend(Backend):
         await native.close()
 
     def _exec_lock_for(self, handle: str) -> asyncio.Lock:
-        """Get / lazy-create the per-sandbox exec lock (loop-bound, 总则 1)."""
+        """Return the per-sandbox exec lock, creating it lazily on the runtime loop."""
         lock = self._exec_locks.get(handle)
         if lock is None:
             lock = asyncio.Lock()
@@ -393,7 +392,7 @@ class OpenSandboxBackend(Backend):
         """Get / lazy-create a per-path write lock under ``handle``.
 
         Implements an LRU-style bound of ``_FS_LOCK_LRU`` entries per sandbox.
-        Eviction (总则 2) only drops entries whose lock is currently unlocked,
+        Eviction only drops entries whose lock is currently unlocked,
         so an active holder is never silently replaced by a fresh lock that
         would let another writer past mutual exclusion.
         """

@@ -79,6 +79,13 @@ def test_global_system_tools_contains_builtin_instances() -> None:
     from rath.flow.tool import FlowToolCall, global_system_tools
 
     g = global_system_tools()
-    for key in ("run_shell_command", "write_workspace_file"):
+    for key in (
+        "run_shell_command",
+        "read_workspace_file",
+        "write_workspace_file",
+        "list_workspace_files",
+        "workspace_path_exists",
+        "run_code",
+    ):
         assert key in g
         assert isinstance(g[key], FlowToolCall)

@@ -55,7 +55,7 @@ from pathlib import Path
 from typing import Any
 
 from rath._async.aloop import _arun_session_loop
-from rath._async.runtime import OpenRathRuntime, runtime
+from rath._async.runtime import runtime
 from rath.backend.local import LocalBackend
 from rath.flow.agent_param import AgentParam, Provider
 from rath.flow.tool import FlowToolCall
@@ -69,7 +69,6 @@ from rath.llm import (
     RathLLMToolCallPart,
 )
 from rath.session import Session, session_registry
-
 
 # --------------------------------------------------------------------- metrics
 
@@ -137,11 +136,12 @@ def _summary(metrics: _Metrics, duration_s: float) -> dict[str, Any]:
             "errored": metrics.errored,
         },
         "counts_sum_conserved": (
-            metrics.submitted
-            == metrics.completed + metrics.cancelled + metrics.errored
+            metrics.submitted == metrics.completed + metrics.cancelled + metrics.errored
         ),
         "throughput": {
-            "session_loops_per_s": metrics.completed / duration_s if duration_s else 0.0,
+            "session_loops_per_s": metrics.completed / duration_s
+            if duration_s
+            else 0.0,
             "completions_per_s": len(metrics.complete_ms) / duration_s
             if duration_s
             else 0.0,
@@ -279,7 +279,9 @@ class _CheapWriteTool(FlowToolCall):
         from rath.backend.tool_types import BackendToolFilesWrite
 
         return sb.dispatch(
-            BackendToolFilesWrite(path=str(arguments["path"]), data=str(arguments["content"]))
+            BackendToolFilesWrite(
+                path=str(arguments["path"]), data=str(arguments["content"])
+            )
         )
 
 
@@ -450,9 +452,7 @@ def _session_worker(
 
 
 def _parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="OpenRath async-runtime soak harness."
-    )
+    parser = argparse.ArgumentParser(description="OpenRath async-runtime soak harness.")
     parser.add_argument(
         "--backend",
         choices=["local", "opensandbox"],

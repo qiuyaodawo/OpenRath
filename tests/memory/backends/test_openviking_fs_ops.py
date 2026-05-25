@@ -1,8 +1,8 @@
 """Dispatch tests for Read / List / Tree against a real OpenViking server.
 
-Seed approach (no mocks): we use the live ``add_resource`` SDK call --
+Seed approach (no mocks): we use the live ``add_resource`` SDK call —
 which is the only way to materialise a file under
-``viking://resources/...`` on the server -- to drop a known fixture in
+``memory://resources/...`` on the server — to drop a known fixture in
 place, wait for indexing, then exercise the adapter's
 :class:`MemoryOpRead` / :class:`MemoryOpList` / :class:`MemoryOpTree`
 through its public ``store.dispatch(...)`` surface.
@@ -24,6 +24,7 @@ from rath.memory import (
     MemoryStoreSpec,
 )
 from rath.memory.adapters.openviking import OpenVikingBackend
+from rath.memory.uri import to_public_uri
 from tests.memory.backends.conftest import add_resource_with_retry
 
 pytestmark = pytest.mark.openviking
@@ -33,7 +34,7 @@ pytestmark = pytest.mark.openviking
 def seeded_resource_namespace(
     openviking_url: str, openviking_root_api_key: str
 ) -> dict[str, str]:
-    """Drop a fixture file into a fresh ``viking://resources/<ns>/`` directory.
+    """Drop a fixture file into a fresh ``memory://resources/<ns>/`` directory.
 
     Returns a mapping ``{"namespace_uri": ..., "file_uri": ..., "content": ...}``.
     """
@@ -68,11 +69,11 @@ def seeded_resource_namespace(
         listing = client.ls(f"viking://resources/{ns}")
         files = [e for e in listing if not e.get("isDir")]
         assert files, f"seed failed: no file produced under {ns}; {result!r}"
-        file_uri = files[0]["uri"]
+        file_uri = to_public_uri(files[0]["uri"])
     finally:
         client.close()
     return {
-        "namespace_uri": f"viking://resources/{ns}",
+        "namespace_uri": f"memory://resources/{ns}",
         "file_uri": file_uri,
         "content": content,
     }
@@ -172,7 +173,7 @@ def test_read_missing_uri_returns_not_found_failure(store: MemoryStore) -> None:
     from rath.memory import MemoryExecutionFailure, MemoryOpRead
 
     op = MemoryOpRead(
-        uri="viking://user/default/__definitely_does_not_exist_" + uuid.uuid4().hex,
+        uri="memory://user/default/__definitely_does_not_exist_" + uuid.uuid4().hex,
         level="detail",
     )
     result = store.dispatch(op)

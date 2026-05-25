@@ -10,11 +10,11 @@ are the canonical entry points. Each blocking primitive (``subprocess.run``,
 :class:`rath._async.runtime.OpenRathRuntime` run truly in parallel even though
 the underlying syscalls are synchronous.
 
-Per 阶段 0 of the upgrade plan:
+Concurrency notes:
 
 - The handle sets ``_open_handles`` / ``_owned_handles`` are mutated only from
-  the runtime loop thread (总则 9). Read access from the host thread reads
-  ``sandbox_count()`` only, which is a single ``len()`` and is GIL-atomic.
+  the runtime loop thread. The host thread may read ``sandbox_count()`` only,
+  which is a single ``len()`` and is GIL-atomic.
 - No ``asyncio.Lock`` is needed here because every ``_adispatch`` invocation
   for the same sandbox runs an isolated worker thread per call; there is no
   shared in-process mutable state between calls beyond the working dir, and
@@ -121,7 +121,7 @@ class LocalBackend(Backend):
             lambda: Path(working_dir).mkdir(parents=True, exist_ok=True)
         )
         sandbox = BackendSandbox(backend=self, handle=working_dir, spec=spec)
-        # Mutate the handle sets from the runtime loop thread only (总则 9).
+        # Mutate handle sets only on the runtime loop thread.
         self._open_handles.add(working_dir)
         if owns_working_dir:
             self._owned_handles.add(working_dir)

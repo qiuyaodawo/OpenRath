@@ -1,7 +1,7 @@
-"""Tests for :class:`RathAnthropicChatClient` (constructor + retry wiring).
+"""Tests for :class:`~rath.llm.RathAnthropicChatClient` (constructor + retry wiring).
 
 The retry test patches ``self._client.messages.create`` so no real network
-call is made and no anthropic API key is required for the actual SDK call -
+call is made and no Anthropic API key is required for the actual SDK call —
 we only need ``ANTHROPIC_API_KEY`` to be set for the constructor's
 not-empty check (we set it on the Provider directly).
 """
@@ -141,7 +141,7 @@ def test_retry_gives_up_after_max_attempts(
 def test_non_retryable_anthropic_error_propagates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A 400-class error (e.g. BadRequestError) is not transient - propagate."""
+    """A 400-class error (e.g. BadRequestError) is not transient — propagate."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-from-env")
     client = RathAnthropicChatClient(
         Provider(
@@ -208,3 +208,41 @@ def test_env_anthropic_default_model_only_consulted_when_model_unset(
     assert captured["model"] == "claude-opus-4-7"
     # Cleanup sanity: env not mutated by helper.
     assert os.environ["ANTHROPIC_DEFAULT_MODEL"] == "should-not-be-used"
+
+
+def test_complete_stream_yields_text_and_finish_deltas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-from-env")
+    client = RathAnthropicChatClient(
+        Provider(model="claude-opus-4-7", provider_kind="anthropic")
+    )
+
+    events = [
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "Hi"},
+        },
+        {"type": "message_delta", "delta": {"stop_reason": "end_turn"}},
+    ]
+
+    class _FakeStream:
+        def __enter__(self) -> "_FakeStream":
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+        def __iter__(self) -> Any:
+            for payload in events:
+                m = MagicMock()
+                m.model_dump.return_value = payload
+                m.type = payload["type"]
+                yield m
+
+    monkeypatch.setattr(client._client.messages, "stream", lambda **_kw: _FakeStream())
+
+    deltas = list(client.complete_stream(_request()))
+    assert any(d.content_delta == "Hi" for d in deltas)
+    assert any(d.finish_reason == "stop" for d in deltas)

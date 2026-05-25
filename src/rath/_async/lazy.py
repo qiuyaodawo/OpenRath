@@ -12,7 +12,7 @@ PyTorch CUDA Stream analogue: ``runtime().submit(coro)`` schedules work
 on the loop and returns a sync :class:`concurrent.futures.Future`;
 ``LazyValue.result()`` is the implicit ``synchronize()`` call.
 
-Concurrency-safety invariants (per 阶段 0 of the plan):
+Concurrency-safety invariants:
 
 - The future's ``add_done_callback`` runs on the runtime loop thread.
   ``unraisable_warn`` is a callback installed by :class:`Session` to

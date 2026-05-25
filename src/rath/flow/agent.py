@@ -19,10 +19,10 @@ MemoryArg = Union[MemoryStore, MemoryStoreSpec, str, None]
 
 
 def _resolve_memory(memory: MemoryArg) -> MemoryStore | None:
-    """Resolve any of the three accepted ``memory=`` forms to an open store.
+    """Resolve any of the accepted ``memory=`` forms to an open store.
 
-    Acquires one refcount on the returned store; the caller -- usually
-    :class:`Agent` -- is responsible for releasing it via
+    Acquires one refcount on the returned store; the caller — usually
+    :class:`Agent` — is responsible for releasing it via
     :meth:`MemoryStore.release` (or its own ``close()``).
     """
 
@@ -31,6 +31,14 @@ def _resolve_memory(memory: MemoryArg) -> MemoryStore | None:
     if isinstance(memory, MemoryStore):
         return memory.acquire()
     if isinstance(memory, str):
+        from rath.config.store import ConfigStore
+
+        cfg = ConfigStore.load()
+        if memory in cfg.config.memory.providers:
+            spec = MemoryStoreSpec.from_config(memory, store=cfg)
+            kind = cfg.get_memory_provider(memory).backend_kind
+            backend = _get_memory_backend(kind)
+            return backend.open(spec).acquire()
         backend = _get_memory_backend(memory)
         return backend.open().acquire()
     if isinstance(memory, MemoryStoreSpec):
@@ -171,7 +179,7 @@ class Agent(Workflow):
 
     # ---------------------------------------------------------------- public memory API
 
-    def remember(
+    def remember_memory(
         self,
         content: str,
         *,
@@ -179,7 +187,7 @@ class Agent(Workflow):
         category: str = "preferences",
         wait: bool = False,
     ) -> "object":
-        """Persist a free-form note under ``viking://{scope}/memories/{category}/...``.
+        """Persist a free-form note under ``memory://{scope}/memories/{category}/...``.
 
         ``scope`` is intentionally permissive (``user`` / ``agent`` /
         ``session``) so user code can decide which namespace to target;
@@ -192,7 +200,7 @@ class Agent(Workflow):
         uri = self._memory_uri(scope=scope, category=category)
         return store.dispatch(MemoryOpWrite(uri=uri, content=content, wait=wait))
 
-    def recall(
+    def recall_memory(
         self,
         query: str,
         *,
@@ -207,7 +215,7 @@ class Agent(Workflow):
             MemoryOpFind(query=query, top_k=top_k, target_uri=target_uri)
         )
 
-    def commit(self, session: Session, *, wait: bool = False) -> "object":
+    def commit_memory(self, session: Session, *, wait: bool = False) -> "object":
         """Commit ``session``'s chat transcript into memory for extraction."""
         from rath.memory.op_types import MemoryOpCommit
         from rath.session.chunk import ChunkKind as _CK
@@ -245,7 +253,7 @@ class Agent(Workflow):
         import uuid as _uuid
 
         slug = _uuid.uuid4().hex[:8]
-        return f"viking://{scope}/memories/{category}/{slug}"
+        return f"memory://{scope}/memories/{category}/{slug}"
 
     # ---------------------------------------------------------------- lifecycle
 

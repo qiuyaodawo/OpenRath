@@ -9,7 +9,7 @@ persistence writers) is funnelled through this loop so that:
 - Synchronous user code keeps calling synchronous OpenRath APIs; the runtime
   is the only place that has to know coroutines exist.
 
-Concurrency-safety rules this module enforces (阶段 0 of the plan):
+Concurrency-safety rules this module enforces:
 
 - ``submit(coro)`` returns a ``concurrent.futures.Future`` and never blocks.
 - ``run(coro)`` blocks the calling thread. If the caller is *itself* inside
@@ -18,7 +18,7 @@ Concurrency-safety rules this module enforces (阶段 0 of the plan):
   recursively — only sync facades on the host thread do — so this is the
   correct behavior.
 - ``drain(timeout)`` waits for in-flight futures and cancels stragglers on
-  timeout (总则 8 — cancellation semantics for atexit / explicit shutdown).
+  timeout (cancellation semantics for atexit / explicit shutdown).
 - ``shutdown()`` stops the loop and joins the thread.
 """
 

@@ -11,7 +11,7 @@ Validates the post-migration LocalBackend (``_aopen`` / ``_aclose`` / ``_adispat
   storms.
 
 These tests exercise real subprocesses and real files on disk; there is no
-mock or fake subprocess runner. See ``[[feedback-testing-realonly]]``.
+mock or fake subprocess runner.
 """
 
 from __future__ import annotations
@@ -135,8 +135,8 @@ def test_internal_async_hooks_match_sync_facade(tmp_path) -> None:
 def test_runtime_run_rejects_call_from_inside_loop() -> None:
     """``runtime().run`` must refuse to deadlock the caller's own asyncio loop.
 
-    Per 阶段 0 boundary: the sync facade is only safe from a non-async caller.
-    If a user manages to call into the facade from inside their own running
+    The sync facade is only safe from a non-async caller. If a user manages
+    to call into the facade from inside their own running
     loop, OpenRath must raise instead of hanging the whole loop.
     """
     rt = runtime()

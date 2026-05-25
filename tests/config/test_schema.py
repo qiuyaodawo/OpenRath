@@ -11,6 +11,8 @@ from rath.config.schema import (
     LLMProviderConfig,
     MCPConfig,
     MCPServerConfig,
+    MemoryConfig,
+    MemoryProviderConfig,
     RathConfig,
 )
 
@@ -27,10 +29,8 @@ def test_defaults_round_trip_to_known_shape() -> None:
             "providers": {},
         },
         "mcp": {"default_enabled": [], "servers": {}},
+        "memory": {"default_provider": None, "providers": {}},
     }
-
-
-def test_llm_config_accepts_embedding_and_vlm_provider() -> None:
     c = LLMConfig(
         default_provider="chat",
         embedding_provider="embed",
@@ -67,6 +67,35 @@ def test_legacy_config_without_new_fields_loads_with_none_defaults() -> None:
     assert cfg.llm.vlm_provider is None
     # Default chat path still works.
     assert cfg.llm.default_provider == "x"
+
+
+def test_memory_config_accepts_local_provider() -> None:
+    c = MemoryConfig(
+        default_provider="local-main",
+        providers={
+            "local-main": MemoryProviderConfig(
+                path="/data/memory",
+                embedding_provider="embed",
+                chat_provider="chat",
+            ),
+        },
+    )
+    assert c.default_provider == "local-main"
+    entry = c.providers["local-main"]
+    assert entry.backend_kind == "local"
+    assert entry.embedding_provider == "embed"
+    assert entry.chat_provider == "chat"
+
+
+def test_legacy_config_without_memory_section_loads_defaults() -> None:
+    legacy = {
+        "version": 1,
+        "llm": {"default_provider": None, "providers": {}},
+        "mcp": {"default_enabled": [], "servers": {}},
+    }
+    cfg = RathConfig.model_validate(legacy)
+    assert cfg.memory.default_provider is None
+    assert cfg.memory.providers == {}
 
 
 def test_llm_provider_rejects_unknown_provider_kind() -> None:

@@ -5,10 +5,9 @@ working ``Agent(memory=...)`` path without requiring Docker, OpenViking, or
 any extras. Persists every store under
 ``.openrath/memory/local/<uuid>/`` (see :mod:`rath.memory.persistence`).
 
-This module contains the lifecycle skeleton: ``open`` / ``close`` /
-``store_count`` / ``is_available`` / ``capabilities`` and a placeholder
-``dispatch`` that returns ``unsupported`` for every op. Concrete op
-handling lands in subsequent chunks (fs ops → find → resource → commit).
+Implements the full op surface: FS read/write/list/tree, BM25 and optional
+embedding search, resource ingest, and session commit with optional LLM
+memo extraction when a chat client is configured.
 """
 
 from __future__ import annotations
@@ -56,6 +55,14 @@ from rath.memory.results import (
     MemoryResult,
     MemoryWriteResult,
 )
+from rath.memory.uri import (
+    LEGACY_MEMORY_URI_PREFIX,
+    LEGACY_MEMORY_URI_ROOT,
+    MEMORY_URI_PREFIX,
+    MEMORY_URI_ROOT,
+    memory_uri_prefix,
+    to_public_uri,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +71,6 @@ __all__ = ["LocalMemoryBackend", "META_SCHEMA_VERSION"]
 
 META_SCHEMA_VERSION = 1
 _META_FILENAME = "meta.json"
-_VIKING_PREFIX = "viking://"
 _VALID_SCOPES: frozenset[str] = frozenset({"user", "agent", "session", "resources"})
 _MD_SUFFIX = ".md"
 _VEC_SUFFIX = ".vec"
@@ -108,6 +114,8 @@ class _LocalHandle:
     options: dict[str, Any]
     embedding_client: Any | None = None
     embedding_init_failed: bool = field(default=False)
+    chat_client: Any | None = None
+    chat_init_failed: bool = field(default=False)
 
 
 @register("local")
@@ -181,7 +189,7 @@ class LocalMemoryBackend(MemoryBackend):
             if isinstance(op, MemoryOpFind):
                 return self._dispatch_find(bound, op)
             if isinstance(op, MemoryOpSearch):
-                # v1: Search piggybacks on Find (intent inference deferred).
+                # Local has no intent model; Search delegates to Find.
                 return self._dispatch_find(
                     bound,
                     MemoryOpFind(
@@ -204,11 +212,7 @@ class LocalMemoryBackend(MemoryBackend):
                 kind="internal",
                 message=f"{type(exc).__name__}: {exc}",
             )
-        # Find / Search / Resource / Commit land in later chunks.
-        return MemoryExecutionFailure(
-            kind="unsupported",
-            message=(f"LocalMemoryBackend does not yet implement {type(op).__name__}"),
-        )
+        raise AssertionError(f"unreachable dispatch branch for {type(op).__name__}")
 
     # ---------------------------------------------------------------- FS handlers
 
@@ -297,7 +301,7 @@ class LocalMemoryBackend(MemoryBackend):
         self, bound: "_LocalHandle", op: MemoryOpResource
     ) -> MemoryResult:
         # Resolve destination dir BEFORE fetching — failures up front.
-        target_uri = op.target_uri or "viking://resources"
+        target_uri = op.target_uri or f"{MEMORY_URI_PREFIX}resources"
         target_path = _resolve_uri(bound.path, target_uri, must_be_dir=True)
         if isinstance(target_path, MemoryExecutionFailure):
             return target_path
@@ -368,7 +372,9 @@ class LocalMemoryBackend(MemoryBackend):
             json.dumps(normalized, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        archived_uri = f"viking://session/{op.session_id}/commits/{stamp}/messages.json"
+        archived_uri = (
+            f"{MEMORY_URI_PREFIX}session/{op.session_id}/commits/{stamp}/messages.json"
+        )
 
         if not op.wait:
             return MemoryCommitResult(
@@ -377,7 +383,7 @@ class LocalMemoryBackend(MemoryBackend):
                 extracted_count=-1,
             )
 
-        chat_client = bound.options.get("chat")
+        chat_client = _maybe_chat_client(bound)
         if chat_client is None:
             return MemoryCommitResult(
                 task_id=None,
@@ -432,19 +438,33 @@ class LocalMemoryBackend(MemoryBackend):
 def _resolve_uri(
     store_root: Path, uri: str, *, must_be_dir: bool = False
 ) -> Path | MemoryExecutionFailure:
-    """Map ``viking://{scope}/{rest}`` to a path under ``store_root``.
+    """Map ``memory://{scope}/{rest}`` to a path under ``store_root``.
 
-    Rejects unknown scopes, non-``viking://`` URIs, and any input that
-    escapes ``store_root`` after resolution (path traversal guard). Returns
-    the file path **without** the ``.md`` / ``.vec`` suffix — handlers
-    append the right one.
+    Accepts legacy ``viking://`` URIs and normalizes them. Rejects unknown
+    scopes, non-memory URIs, and any input that escapes ``store_root`` after
+    resolution (path traversal guard). Returns the file path **without** the
+    ``.md`` / ``.vec`` suffix — handlers append the right one.
     """
-    if not uri.startswith(_VIKING_PREFIX):
+    prefix = memory_uri_prefix(uri)
+    if prefix is None:
         return MemoryExecutionFailure(
             kind="invalid_uri",
-            message=f"URI must start with {_VIKING_PREFIX!r}: {uri!r}",
+            message=f"URI must start with {MEMORY_URI_PREFIX!r}: {uri!r}",
         )
-    tail = uri[len(_VIKING_PREFIX) :]
+    if uri.rstrip("/") in (
+        MEMORY_URI_ROOT.rstrip("/"),
+        LEGACY_MEMORY_URI_ROOT.rstrip("/"),
+    ):
+        return MemoryExecutionFailure(
+            kind="invalid_uri",
+            message="URI has empty path after scheme",
+        )
+    scheme = (
+        MEMORY_URI_PREFIX
+        if uri.startswith(MEMORY_URI_PREFIX)
+        else LEGACY_MEMORY_URI_PREFIX
+    )
+    tail = uri[len(scheme) :]
     if not tail:
         return MemoryExecutionFailure(
             kind="invalid_uri",
@@ -544,7 +564,7 @@ def _find_scope(
 ) -> tuple[Path, str] | tuple[MemoryExecutionFailure, str]:
     """Resolve the search scope. ``None``/empty → whole store."""
     if not target_uri:
-        return store_root.resolve(strict=False), "viking:/"
+        return store_root.resolve(strict=False), MEMORY_URI_ROOT
     resolved = _resolve_uri(store_root, target_uri, must_be_dir=True)
     if isinstance(resolved, MemoryExecutionFailure):
         return resolved, target_uri
@@ -562,11 +582,14 @@ def _collect_md_docs(scope_path: Path, scope_uri: str) -> list[_DocRow]:
     # When scope_path is the store root, walk its scope subdirs only — the
     # root holds ``meta.json`` we must not surface.
     docs: list[_DocRow] = []
-    if scope_uri.rstrip("/") in ("viking:", "viking://"):
+    if scope_uri.rstrip("/") in (
+        MEMORY_URI_ROOT.rstrip("/"),
+        LEGACY_MEMORY_URI_ROOT.rstrip("/"),
+    ):
         for scope in sorted(_VALID_SCOPES):
             sub = scope_path / scope
             if sub.is_dir():
-                _walk_md(sub, f"viking://{scope}", docs)
+                _walk_md(sub, f"{MEMORY_URI_PREFIX}{scope}", docs)
         return docs
     if scope_path.is_file():
         # Caller pointed at a single memory.
@@ -762,6 +785,40 @@ def _cosine(u: Any, v: list[float]) -> float:
     return float(dot / (nu * nv))
 
 
+def _maybe_chat_client(bound: "_LocalHandle") -> Any | None:
+    """Lazily build a chat client for commit extraction; ``None`` if unset.
+
+    Reads ``options.chat`` (pre-built client) first, then
+    ``options.chat_provider`` (``llm.providers`` name via
+    :meth:`~rath.llm.Provider.from_config`).
+    """
+    if bound.chat_init_failed:
+        return None
+    if bound.chat_client is not None:
+        return bound.chat_client
+    pre = bound.options.get("chat")
+    if pre is not None and hasattr(pre, "complete"):
+        bound.chat_client = pre
+        return pre
+    name = bound.options.get("chat_provider")
+    if not name:
+        bound.chat_init_failed = True
+        return None
+    try:
+        from rath.llm import Provider, chat_client_for
+
+        provider = Provider.from_config(name)
+        bound.chat_client = chat_client_for(provider)
+        return bound.chat_client
+    except Exception:  # noqa: BLE001 — commit extraction degrades to archive-only
+        logger.info(
+            "LocalMemoryBackend: chat provider unavailable, skipping memo extraction",
+            exc_info=True,
+        )
+        bound.chat_init_failed = True
+        return None
+
+
 def _maybe_embedding_client(bound: "_LocalHandle") -> Any | None:
     """Lazily build an embedding client for ``bound``; ``None`` if not configured.
 
@@ -821,7 +878,7 @@ facts about the user that would be useful to remember in future sessions
 (preferences, profile, recurring projects). Skip transient task context.
 
 Return STRICT JSON: an array of objects with two string keys:
-- "uri": a viking://user/memories/extracted/<slug> URI
+- "uri": a memory://user/memories/extracted/<slug> URI
 - "content": one-sentence English memo
 
 If no durable facts are present, return [].
@@ -874,9 +931,9 @@ def _extract_memos(
         content = item.get("content")
         if not isinstance(uri, str) or not isinstance(content, str):
             continue
-        if not uri.startswith(_VIKING_PREFIX):
+        if memory_uri_prefix(uri) is None:
             continue
-        out.append((uri, content))
+        out.append((to_public_uri(uri), content))
     return out
 
 

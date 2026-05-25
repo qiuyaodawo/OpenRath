@@ -143,7 +143,7 @@ class Session:
     :meth:`close_sandbox`.
 
     Lazy materialization: when a session is returned from
-    :func:`~rath.session.loop.run_session_loop` (Phase 4+), it may carry an
+    :func:`~rath.session.loop.run_session_loop`, it may carry an
     in-flight :class:`~rath._async.lazy.LazyValue` in :attr:`_pending`. Reading
     :attr:`chunk_table` or :attr:`cumulative_usage` calls :meth:`synchronize`,
     which blocks until the runtime publishes the materialized values.
@@ -273,9 +273,8 @@ class Session:
                 self._pending = None
                 raise
             pending.mark_consumed()
-            # Total-store order (concurrency invariant 3): write data fields
-            # first, then clear _pending. Readers use `_pending is None` as
-            # the happens-before signal.
+            # Publish data fields before clearing _pending so readers treat
+            # `_pending is None` as the happens-before signal.
             self._chunk_table = table
             self._cumulative_usage = usage
             self._pending = None
@@ -307,11 +306,11 @@ class Session:
         )
 
     @classmethod
-    def from_user_message(cls, text: str) -> Session:
+    def from_user_message(cls, message: str) -> Session:
         from rath.session.chunk import user_text_chunk
 
         return cls(
-            chunk_table=ChunkTable(rows=(user_text_chunk(text),)),
+            chunk_table=ChunkTable(rows=(user_text_chunk(message),)),
         )
 
     @classmethod

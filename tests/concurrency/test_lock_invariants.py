@@ -1,12 +1,12 @@
-"""Backend lock invariants from 阶段 0 of the async-runtime upgrade.
+"""Backend lock invariants for the async-runtime upgrade.
 
 Two invariants under test:
 
-1. **总则 1** — every ``asyncio.Lock`` an async backend uses must be created
-   on the runtime loop thread, *not* eagerly in ``__init__``. If a lock is
-   bound to the wrong loop, ``async with lock`` will hang or raise.
+1. Every ``asyncio.Lock`` an async backend uses must be created on the
+   runtime loop thread, *not* eagerly in ``__init__``. If a lock is bound to
+   the wrong loop, ``async with lock`` will hang or raise.
 
-2. **总则 2** — ``OpenSandboxBackend._fs_locks[handle]`` is an LRU bounded at
+2. ``OpenSandboxBackend._fs_locks[handle]`` is an LRU bounded at
    ``_FS_LOCK_LRU`` entries; eviction must skip entries whose ``locked()``
    is True. Otherwise a future writer for the same path gets a brand-new
    lock and races the original holder, violating mutual exclusion.
@@ -96,9 +96,7 @@ def test_fs_lock_lru_eviction_skips_held_locks() -> None:
             first_lock.release()
 
     same_lock, table_size = rt.run(stress())
-    assert same_lock is True, (
-        "LRU eviction violated 总则 2: a held lock was replaced by a fresh one"
-    )
+    assert same_lock is True, "LRU eviction replaced a held lock with a fresh one"
     # Table is allowed to be larger than cap when everything else is locked,
     # but the held path is guaranteed to be present.
     assert table_size >= 1

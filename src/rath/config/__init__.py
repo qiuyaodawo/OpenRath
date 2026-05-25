@@ -32,6 +32,8 @@ from rath.config.schema import (
     LLMProviderConfig,
     MCPConfig,
     MCPServerConfig,
+    MemoryConfig,
+    MemoryProviderConfig,
     RathConfig,
 )
 from rath.config.store import ConfigError, ConfigStore, default_store
@@ -49,6 +51,8 @@ __all__ = [
     "RathConfig",
     "LLMConfig",
     "LLMProviderConfig",
+    "MemoryProviderConfig",
+    "MemoryConfig",
     "MCPConfig",
     "MCPServerConfig",
     "SCHEMA_VERSION",

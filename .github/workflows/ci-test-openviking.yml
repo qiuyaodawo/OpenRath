@@ -44,6 +44,10 @@ jobs:
       - name: Install OpenViking SDK
         run: uv sync --extra openviking --frozen
       - name: Start OpenViking server
+        env:
+          OPEN_VIKING_EMBEDDING_API_KEY: ${{ secrets.OPEN_VIKING_EMBEDDING_API_KEY }}
+          OPEN_VIKING_VLM_API_KEY: ${{ secrets.OPEN_VIKING_VLM_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: bash scripts/launch_openviking.sh
       - name: Export OPEN_VIKING_ROOT_API_KEY
         run: |

@@ -1,9 +1,9 @@
 """Provider-agnostic exponential-backoff retry helper.
 
-This module knows nothing about OpenAI or Anthropic exception classes — each
-:class:`ChatClient` adapter passes its own ``retryable`` tuple. The legacy
-:mod:`rath.llm._retry` module remains as a shim that injects OpenAI's
-transient errors as the default for callers that pre-date this split.
+This module knows nothing about vendor-specific exception classes — each
+:class:`ChatClient` adapter passes its own ``retryable`` tuple. Legacy callers
+that imported OpenAI defaults from a removed shim should use
+:data:`rath.llm.openai.OPENAI_RETRYABLE` instead.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ A policy reads a :class:`~rath.session.session.Session` and a
 (typically :attr:`ChunkKind.SYSTEM` notes that summarize relevant
 recalled memories).
 
-The injection step must NEVER raise into the session loop -- on store
+The injection step must NEVER raise into the session loop — on store
 errors or a closed store, return an empty tuple and log a warning so
 the loop continues without recall.
 """
@@ -48,7 +48,7 @@ class DefaultRecallInjection:
     Configurable knobs:
 
     - ``top_k``: number of hits to request from the store.
-    - ``target_uri``: optional scope, e.g. ``viking://user/memories/`` to
+    - ``target_uri``: optional scope, e.g. ``memory://user/memories/`` to
       limit recall to user-owned notes.
     - ``level``: hierarchical detail level expected on each hit; passed
       through informationally (most adapters return ``abstract`` in

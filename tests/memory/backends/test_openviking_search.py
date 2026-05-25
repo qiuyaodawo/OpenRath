@@ -68,7 +68,7 @@ def seeded_search_namespace(
             pass
     finally:
         client.close()
-    return {"namespace_uri": f"viking://resources/{ns}"}
+    return {"namespace_uri": f"memory://resources/{ns}"}
 
 
 @pytest.fixture
@@ -138,12 +138,12 @@ def test_search_returns_ranked_hits(
 def test_find_with_bogus_scope_returns_well_formed_result(
     store: MemoryStore,
 ) -> None:
-    """The server tolerates an unknown sub-path inside ``viking://resources/``
+    """The server tolerates an unknown sub-path inside ``memory://resources/``
     (returns empty hits). A truly invalid scope produces invalid_uri.
     Either is fine; this test pins both behaviours under one assertion."""
     op = MemoryOpFind(
         query="anything",
-        target_uri="viking://bogus_scope_xyz/",
+        target_uri="memory://bogus_scope_xyz/",
         top_k=3,
     )
     result = store.dispatch(op)

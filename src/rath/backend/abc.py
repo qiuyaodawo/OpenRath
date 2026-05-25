@@ -67,8 +67,8 @@ class BackendSandbox:
     closed: bool = field(default=False)
     _refcount: int = field(default=0, repr=False)
     # ``_refcount`` is read/written from both the host thread (sync facade)
-    # and the runtime loop thread (async session loop). Per 阶段 0 总则 5
-    # the field is guarded by a per-instance lock.
+    # and the runtime loop thread (async session loop). Updates are guarded
+    # by ``_refcount_lock`` because they are not atomic across threads.
     _refcount_lock: threading.Lock = field(
         default_factory=threading.Lock, repr=False, compare=False
     )

@@ -99,7 +99,7 @@ class MemoryOpSearch(MemoryOp):
 class MemoryOpResource(MemoryOp):
     """Register an external resource (URL / file / dir) for ingestion.
 
-    ``target_uri`` is the destination directory under ``viking://resources/``.
+    ``target_uri`` is the destination directory under ``memory://resources/``.
     """
 
     source: str

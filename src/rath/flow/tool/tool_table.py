@@ -22,6 +22,11 @@ class ToolNameConflictError(ValueError):
 def merge_tools_for_loop(
     user_tools: list[FlowToolCall] | None,
 ) -> dict[str, FlowToolCall]:
+    """Merge user tools with :func:`~rath.flow.tool.global_system_tools`.
+
+    Built-in names cannot be shadowed; duplicates raise
+    :class:`ToolNameConflictError`.
+    """
     table = dict(global_system_tools())
     for t in user_tools or ():
         if t.name in table:
@@ -35,6 +40,7 @@ def merge_tools_for_loop(
 def tools_dict_to_schemas(
     table: Mapping[str, FlowToolCall],
 ) -> tuple[RathLLMFunctionTool, ...]:
+    """Convert a name-to-tool map into sorted OpenAI-style function specs."""
     return tuple(
         RathLLMFunctionTool(
             name=tool.name,

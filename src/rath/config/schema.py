@@ -15,6 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 __all__ = [
     "LLMProviderConfig",
     "LLMConfig",
+    "MemoryProviderConfig",
+    "MemoryConfig",
     "MCPServerConfig",
     "MCPConfig",
     "RathConfig",
@@ -85,16 +87,44 @@ class MCPConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class MemoryProviderConfig(BaseModel):
+    """One named entry under ``memory.providers`` (local backend only).
+
+    ``embedding_provider`` and ``chat_provider`` name entries under
+    ``llm.providers`` used by :class:`~rath.memory.adapters.local.LocalMemoryBackend`
+    for vector search and commit-time memo extraction respectively.
+    OpenViking connection settings stay on ``MemoryStoreSpec.options`` or
+    environment variables — they are not modeled here.
+    """
+
+    backend_kind: Literal["local"] = "local"
+    path: str | None = None
+    embedding_provider: str | None = None
+    chat_provider: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class MemoryConfig(BaseModel):
+    """The ``memory`` section: named local store presets."""
+
+    default_provider: str | None = None
+    providers: dict[str, MemoryProviderConfig] = Field(default_factory=dict)
+
+    model_config = ConfigDict(extra="allow")
+
+
 class RathConfig(BaseModel):
     """Top-level on-disk schema.
 
-    Sections currently in use: ``llm`` and ``mcp``. Future sections (e.g.
-    ``backend`` for OpenSandbox routing) can be added without touching
-    callers because ``extra="allow"`` preserves them on round-trip.
+    Sections currently in use: ``llm``, ``mcp``, and ``memory``. Future
+    sections (e.g. ``backend`` for OpenSandbox routing) can be added without
+    touching callers because ``extra="allow"`` preserves them on round-trip.
     """
 
     version: int = SCHEMA_VERSION
     llm: LLMConfig = Field(default_factory=LLMConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
 
     model_config = ConfigDict(extra="allow")

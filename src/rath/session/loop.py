@@ -5,7 +5,7 @@ assistant pass. Two optional parameters extend it:
 
 * ``on_event`` — receives one :class:`~rath.llm.RathLLMStreamDelta` per
   streamed chunk. Requires the resolved chat client to satisfy
-  :class:`~rath.llm.StreamingChatClient` (Anthropic does not currently). When
+  :class:`~rath.llm.StreamingChatClient`. When
   ``on_event`` is ``None`` (the default), the loop runs non-streaming.
 
 * ``persist`` / ``persist_path`` — when truthy, the loop holds a
@@ -408,7 +408,7 @@ def run_session_loop(
     agent_provider: Provider,
     tools: list[FlowToolCall] | None = None,
     executor: SessionLoopExecutor | None = None,
-    max_tool_rounds: int = 16,
+    max_tool_rounds: int = 64,
     on_event: Callable[[RathLLMStreamDelta], None] | None = None,
     persist: bool = False,
     persist_path: Path | None = None,
@@ -449,7 +449,7 @@ def run_session_loop(
     executes the loop on a background asyncio loop so multiple
     ``run_session_loop`` calls can overlap.
     """
-    # Lazy inputs (Phase 4): join before submitting (concurrency invariant 7).
+    # Join lazy input sessions before submitting the loop coroutine.
     if user_session._pending is not None:
         user_session.synchronize()
     if agent_session._pending is not None:

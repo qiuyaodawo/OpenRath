@@ -328,7 +328,7 @@ async def _arun_session_loop(
     agent_provider: Provider,
     tools: list[FlowToolCall] | None = None,
     executor: AsyncSessionLoopExecutor | None = None,
-    max_tool_rounds: int = 16,
+    max_tool_rounds: int = 64,
     on_event: Callable[[RathLLMStreamDelta], None] | None = None,
     persist: bool = False,
     persist_path: Path | None = None,

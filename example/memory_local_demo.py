@@ -4,13 +4,13 @@ This demo runs out of the box with ``pip install openrath`` — no Docker,
 no OpenViking, no extras. It exercises four code paths:
 
 1. :class:`MemoryOpWrite` stores a freeform memory file under
-   ``viking://user/memories/...``.
+   ``memory://user/memories/...``.
 2. :class:`MemoryOpFind` searches via BM25 (lexical) or, if
    ``OPENAI_API_KEY`` is set, cached embedding rank.
 3. :class:`MemoryOpResource` ingests a local file under
-   ``viking://resources/<sha>/``.
+   ``memory://resources/<sha>/``.
 4. :class:`MemoryOpCommit` archives a tiny session under
-   ``viking://session/<sid>/commits/<utc-stamp>/``.
+   ``memory://session/<sid>/commits/<utc-stamp>/``.
 
 No ``assert`` — the demo prints ``[ok]`` / ``[note]`` markers so a human
 can eyeball the output.
@@ -72,14 +72,14 @@ def main() -> None:
         backend.dispatch(
             store,
             MemoryOpWrite(
-                uri="viking://user/memories/preferences/dark_mode",
+                uri="memory://user/memories/preferences/dark_mode",
                 content="The user prefers a dark colour theme at night.",
             ),
         )
         backend.dispatch(
             store,
             MemoryOpWrite(
-                uri="viking://user/memories/preferences/language",
+                uri="memory://user/memories/preferences/language",
                 content="The user reads English and writes Python.",
             ),
         )

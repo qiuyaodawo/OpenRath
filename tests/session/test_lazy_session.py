@@ -1,4 +1,4 @@
-"""Phase 4 lazy session contract — :class:`Session._pending` + :meth:`synchronize`.
+"""Lazy session contract — :class:`Session._pending` + :meth:`synchronize`.
 
 These tests pin down the user-visible behavior of PyTorch-style lazy
 :class:`~rath.session.session.Session` returned from
@@ -9,12 +9,11 @@ These tests pin down the user-visible behavior of PyTorch-style lazy
 - Lineage attributes (``id``, ``parent_session_ids``, ``lineage_operator``,
   etc.) are eager — reading them does NOT trigger ``synchronize()``.
 - Reading ``chunk_table`` or ``cumulative_usage`` blocks until materialized
-  (concurrency invariant 3: data fields written before ``_pending`` is
-  cleared).
+  (data fields are published before ``_pending`` is cleared).
 - Multi-thread ``synchronize()`` racing on one Session only materializes
-  once (concurrency invariant 4).
+  once.
 - Exceptions raised inside the loop propagate through ``synchronize()``.
-- ``Workflow.__call__`` auto-joins a lazy input (concurrency invariant 7).
+- ``Workflow.__call__`` auto-joins a lazy input before forwarding.
 """
 
 from __future__ import annotations
@@ -165,7 +164,7 @@ def test_cumulative_usage_property_blocks_until_materialized() -> None:
 
 
 def test_synchronize_is_idempotent_under_thread_race() -> None:
-    """Concurrency invariant 4: multi-thread sync materializes once.
+    """Multi-thread ``synchronize()`` materializes the lazy session once.
 
     All callers see the same materialized state; the data fields are written
     once and ``_pending`` flips to ``None`` exactly once.
@@ -234,9 +233,7 @@ def test_exception_inside_loop_propagates_through_synchronize() -> None:
 
 
 def test_workflow_call_auto_joins_lazy_input() -> None:
-    """Concurrency invariant 7: ``Workflow.__call__`` synchronizes a lazy input
-    before invoking ``forward``.
-    """
+    """``Workflow.__call__`` synchronizes a lazy input before ``forward``."""
     captured: list[Session] = []
 
     class _AssertJoined(Workflow):

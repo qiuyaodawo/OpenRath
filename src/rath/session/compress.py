@@ -67,8 +67,7 @@ def run_session_compress(
     ``persist_path``) with a trailer.
     """
 
-    # Concurrency invariant 7: auto-join lazy inputs before reading their
-    # chunk_table.
+    # Join lazy input sessions before reading their chunk_table.
     if user_session._pending is not None:
         user_session.synchronize()
     if agent_session._pending is not None:
@@ -86,7 +85,7 @@ def run_session_compress(
 
     head = chunk_table_to_messages(agent_session.chunk_table)
     tail = chunk_table_to_messages(user_session.chunk_table)
-    # P2-fix: single unpack instead of two tuple concats.
+    # Single unpack instead of two tuple concats.
     messages: tuple[RathLLMMessage, ...] = (
         *head,
         *tail,

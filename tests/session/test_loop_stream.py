@@ -50,14 +50,25 @@ class _ScriptedStreamingClient:
         raise NotImplementedError("scripted client is stream-only")
 
 
+class _NonStreamingChatClient:
+    """Minimal ChatClient without ``complete_stream`` for guard tests."""
+
+    provider = Provider(model="blocked")
+
+    def complete(self, req: RathLLMChatRequest) -> RathLLMChatResponse:
+        raise NotImplementedError
+
+
 def test_on_event_refuses_non_streaming_client(monkeypatch: pytest.MonkeyPatch) -> None:
     """``on_event`` requires the resolved client to implement complete_stream(req)."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-no-network")
-    monkeypatch.delenv("OPENRATH_HOME", raising=False)
-    agent = AgentParam(
-        Session.from_agent_prompt("sys"),
-        Provider(provider_kind="anthropic", model="claude-opus-4-7"),
-    )
+
+    def _non_streaming(_provider: Provider) -> _NonStreamingChatClient:
+        return _NonStreamingChatClient()
+
+    monkeypatch.setattr("rath.llm.registry.chat_client_for", _non_streaming)
+    monkeypatch.setattr("rath.session.loop.chat_client_for", _non_streaming)
+    monkeypatch.setattr("rath._async.aloop.chat_client_for", _non_streaming)
+    agent = AgentParam(Session.from_agent_prompt("sys"), Provider(model="scripted"))
     backend = get("local")
     with backend.open() as sb:
         user = Session.from_user_message("hi").bind_sandbox(sb)
@@ -69,6 +80,41 @@ def test_on_event_refuses_non_streaming_client(monkeypatch: pytest.MonkeyPatch) 
         )
         with pytest.raises(TypeError, match="complete_stream|StreamingChatClient"):
             out.synchronize()
+
+
+def test_on_event_works_with_anthropic_streaming_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from rath.llm.anthropic.client import RathAnthropicChatClient
+
+    def _fake_stream(self, req: RathLLMChatRequest) -> Iterator[RathLLMStreamDelta]:
+        yield RathLLMStreamDelta(content_delta="ok")
+        yield RathLLMStreamDelta(finish_reason="stop")
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(RathAnthropicChatClient, "complete_stream", _fake_stream)
+
+    agent = AgentParam(
+        Session.from_agent_prompt("sys"),
+        Provider(
+            provider_kind="anthropic",
+            model="claude-opus-4-7",
+            api_key="test-key",
+        ),
+    )
+    backend = get("local")
+    seen: list[RathLLMStreamDelta] = []
+    with backend.open() as sb:
+        user = Session.from_user_message("hi").bind_sandbox(sb)
+        out = run_session_loop(
+            user,
+            agent.agent_session,
+            agent_provider=agent.provider,
+            on_event=seen.append,
+        )
+        out.synchronize()
+    assert any(d.content_delta == "ok" for d in seen)
+    assert out.chunk_table.rows[-1].kind == ChunkKind.ASSISTANT
 
 
 def test_on_event_with_custom_executor_raises() -> None:

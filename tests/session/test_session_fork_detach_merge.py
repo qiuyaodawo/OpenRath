@@ -10,7 +10,7 @@ from rath.session import (
     ChunkTable,
     LineageKind,
     Session,
-    create_leaf_user,
+    create_user_session,
     user_text_chunk,
 )
 
@@ -54,7 +54,7 @@ def test_detach_shares_open_sandbox_handle() -> None:
 
 
 def test_detach_same_backend_target_no_parent() -> None:
-    s = create_leaf_user("y").to("local")
+    s = create_user_session("y").to("local")
     d = s.detach()
     assert d.sandbox is None
     assert d.sandbox_backend == "local"
@@ -64,7 +64,7 @@ def test_detach_same_backend_target_no_parent() -> None:
 def test_fork_session_wraps_session_fork() -> None:
     from rath.session.primitives import fork_session
 
-    base = create_leaf_user("w")
+    base = create_user_session("w")
     f1 = base.fork()
     f2 = fork_session(base)
     assert f1.chunk_table.rows == f2.chunk_table.rows
@@ -198,8 +198,8 @@ def test_merge_usage_none_safe() -> None:
 
 
 def test_merge_lineage_parents_and_kind() -> None:
-    a = create_leaf_user("a")
-    b = create_leaf_user("b")
+    a = create_user_session("a")
+    b = create_user_session("b")
     m = a.merge(b)
     assert m.parent_session_ids == (a.id, b.id)
     assert m.lineage_kind is LineageKind.OP_MERGE

@@ -1,8 +1,8 @@
 """Async session writer tests — real filesystem, no mocks.
 
 Drives :class:`rath._async.awriter._AsyncSessionWriter` from coroutines
-running on the OpenRath runtime loop (per concurrency invariant 1 — the
-``asyncio.Queue`` and drain task must be created on the runtime loop).
+running on the OpenRath runtime loop (the ``asyncio.Queue`` and drain task
+must be created on the runtime loop).
 
 Coverage:
 
@@ -13,7 +13,7 @@ Coverage:
 - ``aclose()`` writes the trailer and atomically promotes
   ``__partial__`` → final ``.jsonl``.
 - ``abandon()`` cancels the drain task and **leaves** ``__partial__``
-  in place (concurrency invariant 8 — drain timeout crash signal).
+  in place (partial file left as crash signal).
 - ``awrite_chunk`` after ``aclose`` raises ``RuntimeError`` (closed-state
   guard, so callers fail fast instead of silently dropping rows).
 - A failing write **latches** the error onto subsequent calls so the

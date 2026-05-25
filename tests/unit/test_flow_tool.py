@@ -13,6 +13,7 @@ from rath.session import Session
 
 
 def test_flow_tool_session_helpers_dispatch_local() -> None:
+    """Each ``flow_tool_*`` helper dispatches through a local sandbox."""
     backend = get("local")
     with backend.open() as sb:
         sess = Session.from_user_message(".").bind_sandbox(sb)
@@ -48,20 +49,43 @@ def test_flow_tool_session_helpers_dispatch_local() -> None:
 
 
 def test_flow_toolcall_is_distinct_abc_not_backend_marker() -> None:
+    """``FlowToolCall`` is a separate abstraction from ``BackendTool``."""
     assert ft.FlowToolCall is not rb.BackendTool
-    assert issubclass(ft.RunShellCommandTool, ft.FlowToolCall)
+    assert issubclass(ft.FlowToolCommandRun, ft.FlowToolCall)
+
+
+def test_flow_tool_does_not_reexport_backend_tool_types() -> None:
+    """Backend payloads stay on ``rath.backend``; not re-exported here."""
+    for name in (
+        "BackendTool",
+        "BackendToolCommandRun",
+        "BackendToolFilesRead",
+    ):
+        assert not hasattr(ft, name)
 
 
 @pytest.mark.parametrize(
     "name",
     [
-        "BackendTool",
-        "BackendToolCommandRun",
         "flow_tool_command_run",
         "flow_tool_files_read",
+        "FlowToolCommandRun",
     ],
 )
 def test_rath_flow_package_has_no_extra_exports(name: str) -> None:
     import rath.flow
 
     assert not hasattr(rath.flow, name)
+
+
+def test_global_system_tools_registers_all_builtin_flow_tools() -> None:
+    """All six built-in sandbox tools are registered by name."""
+    keys = set(ft.global_system_tools().keys())
+    assert keys == {
+        "run_shell_command",
+        "read_workspace_file",
+        "write_workspace_file",
+        "list_workspace_files",
+        "workspace_path_exists",
+        "run_code",
+    }

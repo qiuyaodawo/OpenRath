@@ -77,7 +77,7 @@ def test_commit_writes_messages_archive_under_session(
     )
     assert isinstance(res, MemoryCommitResult)
     assert res.archived_uri is not None
-    assert res.archived_uri.startswith("viking://session/s-001/commits/")
+    assert res.archived_uri.startswith("memory://session/s-001/commits/")
     assert res.archived_uri.endswith("/messages.json")
     # extracted_count=-1 when no extraction was attempted.
     assert res.extracted_count == -1
@@ -162,7 +162,7 @@ def test_commit_wait_with_chat_extracts_memos(
 
     listing = backend.dispatch(
         chat_store,
-        MemoryOpList(uri="viking://user/memories/extracted"),
+        MemoryOpList(uri="memory://user/memories/extracted"),
     )
     assert isinstance(listing, MemoryListResult)
     assert len(listing.entries) == res.extracted_count

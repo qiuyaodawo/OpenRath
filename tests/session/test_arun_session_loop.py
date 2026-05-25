@@ -1,9 +1,9 @@
 """Unit tests for the runtime-internal ``_arun_session_loop``.
 
 These exercise the async session loop directly on the runtime — same
-plumbing the public sync ``run_session_loop`` will use in Phase 4, but
-without going through the lazy-Session facade so we can stress the loop
-body and its resource-keyed parallel tool dispatch in isolation.
+plumbing as the public sync ``run_session_loop``, but without going
+through the lazy-Session facade so we can stress the loop body and its
+resource-keyed parallel tool dispatch in isolation.
 
 LocalBackend is the real backend (no mocks); LLM responses are scripted
 via a tiny async executor.

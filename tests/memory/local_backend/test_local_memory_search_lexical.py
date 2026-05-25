@@ -17,21 +17,21 @@ def _seed(backend: LocalMemoryBackend, store: MemoryStore) -> None:
     backend.dispatch(
         store,
         MemoryOpWrite(
-            uri="viking://user/memories/preferences/dark_mode",
+            uri="memory://user/memories/preferences/dark_mode",
             content="The user prefers dark mode in code editors at night.",
         ),
     )
     backend.dispatch(
         store,
         MemoryOpWrite(
-            uri="viking://user/memories/preferences/language",
+            uri="memory://user/memories/preferences/language",
             content="The user reads English and prefers it for documentation.",
         ),
     )
     backend.dispatch(
         store,
         MemoryOpWrite(
-            uri="viking://user/memories/notes/trip",
+            uri="memory://user/memories/notes/trip",
             content="In April we are going to Paris for a long weekend.",
         ),
     )
@@ -52,7 +52,7 @@ def test_find_lexical_ranks_keyword_match_first(
     res = backend.dispatch(store, MemoryOpFind(query="dark mode at night", top_k=3))
     assert isinstance(res, MemoryFindResult)
     assert len(res.hits) >= 1
-    assert res.hits[0].uri == "viking://user/memories/preferences/dark_mode"
+    assert res.hits[0].uri == "memory://user/memories/preferences/dark_mode"
 
 
 def test_find_respects_top_k(backend: LocalMemoryBackend, store: MemoryStore) -> None:
@@ -70,14 +70,14 @@ def test_find_scopes_to_target_uri(
         store,
         MemoryOpFind(
             query="user",
-            target_uri="viking://user/memories/notes",
+            target_uri="memory://user/memories/notes",
             top_k=10,
         ),
     )
     assert isinstance(res, MemoryFindResult)
     # Notes-scoped search must not bleed into preferences/.
     for hit in res.hits:
-        assert hit.uri.startswith("viking://user/memories/notes/")
+        assert hit.uri.startswith("memory://user/memories/notes/")
 
 
 def test_find_snippet_is_first_chars_of_body(
@@ -86,7 +86,7 @@ def test_find_snippet_is_first_chars_of_body(
     body = "Paris in springtime is overrated but the user loves it anyway."
     backend.dispatch(
         store,
-        MemoryOpWrite(uri="viking://user/memories/notes/paris", content=body),
+        MemoryOpWrite(uri="memory://user/memories/notes/paris", content=body),
     )
     res = backend.dispatch(store, MemoryOpFind(query="Paris springtime"))
     assert isinstance(res, MemoryFindResult)

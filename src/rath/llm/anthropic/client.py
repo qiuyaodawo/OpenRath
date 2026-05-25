@@ -13,6 +13,7 @@ Empty :attr:`Provider.api_key` falls back to ``ANTHROPIC_API_KEY``; empty
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from typing import Any
 
 from anthropic import (
@@ -31,17 +32,18 @@ from anthropic import (
     RateLimitError as _AnthropicRateLimitError,
 )
 
-from rath.llm.anthropic.create_kwargs import build_anthropic_kwargs
+from rath.llm.anthropic.create_kwargs import (
+    build_anthropic_kwargs,
+    build_anthropic_stream_kwargs,
+)
 from rath.llm.anthropic.normalize import normalize_anthropic_response
+from rath.llm.anthropic.stream_deltas import anthropic_event_to_deltas
 from rath.llm.chat_request import RathLLMChatRequest
-from rath.llm.chat_response import RathLLMChatResponse
+from rath.llm.chat_response import RathLLMChatResponse, RathLLMStreamDelta
 from rath.llm.credentials import resolve_credential
 from rath.llm.provider import Provider
 from rath.llm.retry import retry_with_backoff
 
-#: Anthropic's transient exception classes — the default ``retryable=`` tuple
-#: passed by :class:`RathAnthropicChatClient`. Exported for symmetry with
-#: :data:`rath.llm.openai.OPENAI_RETRYABLE`.
 #: Anthropic's transient exception classes — the default ``retryable=`` tuple
 #: passed by :class:`RathAnthropicChatClient`. Exported for symmetry with
 #: :data:`rath.llm.openai.OPENAI_RETRYABLE`.
@@ -75,7 +77,7 @@ def _config_provider_entry() -> Any:
 
 
 class RathAnthropicChatClient:
-    """Thin client around ``anthropic.Anthropic().messages.create`` (non-streaming)."""
+    """Thin client around ``anthropic.Anthropic`` messages API (sync + streaming)."""
 
     def __init__(self, provider: Provider) -> None:
         entry = _config_provider_entry() if not provider.api_key else None
@@ -133,3 +135,29 @@ class RathAnthropicChatClient:
             max_attempts=self._provider.retry_max_attempts,
             base_seconds=self._provider.retry_base_seconds,
         )
+
+    def complete_stream(self, req: RathLLMChatRequest) -> Iterator[RathLLMStreamDelta]:
+        """Yield ``RathLLMStreamDelta`` for each event from ``messages.stream``.
+
+        Transient errors during the initial ``stream`` open are retried; once
+        the iterator starts producing events, retries are no longer possible.
+        """
+        default_model = (
+            self._provider.model
+            or os.environ.get("ANTHROPIC_DEFAULT_MODEL")
+            or getattr(_config_provider_entry(), "model", None)
+        )
+        kwargs = build_anthropic_stream_kwargs(req, default_model=default_model)
+
+        def _open_stream() -> Any:
+            return self._client.messages.stream(**kwargs)
+
+        stream_ctx = retry_with_backoff(
+            _open_stream,
+            retryable=ANTHROPIC_RETRYABLE,
+            max_attempts=self._provider.retry_max_attempts,
+            base_seconds=self._provider.retry_base_seconds,
+        )
+        with stream_ctx as stream:
+            for event in stream:
+                yield from anthropic_event_to_deltas(event)
